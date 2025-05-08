@@ -27,28 +27,11 @@ $ npm install
 
 ### Development
 
-#### Web
-
-```bash
-$ npm run web:dev
-```
-
-#### As application
-
 ```bash
 $ npm run electron:dev
 ```
 
 ### Build
-
-#### Web
-
-```bash
-# The final files get stored in ./dist-web
-$ npm run web:build
-```
-
-#### As Application
 
 ```bash
 # The final files get stored in ./dist
