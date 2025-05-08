@@ -22,5 +22,6 @@ if (process.contextIsolated) {
 }
 
 contextBridge.exposeInMainWorld('electronAPI', {
-    selectFolder: () => ipcRenderer.invoke('select-folder')
+    selectFolder: () => ipcRenderer.invoke('select-folder'),
+    analyzeFolder: (path: string) => ipcRenderer.invoke('analyze-folder', path)
 })
