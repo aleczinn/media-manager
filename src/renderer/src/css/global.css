@@ -2,6 +2,10 @@
 @import "fonts.css";
 @import "preflight.css";
 
+body {
+    @apply bg-background font-project subpixel-antialiased;
+}
+
 html {
     scroll-behavior: smooth;
 }

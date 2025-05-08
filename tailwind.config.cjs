@@ -7,10 +7,18 @@ module.exports = {
         extend: {
             colors: {
                 "transparent": "transparent",
+                "background": "#faf7f7",
                 "white": "#ffffff"
+            },
+            maxWidth: {
+                "project": "100rem"
             },
             screens: {
                 '3xl': '2000px'
+            },
+            fontFamily: {
+                "project": ["Open Sans", ...defaultTheme.fontFamily.sans],
+                "fredoka": ["Fredoka", ...defaultTheme.fontFamily.sans]
             },
             fontSize: {
                 "4xs": "0.375rem",
