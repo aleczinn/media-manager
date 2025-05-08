@@ -10,12 +10,13 @@ This tool is a media managing tool which supports multiple features to organize 
 
 ### Features
 
-- UI
-- Organization & Sorting of audio tracks and subtitles
+- **UI**: Visualization for different information, such as length, possible name
+- Organization & Sorting of audio tracks and subtitles based on flags and naming
     - ignore subtitle format if needed (pgs, srt, vobsub, ass)
 - **Normalization**: Each audio track can be normalized to reach 0dB
 - **RenameFix**: Renaming tv-series to its correct format "*S01e01 - Title.mkv*"
     - (Optional) set flags like *upscaled, extended, source*
+- **Poster**: Save a single frame as your custom poster
 
 ## Project Setup
 
