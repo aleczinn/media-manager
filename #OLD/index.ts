@@ -15,7 +15,7 @@ const defaultPreset: Preset = {
     normalized_audio_branding: "[Sky Mix]",
     encodeVideo: false,
     encodingOptions: ['libx264', '-crf 18', '-preset slow', '-x264-params ref=5:bframes=5'],
-    renameFix: false,
+    renameFix: true,
     normalizeAudio: false,
     defaultLanguageForUnknownStream: '',
     atmosOverrideDE: false,

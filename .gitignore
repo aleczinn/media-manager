@@ -1,8 +1,18 @@
 # IDE
 .idea
 .vscode
+
+# General
+data
+.env
+
+
+
 node_modules
-package-lock.json
 dist
-temp.json
-data/test
+dist-web
+build
+out
+.DS_Store
+.eslintcache
+*.log*
