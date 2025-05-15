@@ -1,17 +1,28 @@
 <template>
     <div class="flex flex-col h-screen">
-        <header class="px-4 py-4 bg-white shadow-sm">
+        <header class="px-4 py-4 bg-primary-100 shadow-sm">
             <p class="font-semibold">MediaManager</p>
         </header>
 
         <main class="flex-1 py-8">
             <div class="mx-auto max-w-project px-4">
-                <!-- ADD CONTENT HERE -->
-                <div @click="selectFolder" class="bg-blue-200 h-8 rounded flex flex-row items-center px-2 mb-8 cursor-pointer">
-                    <span v-if="folderPath" class="select-none">{{ folderPath }}</span>
-                    <span v-if="!folderPath" class="text-gray-600">Bitte Ordner auswählen...</span>
+                <!-- Select folder bar -->
+                <div class="flex flex-row gap-4 h-8 mb-8">
+                    <div @click="selectFolder" class="flex-1 bg-primary-50 border-1 border-solid border-primary-600 h-full rounded flex flex-row items-center px-2 cursor-pointer">
+                        <span v-if="folderPath" class="text-primary-500">{{ folderPath }}</span>
+                        <span v-if="!folderPath" class="text-primary-400">Bitte Ordner auswählen...</span>
+                    </div>
+                    <MMButton @click="apply" :disabled="!folderPath">Ausführen</MMButton>
                 </div>
 
+                <!-- Features / Flags -->
+                <div class="flex flex-row gap-4">
+                    <MMCheckbox checked>Normalize</MMCheckbox>
+                    <MMCheckbox checked>RenameFix</MMCheckbox>
+                    <MMCheckbox>Save Poster</MMCheckbox>
+                </div>
+
+                <!-- View files -->
                 <div v-if="folderPath">
                     Datein:
                     <ul>
@@ -31,10 +42,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { MMFooter } from '../components/MMFooter'
+import { MMButton } from '../components/MMButton'
+import { MMCheckbox } from '../components/MMCheckbox'
 // import { AxiosInstance } from 'axios'
 
 // const axios = inject<AxiosInstance>('axios')
 
+const filesLoaded = ref<boolean>(false);
 const folderPath = ref<string | null>(null)
 const files = ref<Array<{
     name: string,
@@ -50,6 +64,11 @@ const selectFolder = async () => {
     files.value = await window.electronAPI.analyzeFolder(folder)
 
     console.log(files.value);
+    filesLoaded.value = true;
+}
+
+const apply = () => {
+    console.log("apply changes");
 }
 
 function formatDuration(seconds: number): string {
@@ -59,8 +78,10 @@ function formatDuration(seconds: number): string {
 }
 
 function sortStreams(streams: any) {
-
-    return {}
+    const vStreams = 0;
+    const aStreams = 0;
+    const subtitle = 0;
+    return {video: vStreams, audio: aStreams, subtitles: subtitle}
 }
 </script>
 

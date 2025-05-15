@@ -7,7 +7,20 @@ module.exports = {
         extend: {
             colors: {
                 "transparent": "transparent",
-                "background": "#faf7f7",
+                "primary": {
+                    50: "#f8fafa",
+                    100: "#f1f5f6",
+                    200: "#e6eeee",
+                    300: "#d1dfe1",
+                    400: "#b6cbcf",
+                    500: "#98b3ba",
+                    600: "#849faa",
+                    700: "#6d8894",
+                    800: "#5b727c",
+                    900: "#4c5e66",
+                    950: "#313f44"
+                },
+                "black": "#000000",
                 "white": "#ffffff"
             },
             maxWidth: {
@@ -25,6 +38,9 @@ module.exports = {
                 "3xs": "0.5rem",
                 "2xs": "0.625rem"
             },
+            borderWidth: {
+                "1": "1px"
+            }
         },
     },
     plugins: [

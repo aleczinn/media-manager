@@ -3,7 +3,7 @@
 @import "preflight.css";
 
 body {
-    @apply bg-background font-project subpixel-antialiased;
+    @apply bg-white font-project subpixel-antialiased;
 }
 
 html {
