@@ -6,3 +6,4 @@ package-lock.json
 dist
 temp.json
 data/test
+.env
