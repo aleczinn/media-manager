@@ -5,6 +5,7 @@ import {getAudioPriority, getAudioTrackName, SUBTITLE_MAPPING} from "./helper";
 import {Preset} from "./preset/preset";
 import {animeCopy, animeWithEncode} from "./preset/presets";
 import {BLUE, CYAN, GREEN, PURPLE, RED, RESET, WHITE, YELLOW} from "./ansi";
+import mediainfo from 'node-mediainfo';
 
 const INPUT_DIR = path.resolve(__dirname, 'data');
 const OUTPUT_DIR = path.join(__dirname, 'data', 'export');
@@ -15,8 +16,8 @@ const defaultPreset: Preset = {
     normalized_audio_branding: "[Sky Mix]",
     encodeVideo: false,
     encodingOptions: ['libx264', '-crf 18', '-preset slow', '-x264-params ref=5:bframes=5'],
-    renameFix: false,
-    normalizeAudio: false,
+    renameFix: true,
+    normalizeAudio: true,
     defaultLanguageForUnknownStream: '',
     atmosOverrideDE: false,
     atmosOverrideEN: false
@@ -157,6 +158,7 @@ async function runFile(file: string): Promise<void> {
         const TEMP_FILE_BOOSTED = path.join(INPUT_DIR, `temp_b_${file}.mkv`);
 
         const metaData = JSON.parse(await analyzeFile(INPUT_FILE));
+
         const {videoStreams, audioStreams, subtitleStreams} = parseMetaData(metaData)
 
         console.log(`\n\n${RESET}> = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =`);
@@ -434,6 +436,13 @@ async function main() {
 
         for (const file of files) {
             await runFile(file);
+
+
+            // const INPUT_FILE = path.join(INPUT_DIR, file);
+            // const result: any = await mediainfo(INPUT_FILE);
+            //
+            // const data = JSON.stringify(result, null, 2)
+            // fs.writeFileSync(file, data, 'utf-8');
         }
     } catch (error) {
         console.error(error);
