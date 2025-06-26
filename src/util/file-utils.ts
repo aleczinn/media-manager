@@ -1,10 +1,10 @@
 import mediaInfoFactory from 'mediainfo.js'
 import fs from 'fs'
-import { VideoFile } from '../types/VideoFile'
+import { MediaFile } from '../types/MediaFile'
 import path from 'path'
 import ffmpeg from 'fluent-ffmpeg'
 
-export async function getMetaDataMediaInfo(file: VideoFile) {
+export async function getMetaDataMediaInfo(file: MediaFile) {
     const factory = await mediaInfoFactory()
 
     try {
@@ -31,7 +31,7 @@ export async function getMetaDataMediaInfo(file: VideoFile) {
     }
 }
 
-export async function getMetaDataFFprobe(file: VideoFile): Promise<string> {
+export async function getMetaDataFFprobe(file: MediaFile): Promise<string> {
     return new Promise((resolve, reject) => {
         ffmpeg.ffprobe(file.path, (error, metadata) => {
             if (error) {
@@ -45,7 +45,7 @@ export async function getMetaDataFFprobe(file: VideoFile): Promise<string> {
     })
 }
 
-export async function getCombinedMetadata(file: VideoFile): Promise<any> {
+export async function getCombinedMetadata(file: MediaFile): Promise<any> {
     const [mediaInfoData, ffprobeDataString] = await Promise.all([
         getMetaDataMediaInfo(file),
         getMetaDataFFprobe(file)
@@ -102,8 +102,8 @@ export async function getCombinedMetadata(file: VideoFile): Promise<any> {
     return mediaInfoData;
 }
 
-export function findVideoFiles(rootDir: string, extensions: string[] = ['.mkv', '.mp4', '.avi']): VideoFile[] {
-    const files: VideoFile[] = []
+export function findVideoFiles(rootDir: string, extensions: string[] = ['.mkv', '.mp4', '.avi']): MediaFile[] {
+    const files: MediaFile[] = []
 
     function scanDirectory(currentDir: string) {
         try {
@@ -139,7 +139,7 @@ export function findVideoFiles(rootDir: string, extensions: string[] = ['.mkv', 
     return files
 }
 
-export function generateOutputPath(file: VideoFile, rootDir: string): string {
+export function generateOutputPath(file: MediaFile, rootDir: string): string {
     const baseFileName = `${file.name}`
     let outputPath = path.join(rootDir, baseFileName)
 
