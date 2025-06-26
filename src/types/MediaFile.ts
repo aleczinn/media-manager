@@ -1,4 +1,4 @@
-export interface VideoFile {
+export interface MediaFile {
   name: string;
   folderName: string;
   path: string;
