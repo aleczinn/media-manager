@@ -7,3 +7,11 @@ export const BLUE = '\u001b[34m'
 export const PURPLE = '\u001b[35m'
 export const CYAN = '\u001b[36m'
 export const WHITE = '\u001b[37m'
+
+export function separationLine() {
+    console.log(`\n\n${RESET}> = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =`)
+}
+
+export function error(error: string) {
+    console.log(`${RESET}>${RED}> ${error}`)
+}
