@@ -8,3 +8,26 @@ export function getSubtitleFormat(codecId: string): string {
 
     return codec
 }
+
+export function isDefaultTrack(track: any): boolean {
+    const title = (track.Title || '').toLowerCase()
+
+    return title.includes('default') ||
+        track.Default == 'Yes'
+}
+
+export function isForcedSubtitle(track: any): boolean {
+    const title = (track.Title || '').toLowerCase()
+
+    return title.includes('forced') ||
+        title.includes('erzwungen') ||
+        track.Forced == 'Yes'
+}
+
+export function isSDHSubtitle(track: any): boolean {
+    const title = (track.Title || '').toLowerCase()
+
+    return title.includes('sdh') ||
+        title.includes('hearing impaired') ||
+        track.HearingImpaired == 'Yes'
+}
