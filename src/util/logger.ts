@@ -1,3 +1,6 @@
+import { PRESET_DEBUG_MODE } from '../new'
+import * as console from 'node:console'
+
 export const RESET = '\u001b[0m'
 export const BLACK = '\u001b[30m'
 export const RED = '\u001b[31m'
@@ -14,4 +17,10 @@ export function separationLine() {
 
 export function error(error: string) {
     console.log(`${RESET}>${RED}> ${error}`)
+}
+
+export function debug(message: string) {
+    if (PRESET_DEBUG_MODE) {
+        console.log(`${WHITE}[${CYAN}DEBUG${WHITE}] ${WHITE}> ${RESET}${message}`)
+    }
 }
