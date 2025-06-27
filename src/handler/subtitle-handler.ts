@@ -1,7 +1,7 @@
 import { SubtitleTrack } from '../types/SubtitleTrack'
 import { debug } from '../util/logger'
-import { PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS, PRESET_SUBTITLE_ORDER } from '../new'
-import { getLanguageName } from '../util/utils'
+import { PRESET_SUBTITLE_ORDER } from '../new'
+import { filterUnknownLanguageTracks, getLanguageName } from '../util/utils'
 
 export function processSubtitles(tracks: SubtitleTrack[]): void {
     debug('=== ORIGINAL SUBTITLE TRACKS ===')
@@ -12,11 +12,12 @@ export function processSubtitles(tracks: SubtitleTrack[]): void {
         debug(`[${i}] ${lang} ${format} ${type} - "${track.Title}"`)
     })
 
-    // filterUnknownLanguageTracks(tracks)
+    filterUnknownLanguageTracks(tracks)
+
     groupAndSortSubtitleTracks(tracks)
     setDefaultSubtitleTrack(tracks)
     renameSubtitleTracks(tracks)
-    filterCustomSubtitles(tracks)
+    customFilter(tracks)
 
     debug('\n')
     debug('=== FINAL SUBTITLE TRACKS ===')
@@ -34,7 +35,7 @@ function groupAndSortSubtitleTracks(tracks: SubtitleTrack[]): void {
     const groups = new Map<string, SubtitleTrack[]>()
 
     tracks.forEach(track => {
-        const language = track.Language || PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS
+        const language = track.Language || ''
         const type = getSubtitleType(track)
         const key = `${language}-${type}`
 
@@ -104,7 +105,7 @@ function setDefaultSubtitleTrack(tracks: SubtitleTrack[]): void {
 
     const firstForcedTrack = tracks.find(track => {
         const language = track.Language || ''
-        const isGermanOrEnglish = ['de', 'en'].includes(language.toLowerCase())
+        const isGermanOrEnglish = ['de', 'en'].includes(language)
         return isForcedSubtitle(track) && isGermanOrEnglish
     })
 
@@ -115,12 +116,12 @@ function setDefaultSubtitleTrack(tracks: SubtitleTrack[]): void {
 
 function renameSubtitleTracks(tracks: SubtitleTrack[]): void {
     tracks.forEach(track => {
-        const language = track.Language || PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS
+        const language = track.Language || ''
 
         let newTitle = getLanguageName(language)
 
         if (isForcedSubtitle(track)) {
-            if (language === 'ger' || language === 'deu' || language === 'de') {
+            if (language === 'de') {
                 newTitle += ' Erzwungen'
             } else {
                 newTitle += ' Forced'
@@ -137,9 +138,9 @@ function renameSubtitleTracks(tracks: SubtitleTrack[]): void {
     })
 }
 
-function filterCustomSubtitles(tracks: SubtitleTrack[]): void {
+function customFilter(tracks: SubtitleTrack[]): void {
     // const filtered = tracks.filter((track: SubtitleTrack) => {
-    //     const language = track.Language || PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS
+    //     const language = track.Language || ''
     //     const title = (track.Title || '').toLowerCase()
     //     return !/signs/i.test(title);
     // })
