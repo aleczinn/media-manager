@@ -104,7 +104,7 @@ function setDefaultSubtitleTrack(tracks: SubtitleTrack[]): void {
 
     const firstForcedTrack = tracks.find(track => {
         const language = track.Language || ''
-        const isGermanOrEnglish = ['ger', 'deu', 'de', 'eng', 'en'].includes(language.toLowerCase())
+        const isGermanOrEnglish = ['de', 'en'].includes(language.toLowerCase())
         return isForcedSubtitle(track) && isGermanOrEnglish
     })
 
