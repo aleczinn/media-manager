@@ -115,6 +115,7 @@ function processSubtitles(tracks: SubtitleTrack[]): void {
     groupAndSortSubtitleTracks(tracks)
     setDefaultSubtitleTrack(tracks)
     renameSubtitleTracks(tracks)
+    filterCustomSubtitles(tracks)
 
     debug('\n')
     debug('=== FINAL TRACKS ===')
@@ -122,7 +123,8 @@ function processSubtitles(tracks: SubtitleTrack[]): void {
         const lang = track.Language || 'unknown'
         const format = getSubtitleFormat(track)
         const type = getSubtitleType(track)
-        debug(`[${i}] ${lang} ${format} ${type} - "${track.Title}"`)
+        const localIndex = track.LOCAL_INDEX
+        debug(`[${i}] ${lang} ${format} ${type} - "${track.Title}" (li: ${localIndex})`)
     })
 }
 
@@ -246,6 +248,16 @@ function renameSubtitleTracks(tracks: SubtitleTrack[]): void {
     })
 }
 
+function filterCustomSubtitles(tracks: SubtitleTrack[]): void {
+    // const filtered = tracks.filter((track: SubtitleTrack) => {
+    //     const language = track.Language || PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS
+    //     const title = (track.Title || '').toLowerCase()
+    //     return false;
+    // })
+    //
+    // tracks.length = 0
+    // tracks.push(...filtered)
+}
 
 async function main() {
     try {
