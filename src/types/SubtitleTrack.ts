@@ -1,4 +1,6 @@
-interface SubtitleTrack extends BaseTrack {
+import { BaseTrack } from './BaseTrack'
+
+export interface SubtitleTrack extends BaseTrack {
     '@type': 'Text';
     Format: string;
     MuxingMode: string;
@@ -9,7 +11,7 @@ interface SubtitleTrack extends BaseTrack {
     FrameCount: number;
     ElementCount: number;
     StreamSize: number;
-    Title: string;
+    Title?: string;
     Language: string;
     Default: string;
     Forced: string;

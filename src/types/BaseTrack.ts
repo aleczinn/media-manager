@@ -1,4 +1,4 @@
-interface BaseTrack {
+export interface BaseTrack {
     '@type': string;
     '@typeorder'?: string;
     StreamOrder?: string;

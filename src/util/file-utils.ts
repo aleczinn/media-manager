@@ -102,7 +102,7 @@ export async function getCombinedMetadata(file: MediaFile): Promise<any> {
     return mediaInfoData;
 }
 
-export function findVideoFiles(rootDir: string, extensions: string[] = ['.mkv', '.mp4', '.avi']): MediaFile[] {
+export function findMediaFiles(rootDir: string, extensions: string[] = ['.mkv', '.mp4', '.avi']): MediaFile[] {
     const files: MediaFile[] = []
 
     function scanDirectory(currentDir: string) {

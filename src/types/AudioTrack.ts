@@ -1,4 +1,6 @@
-interface AudioTrack extends BaseTrack {
+import { BaseTrack } from './BaseTrack'
+
+export interface AudioTrack extends BaseTrack {
     '@type': 'Audio';
     Format: string;
     Format_Commercial_IfAny: string;
@@ -20,7 +22,7 @@ interface AudioTrack extends BaseTrack {
     Delay_Source: string;
     Video_Delay: number;
     StreamSize: number;
-    Title: string;
+    Title?: string;
     Language: string;
     ServiceKind: string;
     Default: string;

@@ -1,4 +1,6 @@
-interface GeneralTrack extends BaseTrack {
+import { BaseTrack } from './BaseTrack'
+
+export interface GeneralTrack extends BaseTrack {
     '@type': 'General';
     VideoCount: number;
     AudioCount: number

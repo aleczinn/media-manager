@@ -1,3 +1,8 @@
+import { SubtitleTrack } from '../types/SubtitleTrack'
+import { BaseTrack } from '../types/BaseTrack'
+import { VideoTrack } from '../types/VideoTrack'
+import { AudioTrack } from '../types/AudioTrack'
+
 export function getSubtitleFormat(codecId: string): string {
     const codec = codecId.toLowerCase()
 
@@ -9,14 +14,13 @@ export function getSubtitleFormat(codecId: string): string {
     return codec
 }
 
-export function isDefaultTrack(track: any): boolean {
+export function isDefaultTrack(track: VideoTrack | AudioTrack | SubtitleTrack): boolean {
     const title = (track.Title || '').toLowerCase()
 
-    return title.includes('default') ||
-        track.Default == 'Yes'
+    return title.includes('default') || track.Default == 'Yes'
 }
 
-export function isForcedSubtitle(track: any): boolean {
+export function isForcedSubtitle(track: SubtitleTrack): boolean {
     const title = (track.Title || '').toLowerCase()
 
     return title.includes('forced') ||
@@ -24,7 +28,7 @@ export function isForcedSubtitle(track: any): boolean {
         track.Forced == 'Yes'
 }
 
-export function isSDHSubtitle(track: any): boolean {
+export function isSDHSubtitle(track: SubtitleTrack): boolean {
     const title = (track.Title || '').toLowerCase()
 
     return title.includes('sdh') ||

@@ -1,4 +1,6 @@
-interface VideoTrack extends BaseTrack {
+import { BaseTrack } from './BaseTrack'
+
+export interface VideoTrack extends BaseTrack {
     '@type': 'Video';
     Format?: string;
     Format_Profile?: string;
@@ -32,6 +34,7 @@ interface VideoTrack extends BaseTrack {
     Delay: number;
     Delay_Source: string;
     StreamSize: number;
+    Title?: string;
     Default: string;
     Forced: string;
     colour_description_present: string;
