@@ -1,6 +1,8 @@
 import { AudioTrack } from '../types/AudioTrack'
 import { debug } from '../util/logger'
 import { filterUnknownLanguageTracks } from '../util/utils'
+import { PRESET_AUDIO_ORDER, PRESET_LANGUAGES } from '../new'
+import { SubtitleTrack } from '../types/SubtitleTrack'
 
 export function processAudio(tracks: AudioTrack[]): void {
     debug('=== ORIGINAL AUDIO TRACKS ===')
@@ -15,6 +17,7 @@ export function processAudio(tracks: AudioTrack[]): void {
     sortAudioTracks(tracks)
     setDefaultAudioTrack(tracks)
     renameAudioTracks(tracks)
+    customFilter(tracks)
 
     debug('\n')
     debug('=== FINAL AUDIO TRACKS ===')
@@ -28,7 +31,51 @@ export function processAudio(tracks: AudioTrack[]): void {
 }
 
 function sortAudioTracks(tracks: AudioTrack[]): void {
+    tracks.sort((a: AudioTrack, b: AudioTrack) => {
+        // Sort languages
+        const langA = (a.Language || '').toLowerCase()
+        const langB = (b.Language || '').toLowerCase()
 
+        const langIndexA = PRESET_LANGUAGES.indexOf(langA)
+        const langIndexB = PRESET_LANGUAGES.indexOf(langB)
+
+        // Known langauges have higher priority than unknown
+        const langPriorityA = langIndexA !== -1 ? langIndexA : PRESET_LANGUAGES.length
+        const langPriorityB = langIndexB !== -1 ? langIndexB : PRESET_LANGUAGES.length
+
+        if (langPriorityA !== langPriorityB) {
+            return langPriorityA - langPriorityB
+        }
+
+        // More channels means higher priority
+        const channelsA = a.Channels || 0
+        const channelsB = b.Channels || 0
+
+        if (channelsA !== channelsB) {
+            return channelsB - channelsA // Absteigende Sortierung für Kanäle
+        }
+
+        // Sort the audio format by PRESET_AUDIO_ORDER
+        const audioTypeA = getAudioType(a, false)
+        const audioTypeB = getAudioType(b, false)
+
+        const audioIndexA = PRESET_AUDIO_ORDER.indexOf(audioTypeA)
+        const audioIndexB = PRESET_AUDIO_ORDER.indexOf(audioTypeB)
+
+        // Known formats have higher priority than unknown
+        const audioPriorityA = audioIndexA !== -1 ? audioIndexA : PRESET_AUDIO_ORDER.length
+        const audioPriorityB = audioIndexB !== -1 ? audioIndexB : PRESET_AUDIO_ORDER.length
+
+        if (audioPriorityA !== audioPriorityB) {
+            return audioPriorityA - audioPriorityB
+        }
+
+        // Fallback
+        const titleA = (a.Title || '').toLowerCase()
+        const titleB = (b.Title || '').toLowerCase()
+
+        return titleA.localeCompare(titleB)
+    })
 }
 
 function setDefaultAudioTrack(tracks: AudioTrack[]): void {
@@ -42,11 +89,22 @@ function setDefaultAudioTrack(tracks: AudioTrack[]): void {
 function renameAudioTracks(tracks: AudioTrack[]): void {
     tracks.forEach(track => {
         const type = getAudioType(track)
-        track.Title = getAudioTrackName(type);
+        track.Title = getAudioTrackName(type)
     })
 }
 
-function getAudioType(track: AudioTrack): string {
+function customFilter(tracks: AudioTrack[]): void {
+    // const filtered = tracks.filter((track: AudioTrack) => {
+    //     const language = track.Language || ''
+    //     const title = (track.Title || '').toLowerCase()
+    //     return !/signs/i.test(title);
+    // })
+    //
+    // tracks.length = 0
+    // tracks.push(...filtered)
+}
+
+function getAudioType(track: AudioTrack, withChannel: boolean = true): string {
     const title = (track.Title || '').toLowerCase()
     const codecId = (track.CodecID || track.Format || '').toLowerCase()
     const additionalFeatures = (track.Format_AdditionalFeatures || '').toLowerCase()
@@ -99,7 +157,7 @@ function getAudioType(track: AudioTrack): string {
     else if (codecId.includes('aac')) {
         name = 'aac'
     }
-    return `${name}_${channels}`
+    return withChannel ? `${name}_${channels}` : name
 }
 
 function getAudioTrackName(type: string): string {

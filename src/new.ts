@@ -17,7 +17,7 @@ import { processVideo } from './handler/video-handler'
 export const PRESET_LANGUAGES: Array<string> = ['de', 'en']
 export const PRESET_SUBTITLE_PRIORITY: Array<string> = ['forced', 'normal', 'cc', 'sdh']
 export const PRESET_SUBTITLE_ORDER: Array<string> = ['pgs', 'srt', 'ass', 'vobsub']
-export const PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS: string = ''
+export const PRESET_AUDIO_ORDER: Array<string> = ['truehd_atmos', 'eac3_atmos', 'dts_x', 'truehd', 'dts_hd_ma', 'dts_hd_hr', 'eac3', 'dts', 'ac3', 'aac']
 const PRESET_AUDIO_BRANDING: string = '[Sky Mix]'
 const PRESET_ENCODE_OPTIONS: Array<string> = ['libx264', '-crf 18', '-preset slow', '-x264-params ref=5:bframes=5']
 const PRESET_NORMALIZE_MIN_THRESHOLD: number = 0.3

@@ -3,7 +3,6 @@ import { VideoTrack } from '../types/VideoTrack'
 import { AudioTrack } from '../types/AudioTrack'
 import { debug } from './logger'
 import { PRESET_LANGUAGES, PRESET_THROW_AWAY_UNKNOWN_TRACKS } from '../new'
-import { BaseTrack } from '../types/BaseTrack'
 
 export function isDefaultTrack(track: VideoTrack | AudioTrack | SubtitleTrack): boolean {
     const title = (track.Title || '').toLowerCase()
@@ -12,25 +11,29 @@ export function isDefaultTrack(track: VideoTrack | AudioTrack | SubtitleTrack): 
 }
 
 export function filterUnknownLanguageTracks(tracks: (AudioTrack | SubtitleTrack)[]): void {
-    if (PRESET_THROW_AWAY_UNKNOWN_TRACKS) {
-        const filteredTracks = tracks.filter((track: AudioTrack | SubtitleTrack) => {
-            const language = track.Language || '';
-            const isKnownLanguage = PRESET_LANGUAGES.includes(language.toLowerCase());
+    const filteredTracks = tracks.filter((track: AudioTrack | SubtitleTrack) => {
+        const language = track.Language || ''
 
-            if (!isKnownLanguage) {
-                debug(`Removing unknown language track: "${track.Title}" (${language})`);
-            }
+        if (PRESET_THROW_AWAY_UNKNOWN_TRACKS && language === '') {
+            debug(`Unknown track got removed: "${track.Title}" (${language})`)
+            return false
+        }
 
-            return isKnownLanguage;
-        });
+        const isKnownLanguage = PRESET_LANGUAGES.includes(language.toLowerCase())
 
-        tracks.length = 0;
-        tracks.push(...filteredTracks);
-    }
+        if (!isKnownLanguage) {
+            debug(`Removing track because language is not supported: "${track.Title}" (${language})`)
+        }
+
+        return isKnownLanguage
+    })
+
+    tracks.length = 0
+    tracks.push(...filteredTracks)
 }
 
 export function fixLanguageInTrack(track: (VideoTrack | AudioTrack | SubtitleTrack)): void {
-    const language = (track.Language || '').toLowerCase();
+    const language = (track.Language || '').toLowerCase()
     if (language === 'ger' || language === 'deu') {
         track.Language = 'de'
     }
@@ -52,6 +55,7 @@ export function fixLanguageInTrack(track: (VideoTrack | AudioTrack | SubtitleTra
     if (language === 'rus') {
         track.Language = 'ru'
     }
+    track.Language = track.Language.toLowerCase()
 }
 
 export function getLanguageName(language: string): string {
