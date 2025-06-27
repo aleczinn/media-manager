@@ -10,6 +10,8 @@ import { SubtitleTrack } from './types/SubtitleTrack'
 import { SeparatedTracks } from './types/SeparatedTracks'
 import * as console from 'node:console'
 import {
+    fixLanguageInTrack,
+    getAudioType,
     getLanguageName,
     getSubtitleFormat,
     getSubtitleType,
@@ -19,7 +21,7 @@ import {
 } from './util/utils'
 import { debug } from './util/logger'
 
-const PRESET_LANGUAGES: Array<string> = ['ger', 'deu', 'eng']
+export const PRESET_LANGUAGES: Array<string> = ['de', 'en']
 const PRESET_SUBTITLE_PRIORITY: Array<string> = ['forced', 'normal', 'cc', 'sdh']
 const PRESET_SUBTITLE_ORDER: Array<string> = ['pgs', 'srt', 'ass', 'vobsub']
 export const PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS: string = ''
@@ -30,7 +32,7 @@ const PRESET_NORMALIZE_MIN_THRESHOLD: number = 0.3
 const PRESET_RENAME_FIX: boolean = false
 const PRESET_NORMALIZE_AUDIO: boolean = true
 const PRESET_ENCODE_VIDEO: boolean = false
-const PRESET_THROW_AWAY_UNKNOWN_TRACKS: boolean = true
+export const PRESET_THROW_AWAY_UNKNOWN_TRACKS: boolean = true
 export const PRESET_DEBUG_MODE: boolean = true // Save the metadata as a JSON file, print out debug information per file
 
 async function processFile(file: MediaFile) {
@@ -52,6 +54,7 @@ async function processFile(file: MediaFile) {
         let { general, video, audio, subtitle } = separateTracks(tracks)
 
         console.log(`${RESET}>${CYAN} Streams: ${RESET} Video: ${video.length} | Audio: ${audio.length} | Subtitles: ${subtitle.length}`)
+        debug(' \n')
 
         processVideo(video)
         processAudio(audio)
@@ -77,6 +80,7 @@ function separateTracks(tracks: BaseTrack[]): SeparatedTracks {
                 general = track as GeneralTrack
                 break
             case 'Video':
+                fixLanguageInTrack(track as VideoTrack);
                 Object.assign(track, {
                     LOCAL_INDEX: videoIndex
                 })
@@ -84,6 +88,7 @@ function separateTracks(tracks: BaseTrack[]): SeparatedTracks {
                 videoIndex++
                 break
             case 'Audio':
+                fixLanguageInTrack(track as AudioTrack);
                 Object.assign(track, {
                     LOCAL_INDEX: audioIndex
                 })
@@ -91,6 +96,7 @@ function separateTracks(tracks: BaseTrack[]): SeparatedTracks {
                 audioIndex++
                 break
             case 'Text':
+                fixLanguageInTrack(track as SubtitleTrack);
                 Object.assign(track, {
                     LOCAL_INDEX: subtitleIndex
                 })
@@ -104,32 +110,31 @@ function separateTracks(tracks: BaseTrack[]): SeparatedTracks {
 }
 
 function processVideo(tracks: VideoTrack[]): void {
+    debug('=== ORIGINAL VIDEO TRACKS ===')
+    tracks.forEach((track, i) => {
+        const lang = track.Language || 'unknown'
+        debug(`[${i}] ${lang} - "${track.Title}"`)
+    })
 
+    debug('\n')
 }
 
 function processAudio(tracks: AudioTrack[]): void {
+    debug('=== ORIGINAL AUDIO TRACKS ===');
+    tracks.forEach((track, i) => {
+        const lang = track.Language || 'unknown';
+        const format = getAudioType(track);
+        const channels = track.Channels || 0;
+        debug(`[${i}] ${lang} ${format} ${channels}ch - "${track.Title}"`);
+    });
 
+    // filterUnknownLanguageTracks(tracks)
+
+    debug('\n')
 }
 
 function processSubtitles(tracks: SubtitleTrack[]): void {
-    groupAndSortSubtitleTracks(tracks)
-    setDefaultSubtitleTrack(tracks)
-    renameSubtitleTracks(tracks)
-    filterCustomSubtitles(tracks)
-
-    debug('\n')
-    debug('=== FINAL TRACKS ===')
-    tracks.forEach((track, i) => {
-        const lang = track.Language || 'unknown'
-        const format = getSubtitleFormat(track)
-        const type = getSubtitleType(track)
-        const localIndex = track.LOCAL_INDEX
-        debug(`[${i}] ${lang} ${format} ${type} - "${track.Title}" (li: ${localIndex})`)
-    })
-}
-
-function groupAndSortSubtitleTracks(tracks: SubtitleTrack[]): void {
-    debug('=== ORIGINAL TRACKS ===')
+    debug('=== ORIGINAL SUBTITLE TRACKS ===')
     tracks.forEach((track, i) => {
         const lang = track.Language || 'unknown'
         const format = getSubtitleFormat(track)
@@ -137,6 +142,25 @@ function groupAndSortSubtitleTracks(tracks: SubtitleTrack[]): void {
         debug(`[${i}] ${lang} ${format} ${type} - "${track.Title}"`)
     })
 
+    // filterUnknownLanguageTracks(tracks)
+    groupAndSortSubtitleTracks(tracks)
+    setDefaultSubtitleTrack(tracks)
+    renameSubtitleTracks(tracks)
+    filterCustomSubtitles(tracks)
+
+    debug('\n')
+    debug('=== FINAL SUBTITLE TRACKS ===')
+    tracks.forEach((track, i) => {
+        const lang = track.Language || 'unknown'
+        const format = getSubtitleFormat(track)
+        const type = getSubtitleType(track)
+        const localIndex = track.LOCAL_INDEX
+        debug(`[${i}] ${lang} ${format} ${type} - "${track.Title}" (li: ${localIndex})`)
+    })
+    debug('\n')
+}
+
+function groupAndSortSubtitleTracks(tracks: SubtitleTrack[]): void {
     const groups = new Map<string, SubtitleTrack[]>()
 
     tracks.forEach(track => {
@@ -151,7 +175,7 @@ function groupAndSortSubtitleTracks(tracks: SubtitleTrack[]): void {
     })
 
     debug('\n')
-    debug('=== GRUPPEN ===')
+    debug('=== SUBTITLE GROUPS ===')
     groups.forEach((tracksInGroup, key) => {
         debug(`Gruppe: ${key}`)
         tracksInGroup.forEach(track => {
@@ -163,7 +187,7 @@ function groupAndSortSubtitleTracks(tracks: SubtitleTrack[]): void {
     const filtered: SubtitleTrack[] = []
 
     groups.forEach((tracksInGroup, key) => {
-        debug(`Filtere Gruppe: ${key}`)
+        debug(`Filter Group: ${key}`)
 
         // Nach Format-Priorität sortieren
         const sortedByFormat = tracksInGroup.sort((a, b) => {
@@ -183,13 +207,13 @@ function groupAndSortSubtitleTracks(tracks: SubtitleTrack[]): void {
 
         const bestTrack = sortedByFormat[0]
         const bestFormat = getSubtitleFormat(bestTrack)
-        debug(`  → Gewählt: ${bestFormat} "${bestTrack.Title}"`)
+        debug(`  → Choose: ${bestFormat} "${bestTrack.Title}"`)
 
         filtered.push(bestTrack)
     })
 
     debug('\n')
-    debug('=== GEFILTERTE TRACKS ===')
+    debug('=== FILTERED SUBTITLE TRACKS ===')
     filtered.forEach((track, i) => {
         const lang = track.Language || 'unknown'
         const format = getSubtitleFormat(track)
@@ -252,7 +276,7 @@ function filterCustomSubtitles(tracks: SubtitleTrack[]): void {
     // const filtered = tracks.filter((track: SubtitleTrack) => {
     //     const language = track.Language || PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS
     //     const title = (track.Title || '').toLowerCase()
-    //     return false;
+    //     return !/signs/i.test(title);
     // })
     //
     // tracks.length = 0
