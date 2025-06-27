@@ -8,5 +8,10 @@ export function processVideo(tracks: VideoTrack[]): void {
         debug(`[${i}] ${lang} - "${track.Title}"`)
     })
 
+    tracks.forEach(track => {
+        track.Title = ''
+        track.Language = 'en'
+    })
+
     debug('\n')
 }
