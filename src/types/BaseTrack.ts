@@ -4,4 +4,5 @@ export interface BaseTrack {
     StreamOrder?: string;
     ID?: string;
     UniqueID?: string;
+    Title?: string;
 }

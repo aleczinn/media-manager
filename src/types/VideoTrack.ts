@@ -34,7 +34,7 @@ export interface VideoTrack extends BaseTrack {
     Delay: number;
     Delay_Source: string;
     StreamSize: number;
-    Title?: string;
+    Language: string;
     Default: string;
     Forced: string;
     colour_description_present: string;

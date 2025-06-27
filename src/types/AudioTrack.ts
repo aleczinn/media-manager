@@ -5,6 +5,7 @@ export interface AudioTrack extends BaseTrack {
     Format: string;
     Format_Commercial_IfAny: string;
     Format_Settings_Endianness: string;
+    Format_AdditionalFeatures?: string;
     CodecID: string;
     Duration: number;
     BitRate_Mode: string;
@@ -22,7 +23,6 @@ export interface AudioTrack extends BaseTrack {
     Delay_Source: string;
     Video_Delay: number;
     StreamSize: number;
-    Title?: string;
     Language: string;
     ServiceKind: string;
     Default: string;
