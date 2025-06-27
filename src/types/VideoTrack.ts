@@ -55,4 +55,5 @@ export interface VideoTrack extends BaseTrack {
     MaxCLL_Source: string;
     MaxFALL: string;
     MaxFALL_Source: string;
+    LOCAL_INDEX?: number;
 }

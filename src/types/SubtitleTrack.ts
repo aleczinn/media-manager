@@ -25,4 +25,5 @@ export interface SubtitleTrack extends BaseTrack {
     CleanEffects: string;
     Lyrics: string;
     Karaoke: string;
+    LOCAL_INDEX?: number;
 }

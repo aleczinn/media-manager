@@ -17,7 +17,7 @@ export function getSubtitleFormat(codecId: string): string {
 export function isDefaultTrack(track: VideoTrack | AudioTrack | SubtitleTrack): boolean {
     const title = (track.Title || '').toLowerCase()
 
-    return title.includes('default') || track.Default == 'Yes'
+    return title.includes('default') || track.Default === 'Yes'
 }
 
 export function isForcedSubtitle(track: SubtitleTrack): boolean {
@@ -34,4 +34,10 @@ export function isSDHSubtitle(track: SubtitleTrack): boolean {
     return title.includes('sdh') ||
         title.includes('hearing impaired') ||
         track.HearingImpaired == 'Yes'
+}
+
+export function isCCSubtitle(track: SubtitleTrack): boolean {
+    const title = (track.Title || '').toLowerCase()
+
+    return title.includes('cc');
 }

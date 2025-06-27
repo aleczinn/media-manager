@@ -45,4 +45,5 @@ export interface AudioTrack extends BaseTrack {
         compr_Maximum: string;
         compr_Count: string;
     }
+    LOCAL_INDEX?: number;
 }
