@@ -3,6 +3,8 @@ import { VideoTrack } from '../types/VideoTrack'
 import { AudioTrack } from '../types/AudioTrack'
 import { debug } from './logger'
 import { PRESET_LANGUAGES, PRESET_THROW_AWAY_UNKNOWN_TRACKS } from '../new'
+import { ParsedMediaFile } from '../types/ParsedMediaFile'
+import { MediaFile } from '../types/MediaFile'
 
 export function isDefaultTrack(track: VideoTrack | AudioTrack | SubtitleTrack): boolean {
     const title = (track.Title || '').toLowerCase()
@@ -71,3 +73,34 @@ export function getLanguageName(language: string): string {
     return langMap[language.toLowerCase()] || language.toUpperCase()
 }
 
+export function getParsedMediaFile(file: MediaFile): ParsedMediaFile | null {
+    // Regex for S01E02 or 1x02 Format
+    const regex = /[Ss](\d+)[Ee](\d+)|(\d+)x(\d+)/
+    const match = file.name.match(regex)
+
+    if (match) {
+        // S01E02 Format
+        if (match[1] && match[2]) {
+            return {
+                name: file.name,
+                path: file.path,
+                fullPath: file.fullPath,
+                extension: file.extension,
+                season: match[1],
+                episode: match[2]
+            }
+        }
+        // 1x02 Format
+        if (match[3] && match[4]) {
+            return {
+                name: file.name,
+                path: file.path,
+                fullPath: file.fullPath,
+                extension: file.extension,
+                season: match[3],
+                episode: match[4]
+            }
+        }
+    }
+    return null
+}

@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import { MediaFile } from './types/MediaFile'
 import { findMediaFiles, getCombinedMetadata } from './util/file-utils'
-import { CYAN, GREEN, RESET, WHITE } from './ansi'
+import { BLUE, CYAN, GREEN, RESET, WHITE } from './ansi'
 import { GeneralTrack } from './types/GeneralTrack'
 import { BaseTrack } from './types/BaseTrack'
 import { VideoTrack } from './types/VideoTrack'
@@ -9,14 +9,13 @@ import { AudioTrack } from './types/AudioTrack'
 import { SubtitleTrack } from './types/SubtitleTrack'
 import { SeparatedTracks } from './types/SeparatedTracks'
 import { debug } from './util/logger'
-import { fixLanguageInTrack } from './util/utils'
+import { fixLanguageInTrack, getParsedMediaFile } from './util/utils'
 import { processSubtitles } from './handler/subtitle-handler'
 import { processAudio } from './handler/audio-handler'
 import { processVideo } from './handler/video-handler'
 import ffmpeg from 'fluent-ffmpeg'
 import path from 'path'
-import { preset } from './index'
-import { getAudioTrackName } from './helper'
+import { ParsedMediaFile } from './types/ParsedMediaFile'
 
 export const PRESET_LANGUAGES: Array<string> = ['de', 'en']
 export const PRESET_SUBTITLE_PRIORITY: Array<string> = ['forced', 'normal', 'cc', 'sdh']
@@ -26,11 +25,13 @@ const PRESET_AUDIO_BRANDING: string = '[Sky Mix]'
 const PRESET_ENCODE_OPTIONS: Array<string> = ['libx264', '-crf 18', '-preset slow', '-x264-params ref=5:bframes=5']
 const PRESET_NORMALIZE_MIN_THRESHOLD: number = 0.3
 
-const PRESET_RENAME_FIX: boolean = false
+const PRESET_RENAME_FIX: boolean = true
 const PRESET_NORMALIZE_AUDIO: boolean = true
 const PRESET_ENCODE_VIDEO: boolean = false
 export const PRESET_THROW_AWAY_UNKNOWN_TRACKS: boolean = true
 export const PRESET_DEBUG_MODE: boolean = true // Save the metadata as a JSON file, print out debug information per file
+
+const OUTPUT_DIR = 'C:\\Users\\alec_\\Desktop\\Loki\\OUTPUT'
 
 async function processFile(file: MediaFile) {
     const { size } = await fs.promises.stat(file.fullPath)
@@ -62,7 +63,8 @@ async function processFile(file: MediaFile) {
 
         // TODO : merge final file with ffmpeg here
         // TODO : built in normalization for main track + optinal other tracks
-        await buildScript(file, separatedTracks)
+        renameFix(file)
+        // await buildScript(file, separatedTracks)
     } catch (error) {
         console.error(error)
     }
@@ -76,7 +78,7 @@ async function buildScript(file: MediaFile, tracks: SeparatedTracks): Promise<vo
     // VIDEO
     tracks.video.forEach((track: VideoTrack, index: number) => {
         command.outputOptions(`-map 0:v:${track.LOCAL_INDEX}`)
-        if (preset.encodeVideo) {
+        if (PRESET_ENCODE_VIDEO) {
             console.log(`> [INFO] Using encoding for video stream ${index} with options:`, PRESET_ENCODE_OPTIONS)
             command.outputOptions(`-c:v:${index}`)
             command.outputOptions(PRESET_ENCODE_OPTIONS)
@@ -91,13 +93,13 @@ async function buildScript(file: MediaFile, tracks: SeparatedTracks): Promise<vo
         command.outputOptions(`-c:a:${index} copy`)
         command.outputOptions(`-metadata:s:a:${index}`, `title=${track.Title}`)
 
-        const dispositions: string[] = [];
+        const dispositions: string[] = []
 
-        if (track.Default === 'Yes') dispositions.push('default');
-        if (track.Forced === 'Yes') dispositions.push('forced');
+        if (track.Default === 'Yes') dispositions.push('default')
+        if (track.Forced === 'Yes') dispositions.push('forced')
 
-        const dispositionStr = dispositions.length > 0 ? dispositions.join('+') : '0';
-        command.outputOptions(`-disposition:a:${index}`, dispositionStr);
+        const dispositionStr = dispositions.length > 0 ? dispositions.join('+') : '0'
+        command.outputOptions(`-disposition:a:${index}`, dispositionStr)
     })
 
     // Subtitle
@@ -106,22 +108,23 @@ async function buildScript(file: MediaFile, tracks: SeparatedTracks): Promise<vo
         command.outputOptions(`-c:s:${index} copy`)
         command.outputOptions(`-metadata:s:s:${index}`, `title=${track.Title}`)
 
-        const dispositions: string[] = [];
+        const dispositions: string[] = []
 
-        if (track.Default === 'Yes') dispositions.push('default');
-        if (track.Forced === 'Yes') dispositions.push('forced');
-        if (track.HearingImpaired === 'Yes') dispositions.push('hearing_impaired');
-        if (track.VisualImpaired === 'Yes') dispositions.push('visual_impaired');
-        if (track.Dub === 'Yes') dispositions.push('dub');
-        if (track.Original === 'Yes') dispositions.push('original');
-        if (track.Karaoke === 'Yes') dispositions.push('karaoke');
-        if (track.Commentary === 'Yes') dispositions.push('comment');
-        if (track.Lyrics === 'Yes') dispositions.push('lyrics');
+        if (track.Default === 'Yes') dispositions.push('default')
+        if (track.Forced === 'Yes') dispositions.push('forced')
+        if (track.HearingImpaired === 'Yes') dispositions.push('hearing_impaired')
+        if (track.VisualImpaired === 'Yes') dispositions.push('visual_impaired')
+        if (track.Dub === 'Yes') dispositions.push('dub')
+        if (track.Original === 'Yes') dispositions.push('original')
+        if (track.Karaoke === 'Yes') dispositions.push('karaoke')
+        if (track.Commentary === 'Yes') dispositions.push('comment')
+        if (track.Lyrics === 'Yes') dispositions.push('lyrics')
 
-        const dispositionStr = dispositions.length > 0 ? dispositions.join('+') : '0';
-        command.outputOptions(`-disposition:s:${index}`, dispositionStr);
+        const dispositionStr = dispositions.length > 0 ? dispositions.join('+') : '0'
+        command.outputOptions(`-disposition:s:${index}`, dispositionStr)
     })
 
+    // Flags to fix video async bug
     command.outputOptions('-fflags +genpts')
     command.outputOptions('-vsync cfr')
     command.outputOptions('-max_interleave_delta 0')
@@ -131,7 +134,7 @@ async function buildScript(file: MediaFile, tracks: SeparatedTracks): Promise<vo
     await new Promise<void>((resolve, reject) => {
         let startTime = Date.now()
 
-        command.save(`${file.path}\\${file.name}_export.mkv`)
+        command.save(`${OUTPUT_DIR}\\${renameFix(file)}`)
             .on('progress', (progress) => {
                 if (progress.percent && progress.percent >= 0) {
                     let elapsed = (Date.now() - startTime) / 1000
@@ -142,7 +145,7 @@ async function buildScript(file: MediaFile, tracks: SeparatedTracks): Promise<vo
                 }
             })
             .on('error', (err) => {
-                console.error('Fehler beim verarbeiten der Datei:', err.message)
+                console.error('Error while creating file:', err.message)
                 reject(err)
             })
             .on('end', () => {
@@ -150,6 +153,39 @@ async function buildScript(file: MediaFile, tracks: SeparatedTracks): Promise<vo
                 resolve()
             })
     })
+}
+
+function renameFix(file: MediaFile): string {
+    if (PRESET_RENAME_FIX) {
+        const f_name = file.name.toLowerCase()
+        const parsed: ParsedMediaFile | null = getParsedMediaFile(file)
+
+        let name = 'Unknown'
+        let extra = ''
+
+        console.log(`${BLUE}> RenameFix`)
+        console.log(`${RESET}> - ${BLUE}Original${RESET}: ${file.name}`)
+        if (parsed) {
+            console.log(`${RESET}> - ${BLUE}Match found!${RESET} - Season: ${parsed.season}, Episode: ${parsed.episode} `)
+
+            if (f_name.includes('extended')) {
+                extra += ' {edition-Extended}'
+            } else if (f_name.includes('director')) {
+                extra += ` {edition-Director's Cut}`
+            }
+
+            if (f_name.includes('web')) {
+                extra += ' {source-Web}'
+            } else if (f_name.includes('uhd')) {
+                extra += ' {source-UHD}'
+            } else if (f_name.includes('bluray')) {
+                extra += ' {source-BluRay}'
+            }
+
+            return `S${parsed.season}e${parsed.episode} - ${name}${extra}.mkv`
+        }
+    }
+    return `${file.name}.mkv`
 }
 
 function separateTracks(tracks: BaseTrack[]): SeparatedTracks {
