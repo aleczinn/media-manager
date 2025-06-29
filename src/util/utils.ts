@@ -55,7 +55,7 @@ export function fixLanguageInTrack(track: (VideoTrack | AudioTrack | SubtitleTra
     if (language === 'rus') {
         track.Language = 'ru'
     }
-    track.Language = track.Language.toLowerCase()
+    track.Language = language
 }
 
 export function getLanguageName(language: string): string {

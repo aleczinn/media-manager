@@ -1,6 +1,6 @@
 export interface MediaFile {
   name: string;
-  folderName: string;
   path: string;
+  fullPath: string;
   extension: string;
 }

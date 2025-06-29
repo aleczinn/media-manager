@@ -8,7 +8,7 @@ export async function getMetaDataMediaInfo(file: MediaFile) {
     const factory = await mediaInfoFactory()
 
     try {
-        const stats = await fs.promises.stat(file.path)
+        const stats = await fs.promises.stat(file.fullPath)
         const fileSize = stats.size
 
         return await factory.analyzeData(
@@ -16,7 +16,7 @@ export async function getMetaDataMediaInfo(file: MediaFile) {
 
             (chunkSize, offset) => {
                 const buffer = Buffer.alloc(chunkSize)
-                const fd = fs.openSync(file.path, 'r')
+                const fd = fs.openSync(file.fullPath, 'r')
 
                 try {
                     const bytesRead = fs.readSync(fd, buffer, 0, chunkSize, offset)
@@ -33,9 +33,9 @@ export async function getMetaDataMediaInfo(file: MediaFile) {
 
 export async function getMetaDataFFprobe(file: MediaFile): Promise<string> {
     return new Promise((resolve, reject) => {
-        ffmpeg.ffprobe(file.path, (error, metadata) => {
+        ffmpeg.ffprobe(file.fullPath, (error, metadata) => {
             if (error) {
-                reject(`Error for analyzing ffprobe metadata for file: ${file.path}`)
+                reject(`Error for analyzing ffprobe metadata for file: ${file.fullPath}`)
                 return
             }
 
@@ -123,8 +123,8 @@ export function findMediaFiles(rootDir: string, extensions: string[] = ['.mkv', 
 
                         files.push({
                             name: fileName,
-                            folderName: folderName,
-                            path: fullPath,
+                            path: path.dirname(fullPath),
+                            fullPath: fullPath,
                             extension: extension
                         })
                     }
@@ -140,20 +140,21 @@ export function findMediaFiles(rootDir: string, extensions: string[] = ['.mkv', 
 }
 
 export function generateOutputPath(file: MediaFile, rootDir: string): string {
-    const baseFileName = `${file.name}`
-    let outputPath = path.join(rootDir, baseFileName)
-
-    if (fs.existsSync(outputPath)) {
-        const nameWithFolder = `${file.folderName}_${file.name}`
-        outputPath = path.join(rootDir, nameWithFolder)
-
-        let counter = 1
-        while (fs.existsSync(outputPath)) {
-            const nameWithCounter = `${file.folderName}_${file.name}_${counter}`
-            outputPath = path.join(rootDir, nameWithCounter)
-            counter++
-        }
-    }
-
-    return outputPath
+    // const baseFileName = `${file.name}`
+    // let outputPath = path.join(rootDir, baseFileName)
+    //
+    // if (fs.existsSync(outputPath)) {
+    //     const nameWithFolder = `${file.folderName}_${file.name}`
+    //     outputPath = path.join(rootDir, nameWithFolder)
+    //
+    //     let counter = 1
+    //     while (fs.existsSync(outputPath)) {
+    //         const nameWithCounter = `${file.folderName}_${file.name}_${counter}`
+    //         outputPath = path.join(rootDir, nameWithCounter)
+    //         counter++
+    //     }
+    // }
+    //
+    // return outputPath
+    return ''
 }
