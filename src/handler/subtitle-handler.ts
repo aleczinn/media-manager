@@ -98,10 +98,6 @@ function setDefaultSubtitleTrack(tracks: SubtitleTrack[]): void {
     tracks.forEach(track => {
         track.Default = 'No'
         track.Original = 'No'
-        track.Karaoke = 'No'
-        track.Dub = 'No'
-        track.Lyrics = 'No'
-        track.Commentary = 'No'
     })
 
     const firstForcedTrack = tracks.find(track => {
