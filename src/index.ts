@@ -63,8 +63,6 @@ async function processFile(file: MediaFile) {
 
         console.log(`${RESET}>${CYAN} Filtered Streams: ${RESET} Video: ${separatedTracks.video.length} | Audio: ${separatedTracks.audio.length} | Subtitles: ${separatedTracks.subtitle.length}`)
 
-        // TODO : merge final file with ffmpeg here
-        // TODO : built in normalization for main track + optinal other tracks
         await buildScript(file, separatedTracks)
     } catch (error) {
         console.error(error)
@@ -98,6 +96,7 @@ async function buildScript(file: MediaFile, tracks: SeparatedTracks): Promise<vo
         command.outputOptions(`-c:a:${i} copy`)
         command.outputOptions(`-metadata:s:a:${i}`, `title=${track.Title}`)
         command.outputOptions(`-disposition:a:${i}`, '0')
+        command.outputOptions(`-metadata:s:a:${i}`, `language=${track?.Language || PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS || 'und'}`)
     })
 
     // Subtitle
@@ -105,6 +104,7 @@ async function buildScript(file: MediaFile, tracks: SeparatedTracks): Promise<vo
         command.outputOptions(`-map 0:s:${track.LOCAL_INDEX}`)
         command.outputOptions(`-c:s:${index} copy`)
         command.outputOptions(`-metadata:s:s:${index}`, `title=${track.Title}`)
+        command.outputOptions(`-metadata:s:s:${index}`, `language=${track?.Language || PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS || 'und'}`)
 
         const dispositions: string[] = []
 

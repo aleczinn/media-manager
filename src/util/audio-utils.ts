@@ -4,7 +4,12 @@ import ffmpeg, { FfmpegCommand } from 'fluent-ffmpeg'
 import { PURPLE, RED, RESET, YELLOW } from '../ansi'
 import { AudioTrack } from '../types/AudioTrack'
 import { getAudioType } from '../handler/audio-handler'
-import { PRESET_AUDIO_BRANDING, PRESET_NORMALIZE_AUDIO, PRESET_NORMALIZE_MIN_THRESHOLD } from '../index'
+import {
+    PRESET_AUDIO_BRANDING,
+    PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS,
+    PRESET_NORMALIZE_AUDIO,
+    PRESET_NORMALIZE_MIN_THRESHOLD
+} from '../index'
 
 const NORMALIZE_SUPPORTED_AUDIO_FORMATS = ['dts', 'eac3', 'ac3', 'aac']
 const NORMALIZE_SUPPORTED_CHANNEL_COUNT = [2, 6]
@@ -40,6 +45,7 @@ export async function applyNormalization(file: MediaFile, tracks: SeparatedTrack
                         `-c:a:0`, 'ac3',
                         `-b:a:0`, channels == 2 ? '384k' : '640k',
                         `-metadata:s:a:0`, `title=${channels == 2 ? 'Dolby Stereo' : 'Dolby Digital 5.1'} ${PRESET_AUDIO_BRANDING}`,
+                        `-metadata:s:a:0`, `language=${track?.Language || PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS || 'und'}`,
                         `-disposition:a:0`, 'default'
                     ])
 
