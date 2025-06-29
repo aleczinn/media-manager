@@ -2,15 +2,15 @@ import { AudioTrack } from '../types/AudioTrack'
 import { debug } from '../util/logger'
 import { filterUnknownLanguageTracks } from '../util/utils'
 import { PRESET_AUDIO_ORDER, PRESET_LANGUAGES } from '../new'
-import { SubtitleTrack } from '../types/SubtitleTrack'
+import { PURPLE } from '../ansi'
 
 export function processAudio(tracks: AudioTrack[]): void {
-    debug('=== ORIGINAL AUDIO TRACKS ===')
+    debug(`${PURPLE}=== ORIGINAL AUDIO TRACKS ===`)
     tracks.forEach((track, i) => {
         const lang = track.Language || 'unknown'
         const format = getAudioType(track)
         const channels = track.Channels || 0
-        debug(`[${i}] ${lang} ${format} ${channels}ch - "${track.Title}"`)
+        debug(`${PURPLE}[${i}] ${lang} ${format} ${channels}ch - "${track.Title}"`)
     })
 
     filterUnknownLanguageTracks(tracks)
@@ -20,12 +20,12 @@ export function processAudio(tracks: AudioTrack[]): void {
     customFilter(tracks)
 
     debug('\n')
-    debug('=== FINAL AUDIO TRACKS ===')
+    debug(`${PURPLE}=== FINAL AUDIO TRACKS ===`)
     tracks.forEach((track, i) => {
         const lang = track.Language || 'unknown'
         const type = getAudioType(track)
         const localIndex = track.LOCAL_INDEX
-        debug(`[${i}] ${lang} ${type} - "${track.Title}" (li: ${localIndex})`)
+        debug(`${PURPLE}[${i}] ${lang} ${type} - "${track.Title}" (li: ${localIndex})`)
     })
     debug('\n')
 }
