@@ -9,24 +9,24 @@ import { AudioTrack } from './types/AudioTrack'
 import { SubtitleTrack } from './types/SubtitleTrack'
 import { SeparatedTracks } from './types/SeparatedTracks'
 import { debug } from './util/logger'
-import { analyzePeakVolume, fixLanguageInTrack, getParsedMediaFile } from './util/utils'
+import { fixLanguageInTrack, getParsedMediaFile } from './util/utils'
 import { processSubtitles } from './handler/subtitle-handler'
-import { getAudioType, processAudio } from './handler/audio-handler'
+import { processAudio } from './handler/audio-handler'
 import { processVideo } from './handler/video-handler'
-import ffmpeg, { FfmpegCommand } from 'fluent-ffmpeg'
-import path from 'path'
+import ffmpeg from 'fluent-ffmpeg'
 import { ParsedMediaFile } from './types/ParsedMediaFile'
+import { applyNormalization } from './util/audio-utils'
 
 export const PRESET_LANGUAGES: Array<string> = ['de', 'en']
 export const PRESET_SUBTITLE_PRIORITY: Array<string> = ['forced', 'normal', 'cc', 'sdh']
 export const PRESET_SUBTITLE_ORDER: Array<string> = ['pgs', 'srt', 'ass', 'vobsub']
 export const PRESET_AUDIO_ORDER: Array<string> = ['truehd_atmos', 'eac3_atmos', 'dts_x', 'truehd', 'dts_hd_ma', 'dts_hd_hr', 'eac3', 'dts', 'ac3', 'aac']
-const PRESET_AUDIO_BRANDING: string = '[Sky Mix]'
+export const PRESET_AUDIO_BRANDING: string = '[Sky Mix]'
 const PRESET_ENCODE_OPTIONS: Array<string> = ['libx264', '-crf 18', '-preset slow', '-x264-params ref=5:bframes=5']
-const PRESET_NORMALIZE_MIN_THRESHOLD: number = 0.3
+export const PRESET_NORMALIZE_MIN_THRESHOLD: number = 0.3
 
 const PRESET_RENAME_FIX: boolean = true
-const PRESET_NORMALIZE_AUDIO: 'OFF' | 'PEAK' = 'PEAK'
+export const PRESET_NORMALIZE_AUDIO: 'OFF' | 'PEAK' = 'PEAK'
 const PRESET_ENCODE_VIDEO: boolean = false
 export const PRESET_THROW_AWAY_UNKNOWN_TRACKS: boolean = true
 export const PRESET_DEBUG_MODE: boolean = true // Save the metadata as a JSON file, print out debug information per file
@@ -153,54 +153,7 @@ async function buildScript(file: MediaFile, tracks: SeparatedTracks): Promise<vo
     })
 }
 
-async function applyNormalization(file: MediaFile, tracks: SeparatedTracks, command: FfmpegCommand): Promise<boolean> {
-    if (PRESET_NORMALIZE_AUDIO == 'PEAK') {
-        console.log(`${PURPLE}> Normalization`)
-        console.log(`${RESET}> - ${PURPLE}Mode${RESET}: PEAK`)
 
-        const track: AudioTrack = tracks.audio[0]
-        const audioType = getAudioType(track, false)
-        const channels = track.Channels;
-
-        if (['dts', 'eac3', 'ac3', 'aac'].includes(audioType) && (track.Channels == 2 || track.Channels == 6)) {
-            console.log(`${RESET}> - Analyzing peak levels...`);
-            try {
-                const peakData = await analyzePeakVolume(file, track);
-
-                console.log(`${RESET}> - Analyzing audio track "${track.Language} - ${track.Title}"`);
-                console.log(`${RESET}> - Current peak: ${peakData.maxVolume}dB`);
-                console.log(`${RESET}> - Gain needed: +${peakData.gainNeeded}dB`);
-
-                if (peakData.gainNeeded > PRESET_NORMALIZE_MIN_THRESHOLD) {
-                    const safeGain = Math.min(peakData.gainNeeded, 20);
-                    if (safeGain < peakData.gainNeeded) {
-                        console.log(`${RESET}> - ${YELLOW}Gain limited to ${safeGain}dB for safety`);
-                    }
-
-                    command.outputOptions([
-                        `-filter_complex`,
-                        `[0:a:${track.LOCAL_INDEX}]volume=${safeGain}dB[peak_normalized]`, // ← Nur diese eine Spur
-                        `-map`, `[peak_normalized]`,
-                        `-c:a:0`, 'ac3',
-                        `-b:a:0`, channels == 2 ? '384k' : '640k',
-                        `-metadata:s:a:0`, `title=${channels == 2 ? 'Dolby Stereo' : 'Dolby Digital 5.1'} ${PRESET_AUDIO_BRANDING}`,
-                        `-disposition:a:0`, 'default'
-                    ]);
-
-                    console.log(`${RESET}> - Peak normalization applied to track "${track.Language} - ${track.Title}" only (+${safeGain}dB)`);
-                    return true;
-                } else {
-                    console.log(`${RESET}> - Peak normalization skipped for track "${track.Language} - ${track.Title}", already near 0dB peak`);
-                }
-            } catch (error) {
-                console.error(`${RED}> Peak analysis failed: `, error)
-            }
-        } else {
-            console.error(`${RED}> Unsupported audio format! - Supported: AC3, EAC3, DTS & AAC (2 or 5.1 channels)`)
-        }
-    }
-    return false;
-}
 
 function renameFix(file: MediaFile): string {
     if (PRESET_RENAME_FIX) {
@@ -238,7 +191,7 @@ function renameFix(file: MediaFile): string {
             }
 
             const finalName = `S${parsed.season}e${parsed.episode} - ${name}${extra}.mkv`
-            if (fs.existsSync(`${file.path}\\${finalName}`)) {
+            if (fs.existsSync(`${OUTPUT_DIR}\\${finalName}`)) {
                 return `${parsed.title} - S${parsed.season}e${parsed.episode} - ${name}${extra}.mkv`
             }
             return finalName
