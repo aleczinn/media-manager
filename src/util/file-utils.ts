@@ -138,23 +138,3 @@ export function findMediaFiles(rootDir: string, extensions: string[] = ['.mkv', 
     scanDirectory(rootDir)
     return files
 }
-
-export function generateOutputPath(file: MediaFile, rootDir: string): string {
-    // const baseFileName = `${file.name}`
-    // let outputPath = path.join(rootDir, baseFileName)
-    //
-    // if (fs.existsSync(outputPath)) {
-    //     const nameWithFolder = `${file.folderName}_${file.name}`
-    //     outputPath = path.join(rootDir, nameWithFolder)
-    //
-    //     let counter = 1
-    //     while (fs.existsSync(outputPath)) {
-    //         const nameWithCounter = `${file.folderName}_${file.name}_${counter}`
-    //         outputPath = path.join(rootDir, nameWithCounter)
-    //         counter++
-    //     }
-    // }
-    //
-    // return outputPath
-    return ''
-}
