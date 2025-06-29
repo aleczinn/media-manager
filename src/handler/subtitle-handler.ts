@@ -1,95 +1,92 @@
 import { SubtitleTrack } from '../types/SubtitleTrack'
 import { debug } from '../util/logger'
-import { PRESET_SUBTITLE_ORDER } from '../new'
+import { PRESET_LANGUAGES, PRESET_SUBTITLE_ORDER, PRESET_SUBTITLE_PRIORITY } from '../new'
 import { filterUnknownLanguageTracks, getLanguageName, isDefaultTrack } from '../util/utils'
+import { YELLOW } from '../ansi'
 
 export function processSubtitles(tracks: SubtitleTrack[]): void {
-    debug('=== ORIGINAL SUBTITLE TRACKS ===')
+    debug(`${YELLOW}=== ORIGINAL SUBTITLE TRACKS ===`)
     tracks.forEach((track, i) => {
         const lang = track.Language || 'unknown'
         const format = getSubtitleFormat(track)
         const type = getSubtitleType(track)
-        debug(`[${i}] ${lang} ${format} ${type} - "${track.Title}"`)
+        debug(`${YELLOW}[${i}] ${lang} ${format} ${type} - "${track.Title}"`)
     })
 
     filterUnknownLanguageTracks(tracks)
-    groupAndSortSubtitleTracks(tracks)
+    sortSubtitleTracks(tracks)
     setDefaultSubtitleTrack(tracks)
     renameSubtitleTracks(tracks)
     customFilter(tracks)
 
     debug('\n')
-    debug('=== FINAL SUBTITLE TRACKS ===')
+    debug(`${YELLOW}=== FINAL SUBTITLE TRACKS ===`)
     tracks.forEach((track, i) => {
         const lang = track.Language || 'unknown'
         const format = getSubtitleFormat(track)
         const type = getSubtitleType(track)
         const localIndex = track.LOCAL_INDEX
-        debug(`[${i}] ${lang} ${format} ${type} - "${track.Title}" (li: ${localIndex}) Default: ${isDefaultTrack(track)}`)
+        debug(`${YELLOW}[${i}] ${lang} ${format} ${type} - "${track.Title}" (li: ${localIndex}) Default: ${isDefaultTrack(track)}`)
     })
     debug('\n')
 }
 
-function groupAndSortSubtitleTracks(tracks: SubtitleTrack[]): void {
-    const groups = new Map<string, SubtitleTrack[]>()
+function sortSubtitleTracks(tracks: SubtitleTrack[]): void {
+    tracks.sort((a: SubtitleTrack, b: SubtitleTrack) => {
+        const langA = a.Language || ''
+        const langB = b.Language || ''
+        const typeA = getSubtitleType(a)
+        const typeB = getSubtitleType(b)
+        const formatA = getSubtitleFormat(a)
+        const formatB = getSubtitleFormat(b)
+
+        // Sort by language priority (de, en, then rest)
+        const langPriorityA = PRESET_LANGUAGES.indexOf(langA)
+        const langPriorityB = PRESET_LANGUAGES.indexOf(langB)
+        const finalLangA = langPriorityA === -1 ? 999 : langPriorityA
+        const finalLangB = langPriorityB === -1 ? 999 : langPriorityB
+
+        if (finalLangA !== finalLangB) {
+            return finalLangA - finalLangB
+        }
+
+        // For the same language: Sort by type priority
+        const typePriorityA = PRESET_SUBTITLE_PRIORITY.indexOf(typeA)
+        const typePriorityB = PRESET_SUBTITLE_PRIORITY.indexOf(typeB)
+        const finalTypeA = typePriorityA === -1 ? 999 : typePriorityA
+        const finalTypeB = typePriorityB === -1 ? 999 : typePriorityB
+
+        if (finalTypeA !== finalTypeB) {
+            return finalTypeA - finalTypeB
+        }
+
+        // For the same type: Sort by format priority
+        const formatPriorityA = PRESET_SUBTITLE_ORDER.indexOf(formatA)
+        const formatPriorityB = PRESET_SUBTITLE_ORDER.indexOf(formatB)
+        const finalFormatA = formatPriorityA === -1 ? 999 : formatPriorityA
+        const finalFormatB = formatPriorityB === -1 ? 999 : formatPriorityB
+
+        return finalFormatA - finalFormatB
+    })
+
+    // Filter now: Keep only the best track per language + type combination
+    const seen = new Set<string>()
+    const filtered: SubtitleTrack[] = []
 
     tracks.forEach(track => {
         const language = track.Language || ''
         const type = getSubtitleType(track)
+        const format = getSubtitleFormat(track)
         const key = `${language}-${type}`
 
-        if (!groups.has(key)) {
-            groups.set(key, [])
+        if (!seen.has(key)) {
+            debug(`${YELLOW}Keeping: ${language} ${type} ${format} - "${track.Title}"`)
+            seen.add(key)
+            filtered.push(track)
+        } else {
+            debug(`${YELLOW}Skipping: ${language} ${type} ${format} - "${track.Title}" (already have better)`)
         }
-        groups.get(key)!.push(track)
     })
-
-    // debug('\n')
-    // debug('=== SUBTITLE GROUPS ===')
-    // groups.forEach((tracksInGroup, key) => {
-    //     debug(`Gruppe: ${key}`)
-    //     tracksInGroup.forEach(track => {
-    //         const format = getSubtitleFormat(track)
-    //         debug(`  - ${format} "${track.Title}"`)
-    //     })
-    // })
-
-    const filtered: SubtitleTrack[] = []
-
-    groups.forEach((tracksInGroup, key) => {
-        debug(`Filter Group: ${key}`)
-
-        // Nach Format-Priorität sortieren
-        const sortedByFormat = tracksInGroup.sort((a, b) => {
-            const formatA = getSubtitleFormat(a)
-            const formatB = getSubtitleFormat(b)
-
-            const priorityA = PRESET_SUBTITLE_ORDER.indexOf(formatA)
-            const priorityB = PRESET_SUBTITLE_ORDER.indexOf(formatB)
-
-            const finalA = priorityA === -1 ? 999 : priorityA
-            const finalB = priorityB === -1 ? 999 : priorityB
-
-            debug(`  ${formatA} (${priorityA}) vs ${formatB} (${priorityB})`)
-
-            return finalA - finalB
-        })
-
-        const bestTrack = sortedByFormat[0]
-        const bestFormat = getSubtitleFormat(bestTrack)
-        debug(`  → Choose: ${bestFormat} "${bestTrack.Title}"`)
-
-        filtered.push(bestTrack)
-    })
-
-    // debug('\n')
-    // debug('=== FILTERED SUBTITLE TRACKS ===')
-    // filtered.forEach((track, i) => {
-    //     const lang = track.Language || 'unknown'
-    //     const format = getSubtitleFormat(track)
-    //     const type = getSubtitleType(track)
-    //     debug(`[${i}] ${lang} ${format} ${type} - "${track.Title}"`)
-    // })
 
     tracks.length = 0
     tracks.push(...filtered)
