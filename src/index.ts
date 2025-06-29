@@ -27,7 +27,7 @@ export const PRESET_NORMALIZE_MIN_THRESHOLD: number = 0.3
 export const PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS = 'de'
 
 const PRESET_RENAME_FIX: boolean = true
-export const PRESET_NORMALIZE_AUDIO: 'OFF' | 'PEAK' = 'PEAK'
+export const PRESET_NORMALIZE_AUDIO: 'OFF' | 'PEAK' | 'EBU R128' = 'PEAK'
 const PRESET_ENCODE_VIDEO: boolean = false
 export const PRESET_THROW_AWAY_UNKNOWN_TRACKS: boolean = false
 export const PRESET_DEBUG_MODE: boolean = false // Save the metadata as a JSON file, print out debug information per file
@@ -86,7 +86,7 @@ async function buildScript(file: MediaFile, tracks: SeparatedTracks): Promise<vo
         }
     })
 
-    const normalizationApplied: boolean = await applyNormalization(file, tracks, command)
+    const normalizationApplied: boolean = await applyNormalization(file, tracks.audio, command)
 
     // Audio
     tracks.audio.forEach((track: AudioTrack, index: number) => {
