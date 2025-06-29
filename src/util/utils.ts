@@ -79,8 +79,21 @@ export function getParsedMediaFile(file: MediaFile): ParsedMediaFile | null {
     // Regex for S01E02 or 1x02 Format
     const regex = /[Ss](\d+)[Ee](\d+)|(\d+)x(\d+)/
     const match = file.name.match(regex)
+    let title = ''
 
     if (match) {
+        const titleMatch = file.name.match(/^(.+?)[\s\.\-_]*(?:[Ss]\d+[Ee]\d+|\d+x\d+)/)
+
+        if (titleMatch) {
+            title = titleMatch[1]
+                .replace(/[.\-_]+/g, ' ') // Ersetze Punkte, Unterstriche, Bindestriche durch Leerzeichen
+                .replace(/\s+/g, ' ') // Entferne überschüssige Leerzeichen
+                .trim() // Entferne Leerzeichen am Anfang und Ende
+                .replace(/\w\S*/g, (txt) => // Erster Buchstabe jedes Wortes groß (Title Case)
+                    txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
+                );
+        }
+
         // S01E02 Format
         if (match[1] && match[2]) {
             return {
@@ -89,7 +102,8 @@ export function getParsedMediaFile(file: MediaFile): ParsedMediaFile | null {
                 fullPath: file.fullPath,
                 extension: file.extension,
                 season: match[1],
-                episode: match[2]
+                episode: match[2],
+                title: title
             }
         }
         // 1x02 Format
@@ -100,7 +114,8 @@ export function getParsedMediaFile(file: MediaFile): ParsedMediaFile | null {
                 fullPath: file.fullPath,
                 extension: file.extension,
                 season: match[3],
-                episode: match[4]
+                episode: match[4],
+                title: title
             }
         }
     }

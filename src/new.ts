@@ -213,7 +213,7 @@ function renameFix(file: MediaFile): string {
         console.log(`${BLUE}> RenameFix`)
         console.log(`${RESET}> - ${BLUE}Original${RESET}: ${file.name}`)
         if (parsed) {
-            console.log(`${RESET}> - ${BLUE}Match found!${RESET} - Season: ${parsed.season}, Episode: ${parsed.episode} `)
+            console.log(`${RESET}> - ${BLUE}Match found!${RESET} - Season: ${parsed.season}, Episode: ${parsed.episode}, Title: ${parsed.title}`)
 
             if (f_name.includes('extended')) {
                 extra += ' {edition-Extended}'
@@ -237,7 +237,11 @@ function renameFix(file: MediaFile): string {
                 extra += ' {source-BluRay}'
             }
 
-            return `S${parsed.season}e${parsed.episode} - ${name}${extra}.mkv`
+            const finalName = `S${parsed.season}e${parsed.episode} - ${name}${extra}.mkv`
+            if (fs.existsSync(`${file.path}\\${finalName}`)) {
+                return `${parsed.title} - S${parsed.season}e${parsed.episode} - ${name}${extra}.mkv`
+            }
+            return finalName
         }
     }
     return `${file.name}.mkv`
