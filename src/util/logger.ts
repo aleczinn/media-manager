@@ -1,4 +1,4 @@
-import { PRESET_DEBUG_MODE } from '../new'
+import { PRESET_DEBUG_MODE } from '../index'
 import * as console from 'node:console'
 
 export const RESET = '\u001b[0m'

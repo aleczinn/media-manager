@@ -1,6 +1,6 @@
 import { SubtitleTrack } from '../types/SubtitleTrack'
 import { debug } from '../util/logger'
-import { PRESET_LANGUAGES, PRESET_SUBTITLE_ORDER, PRESET_SUBTITLE_PRIORITY } from '../new'
+import { PRESET_LANGUAGES, PRESET_SUBTITLE_ORDER, PRESET_SUBTITLE_PRIORITY } from '../index'
 import { filterUnknownLanguageTracks, getLanguageName, isDefaultTrack } from '../util/utils'
 import { RED, RESET, YELLOW } from '../ansi'
 import * as console from 'node:console'

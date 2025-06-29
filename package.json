@@ -4,7 +4,7 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-        "dev": "ts-node-dev --poll src/new.ts",
+        "dev": "ts-node-dev --poll src/index.ts",
         "old": "ts-node-dev --poll src/index.ts",
         "build": "tsc",
         "start": "node dist/app.js"

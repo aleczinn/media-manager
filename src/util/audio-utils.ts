@@ -4,7 +4,7 @@ import ffmpeg, { FfmpegCommand } from 'fluent-ffmpeg'
 import { PURPLE, RED, RESET, YELLOW } from '../ansi'
 import { AudioTrack } from '../types/AudioTrack'
 import { getAudioType } from '../handler/audio-handler'
-import { PRESET_AUDIO_BRANDING, PRESET_NORMALIZE_AUDIO, PRESET_NORMALIZE_MIN_THRESHOLD } from '../new'
+import { PRESET_AUDIO_BRANDING, PRESET_NORMALIZE_AUDIO, PRESET_NORMALIZE_MIN_THRESHOLD } from '../index'
 
 const NORMALIZE_SUPPORTED_AUDIO_FORMATS = ['dts', 'eac3', 'ac3', 'aac']
 const NORMALIZE_SUPPORTED_CHANNEL_COUNT = [2, 6]

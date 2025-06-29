@@ -1,7 +1,7 @@
 import { AudioTrack } from '../types/AudioTrack'
 import { debug } from '../util/logger'
 import { filterUnknownLanguageTracks } from '../util/utils'
-import { PRESET_AUDIO_ORDER, PRESET_LANGUAGES } from '../new'
+import { PRESET_AUDIO_ORDER, PRESET_LANGUAGES } from '../index'
 import { PURPLE, RED, RESET } from '../ansi'
 import console from 'node:console'
 
