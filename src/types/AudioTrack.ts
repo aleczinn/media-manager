@@ -23,7 +23,7 @@ export interface AudioTrack extends BaseTrack {
     Delay_Source: string;
     Video_Delay: number;
     StreamSize: number;
-    Language: string;
+    Language?: string;
     ServiceKind: string;
     Default: string;
     Forced: string;

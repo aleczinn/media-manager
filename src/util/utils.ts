@@ -2,7 +2,7 @@ import { SubtitleTrack } from '../types/SubtitleTrack'
 import { VideoTrack } from '../types/VideoTrack'
 import { AudioTrack } from '../types/AudioTrack'
 import { debug } from './logger'
-import { PRESET_LANGUAGES, PRESET_THROW_AWAY_UNKNOWN_TRACKS } from '../index'
+import { PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS, PRESET_LANGUAGES, PRESET_THROW_AWAY_UNKNOWN_TRACKS } from '../index'
 import { ParsedMediaFile } from '../types/ParsedMediaFile'
 import { MediaFile } from '../types/MediaFile'
 import ffmpeg from 'fluent-ffmpeg'
@@ -37,7 +37,7 @@ export function filterUnknownLanguageTracks(tracks: (AudioTrack | SubtitleTrack)
 }
 
 export function fixLanguageInTrack(track: (VideoTrack | AudioTrack | SubtitleTrack)): void {
-    const language = (track.Language || '').toLowerCase()
+    const language = (track.Language || PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS).toLowerCase()
     if (language === 'ger' || language === 'deu') {
         track.Language = 'de'
     }

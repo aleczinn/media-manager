@@ -11,7 +11,7 @@ export interface SubtitleTrack extends BaseTrack {
     FrameCount: number;
     ElementCount: number;
     StreamSize: number;
-    Language: string;
+    Language?: string;
     Default: string;
     Forced: string;
     HearingImpaired: string;

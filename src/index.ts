@@ -24,12 +24,13 @@ export const PRESET_AUDIO_ORDER: Array<string> = ['truehd_atmos', 'eac3_atmos', 
 export const PRESET_AUDIO_BRANDING: string = '[Sky Mix]'
 const PRESET_ENCODE_OPTIONS: Array<string> = ['libx264', '-crf 18', '-preset slow', '-x264-params ref=5:bframes=5']
 export const PRESET_NORMALIZE_MIN_THRESHOLD: number = 0.3
+export const PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS = 'de'
 
 const PRESET_RENAME_FIX: boolean = true
 export const PRESET_NORMALIZE_AUDIO: 'OFF' | 'PEAK' = 'PEAK'
 const PRESET_ENCODE_VIDEO: boolean = false
-export const PRESET_THROW_AWAY_UNKNOWN_TRACKS: boolean = true
-export const PRESET_DEBUG_MODE: boolean = true // Save the metadata as a JSON file, print out debug information per file
+export const PRESET_THROW_AWAY_UNKNOWN_TRACKS: boolean = false
+export const PRESET_DEBUG_MODE: boolean = false // Save the metadata as a JSON file, print out debug information per file
 
 const OUTPUT_DIR = 'C:\\Users\\alec_\\Desktop\\Loki\\OUTPUT'
 
@@ -47,7 +48,8 @@ async function processFile(file: MediaFile) {
 
         if (PRESET_DEBUG_MODE) {
             const data = JSON.stringify(metadata, null, 2)
-            fs.writeFileSync(`${file.path}-combined.json`, data, 'utf-8')
+            fs.writeFileSync(`${file.fullPath}-combined.json`, data, 'utf-8')
+            console.log("SAFE DEBUG FILE")
         }
 
         let separatedTracks: SeparatedTracks = separateTracks(tracks)
