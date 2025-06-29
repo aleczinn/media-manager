@@ -155,8 +155,6 @@ async function buildScript(file: MediaFile, tracks: SeparatedTracks): Promise<vo
     })
 }
 
-
-
 function renameFix(file: MediaFile): string {
     if (PRESET_RENAME_FIX) {
         const f_name = file.name.toLowerCase()
