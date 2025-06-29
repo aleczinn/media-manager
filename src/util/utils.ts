@@ -5,6 +5,8 @@ import { debug } from './logger'
 import { PRESET_LANGUAGES, PRESET_THROW_AWAY_UNKNOWN_TRACKS } from '../new'
 import { ParsedMediaFile } from '../types/ParsedMediaFile'
 import { MediaFile } from '../types/MediaFile'
+import ffmpeg from 'fluent-ffmpeg'
+import { PURPLE, RESET } from '../ansi'
 
 export function isDefaultTrack(track: VideoTrack | AudioTrack | SubtitleTrack): boolean {
     const title = (track.Title || '').toLowerCase()
@@ -103,4 +105,35 @@ export function getParsedMediaFile(file: MediaFile): ParsedMediaFile | null {
         }
     }
     return null
+}
+
+export async function analyzePeakVolume(file: MediaFile, track: AudioTrack): Promise<any> {
+    return new Promise((resolve, reject) => {
+        // @ts-ignore
+        ffmpeg(file.fullPath, (err, ffmpeg) => {})
+            .addOption('-f', 'null')
+            .outputOptions([
+                `-map 0:a:${track.LOCAL_INDEX}`,
+                '-af', 'volumedetect'
+            ])
+            .on('stderr', (stderrLine) => {
+                const maxVolumeMatch = stderrLine.match(/max_volume:\s*(-?\d+(\.\d+)?)\s*dB/);
+                if (maxVolumeMatch) {
+                    const maxVolume = parseFloat(maxVolumeMatch[1]);
+                    resolve({
+                        maxVolume: maxVolume,
+                        gainNeeded: maxVolume * -1 // Invertiert für Verstärkung
+                    });
+                }
+            })
+            .on('progress', (progress) => {
+                if (progress.percent && progress.percent >= 0) {
+                    console.log(`${RESET}> - ${PURPLE}Progress${RESET}: ${progress.percent.toFixed(2)}%`)
+                }
+            })
+            .on('end', () => reject('Keine Peak-Daten gefunden!'))
+            .on('error', (err) => reject(`Fehler bei Peak-Analyse: ${err.message}`))
+            .output('/dev/null') // Linux/Mac oder 'NUL' für Windows
+            .run();
+    });
 }

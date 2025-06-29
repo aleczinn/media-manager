@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import { MediaFile } from './types/MediaFile'
 import { findMediaFiles, getCombinedMetadata } from './util/file-utils'
-import { BLUE, CYAN, GREEN, RESET, WHITE } from './ansi'
+import { BLUE, CYAN, GREEN, PURPLE, RED, RESET, WHITE, YELLOW } from './ansi'
 import { GeneralTrack } from './types/GeneralTrack'
 import { BaseTrack } from './types/BaseTrack'
 import { VideoTrack } from './types/VideoTrack'
@@ -9,11 +9,11 @@ import { AudioTrack } from './types/AudioTrack'
 import { SubtitleTrack } from './types/SubtitleTrack'
 import { SeparatedTracks } from './types/SeparatedTracks'
 import { debug } from './util/logger'
-import { fixLanguageInTrack, getParsedMediaFile } from './util/utils'
+import { analyzePeakVolume, fixLanguageInTrack, getParsedMediaFile } from './util/utils'
 import { processSubtitles } from './handler/subtitle-handler'
-import { processAudio } from './handler/audio-handler'
+import { getAudioType, processAudio } from './handler/audio-handler'
 import { processVideo } from './handler/video-handler'
-import ffmpeg from 'fluent-ffmpeg'
+import ffmpeg, { FfmpegCommand } from 'fluent-ffmpeg'
 import path from 'path'
 import { ParsedMediaFile } from './types/ParsedMediaFile'
 
@@ -26,7 +26,7 @@ const PRESET_ENCODE_OPTIONS: Array<string> = ['libx264', '-crf 18', '-preset slo
 const PRESET_NORMALIZE_MIN_THRESHOLD: number = 0.3
 
 const PRESET_RENAME_FIX: boolean = true
-const PRESET_NORMALIZE_AUDIO: boolean = true
+const PRESET_NORMALIZE_AUDIO: 'OFF' | 'PEAK' = 'PEAK'
 const PRESET_ENCODE_VIDEO: boolean = false
 export const PRESET_THROW_AWAY_UNKNOWN_TRACKS: boolean = true
 export const PRESET_DEBUG_MODE: boolean = true // Save the metadata as a JSON file, print out debug information per file
@@ -86,19 +86,16 @@ async function buildScript(file: MediaFile, tracks: SeparatedTracks): Promise<vo
         }
     })
 
+    const normalizationApplied: boolean = await applyNormalization(file, tracks, command)
+
     // Audio
     tracks.audio.forEach((track: AudioTrack, index: number) => {
+        const i = normalizationApplied ? index + 1 : index
+
         command.outputOptions(`-map 0:a:${track.LOCAL_INDEX}`)
-        command.outputOptions(`-c:a:${index} copy`)
-        command.outputOptions(`-metadata:s:a:${index}`, `title=${track.Title}`)
-
-        const dispositions: string[] = []
-
-        if (track.Default === 'Yes') dispositions.push('default')
-        if (track.Forced === 'Yes') dispositions.push('forced')
-
-        const dispositionStr = dispositions.length > 0 ? dispositions.join('+') : '0'
-        command.outputOptions(`-disposition:a:${index}`, dispositionStr)
+        command.outputOptions(`-c:a:${i} copy`)
+        command.outputOptions(`-metadata:s:a:${i}`, `title=${track.Title}`)
+        command.outputOptions(`-disposition:a:${i}`, '0')
     })
 
     // Subtitle
@@ -128,12 +125,14 @@ async function buildScript(file: MediaFile, tracks: SeparatedTracks): Promise<vo
     command.outputOptions('-vsync cfr')
     command.outputOptions('-max_interleave_delta 0')
 
+    const name = renameFix(file)
+
     console.log(`\n${GREEN}> Building file...`)
 
     await new Promise<void>((resolve, reject) => {
         let startTime = Date.now()
 
-        command.save(`${OUTPUT_DIR}\\${renameFix(file)}`)
+        command.save(`${OUTPUT_DIR}\\${name}`)
             .on('progress', (progress) => {
                 if (progress.percent && progress.percent >= 0) {
                     let elapsed = (Date.now() - startTime) / 1000
@@ -152,6 +151,55 @@ async function buildScript(file: MediaFile, tracks: SeparatedTracks): Promise<vo
                 resolve()
             })
     })
+}
+
+async function applyNormalization(file: MediaFile, tracks: SeparatedTracks, command: FfmpegCommand): Promise<boolean> {
+    if (PRESET_NORMALIZE_AUDIO == 'PEAK') {
+        console.log(`${PURPLE}> Normalization`)
+        console.log(`${RESET}> - ${PURPLE}Mode${RESET}: PEAK`)
+
+        const track: AudioTrack = tracks.audio[0]
+        const audioType = getAudioType(track, false)
+        const channels = track.Channels;
+
+        if (['dts', 'eac3', 'ac3', 'aac'].includes(audioType) && (track.Channels == 2 || track.Channels == 6)) {
+            console.log(`${RESET}> - Analyzing peak levels...`);
+            try {
+                const peakData = await analyzePeakVolume(file, track);
+
+                console.log(`${RESET}> - Analyzing audio track "${track.Language} - ${track.Title}"`);
+                console.log(`${RESET}> - Current peak: ${peakData.maxVolume}dB`);
+                console.log(`${RESET}> - Gain needed: +${peakData.gainNeeded}dB`);
+
+                if (peakData.gainNeeded > PRESET_NORMALIZE_MIN_THRESHOLD) {
+                    const safeGain = Math.min(peakData.gainNeeded, 20);
+                    if (safeGain < peakData.gainNeeded) {
+                        console.log(`${RESET}> - ${YELLOW}Gain limited to ${safeGain}dB for safety`);
+                    }
+
+                    command.outputOptions([
+                        `-filter_complex`,
+                        `[0:a:${track.LOCAL_INDEX}]volume=${safeGain}dB[peak_normalized]`, // ← Nur diese eine Spur
+                        `-map`, `[peak_normalized]`,
+                        `-c:a:0`, 'ac3',
+                        `-b:a:0`, channels == 2 ? '384k' : '640k',
+                        `-metadata:s:a:0`, `title=${channels == 2 ? 'Dolby Stereo' : 'Dolby Digital 5.1'} ${PRESET_AUDIO_BRANDING}`,
+                        `-disposition:a:0`, 'default'
+                    ]);
+
+                    console.log(`${RESET}> - Peak normalization applied to track "${track.Language} - ${track.Title}" only (+${safeGain}dB)`);
+                    return true;
+                } else {
+                    console.log(`${RESET}> - Peak normalization skipped for track "${track.Language} - ${track.Title}", already near 0dB peak`);
+                }
+            } catch (error) {
+                console.error(`${RED}> Peak analysis failed: `, error)
+            }
+        } else {
+            console.error(`${RED}> Unsupported audio format! - Supported: AC3, EAC3, DTS & AAC (2 or 5.1 channels)`)
+        }
+    }
+    return false;
 }
 
 function renameFix(file: MediaFile): string {

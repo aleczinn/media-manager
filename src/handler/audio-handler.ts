@@ -104,7 +104,7 @@ function customFilter(tracks: AudioTrack[]): void {
     // tracks.push(...filtered)
 }
 
-function getAudioType(track: AudioTrack, withChannel: boolean = true): string {
+export function getAudioType(track: AudioTrack, withChannel: boolean = true): string {
     const title = (track.Title || '').toLowerCase()
     const codecId = (track.CodecID || track.Format || '').toLowerCase()
     const additionalFeatures = (track.Format_AdditionalFeatures || '').toLowerCase()
