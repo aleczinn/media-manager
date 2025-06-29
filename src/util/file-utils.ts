@@ -5,7 +5,9 @@ import path from 'path'
 import ffmpeg from 'fluent-ffmpeg'
 
 export async function getMetaDataMediaInfo(file: MediaFile) {
-    const factory = await mediaInfoFactory()
+    const factory = await mediaInfoFactory({
+        chunkSize: 1024 * 1024
+    })
 
     try {
         const stats = await fs.promises.stat(file.fullPath)
