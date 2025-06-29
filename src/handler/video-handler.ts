@@ -1,11 +1,12 @@
 import { VideoTrack } from '../types/VideoTrack'
 import { debug } from '../util/logger'
+import { RED } from '../ansi'
 
 export function processVideo(tracks: VideoTrack[]): void {
-    debug('=== ORIGINAL VIDEO TRACKS ===')
+    debug(`${RED}=== ORIGINAL VIDEO TRACKS ===`)
     tracks.forEach((track, i) => {
         const lang = track.Language || 'unknown'
-        debug(`[${i}] ${lang} - "${track.Title}"`)
+        debug(`${RED}[${i}] ${lang} - "${track.Title}"`)
     })
 
     tracks.forEach(track => {
