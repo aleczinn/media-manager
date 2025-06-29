@@ -63,8 +63,7 @@ async function processFile(file: MediaFile) {
 
         // TODO : merge final file with ffmpeg here
         // TODO : built in normalization for main track + optinal other tracks
-        renameFix(file)
-        // await buildScript(file, separatedTracks)
+        await buildScript(file, separatedTracks)
     } catch (error) {
         console.error(error)
     }
@@ -174,7 +173,15 @@ function renameFix(file: MediaFile): string {
                 extra += ` {edition-Director's Cut}`
             }
 
-            if (f_name.includes('web')) {
+            if (f_name.includes('dsnp')) {
+                extra += ' {source-Disney+}'
+            } else if (f_name.includes('amazon')) {
+                extra += ' {source-Amazon}'
+            } else if (f_name.includes('atvp')) {
+                extra += ' {source-ATVP}'
+            } else if (f_name.includes('rtl')) {
+                extra += ' {source-RTL+}'
+            } else if (f_name.includes('web')) {
                 extra += ' {source-Web}'
             } else if (f_name.includes('uhd')) {
                 extra += ' {source-UHD}'
