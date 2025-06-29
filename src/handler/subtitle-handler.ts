@@ -86,11 +86,11 @@ function sortSubtitleTracks(tracks: SubtitleTrack[]): void {
         const key = `${language}-${type}`
 
         if (!seen.has(key)) {
-            debug(`${YELLOW}Keeping: ${language} ${type} ${format} - "${track.Title}"`)
+            debug(`${YELLOW}Keeping: ${language} ${type} ${format} - "${track?.Title}"`)
             seen.add(key)
             filtered.push(track)
         } else {
-            debug(`${YELLOW}Skipping: ${language} ${type} ${format} - "${track.Title}" (already have better)`)
+            debug(`${YELLOW}Skipping: ${language} ${type} ${format} - "${track?.Title}" (already have better)`)
         }
     })
 
@@ -182,7 +182,7 @@ function getSubtitleType(track: SubtitleTrack): string {
 }
 
 function isForcedSubtitle(track: SubtitleTrack): boolean {
-    const title = (track.Title || '').toLowerCase()
+    const title = (track?.Title || '').toLowerCase()
 
     return title.includes('forced') ||
         title.includes('erzwungen') ||
@@ -190,7 +190,7 @@ function isForcedSubtitle(track: SubtitleTrack): boolean {
 }
 
 function isSDHSubtitle(track: SubtitleTrack): boolean {
-    const title = (track.Title || '').toLowerCase()
+    const title = (track?.Title || '').toLowerCase()
 
     return title.includes('sdh') ||
         title.includes('hearing impaired') ||
@@ -198,7 +198,7 @@ function isSDHSubtitle(track: SubtitleTrack): boolean {
 }
 
 function isCCSubtitle(track: SubtitleTrack): boolean {
-    const title = (track.Title || '').toLowerCase()
+    const title = (track?.Title || '').toLowerCase()
 
     return title.includes('cc')
 }
