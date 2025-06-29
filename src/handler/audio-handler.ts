@@ -2,9 +2,15 @@ import { AudioTrack } from '../types/AudioTrack'
 import { debug } from '../util/logger'
 import { filterUnknownLanguageTracks } from '../util/utils'
 import { PRESET_AUDIO_ORDER, PRESET_LANGUAGES } from '../new'
-import { PURPLE } from '../ansi'
+import { PURPLE, RED, RESET } from '../ansi'
+import console from 'node:console'
 
 export function processAudio(tracks: AudioTrack[]): void {
+    if (tracks.length === 0) {
+        console.log(`${RESET}>${RED}> No audio tracks found -> Skip processing`)
+        return;
+    }
+
     debug(`${PURPLE}=== ORIGINAL AUDIO TRACKS ===`)
     tracks.forEach((track, i) => {
         const lang = track.Language || 'unknown'

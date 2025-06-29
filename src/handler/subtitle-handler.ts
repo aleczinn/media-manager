@@ -2,9 +2,15 @@ import { SubtitleTrack } from '../types/SubtitleTrack'
 import { debug } from '../util/logger'
 import { PRESET_LANGUAGES, PRESET_SUBTITLE_ORDER, PRESET_SUBTITLE_PRIORITY } from '../new'
 import { filterUnknownLanguageTracks, getLanguageName, isDefaultTrack } from '../util/utils'
-import { YELLOW } from '../ansi'
+import { RED, RESET, YELLOW } from '../ansi'
+import * as console from 'node:console'
 
 export function processSubtitles(tracks: SubtitleTrack[]): void {
+    if (tracks.length === 0) {
+        console.log(`${RESET}>${RED}> No subtitle tracks found -> Skip processing`)
+        return;
+    }
+
     debug(`${YELLOW}=== ORIGINAL SUBTITLE TRACKS ===`)
     tracks.forEach((track, i) => {
         const lang = track.Language || 'unknown'
