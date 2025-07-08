@@ -105,6 +105,7 @@ function customFilter(tracks: AudioTrack[]): void {
 export function getAudioType(track: AudioTrack, withChannel: boolean = true): string {
     const title = (track?.Title || '').toLowerCase()
     const codecId = (track.CodecID || track.Format || '').toLowerCase()
+    const format = (track.Format || '').toLowerCase()
     const additionalFeatures = (track.Format_AdditionalFeatures || '').toLowerCase()
     const isAtmos = additionalFeatures.includes('joc')
         || additionalFeatures.includes('16-ch')
@@ -152,7 +153,7 @@ export function getAudioType(track: AudioTrack, withChannel: boolean = true): st
     }
 
     // AAC
-    else if (codecId.includes('aac')) {
+    else if (codecId.includes('aac') || format.includes('aac')) {
         name = 'aac'
     }
     return withChannel ? `${name}_${channels}` : name
