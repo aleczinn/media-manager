@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import { MediaFile } from './types/MediaFile'
 import { findMediaFiles, getCombinedMetadata } from './util/file-utils'
-import { BLUE, CYAN, GREEN, PURPLE, RED, RESET, WHITE, YELLOW } from './ansi'
+import { BLUE, CYAN, GREEN, RESET, WHITE } from './ansi'
 import { GeneralTrack } from './types/GeneralTrack'
 import { BaseTrack } from './types/BaseTrack'
 import { VideoTrack } from './types/VideoTrack'
@@ -17,21 +17,22 @@ import ffmpeg from 'fluent-ffmpeg'
 import { ParsedMediaFile } from './types/ParsedMediaFile'
 import { applyNormalization } from './util/audio-utils'
 
-export const PRESET_LANGUAGES: Array<string> = ['de', 'en']
+export const PRESET_LANGUAGES: Array<string> = ['de', 'en', 'und']
 export const PRESET_SUBTITLE_PRIORITY: Array<string> = ['forced', 'normal', 'cc', 'sdh']
 export const PRESET_SUBTITLE_ORDER: Array<string> = ['pgs', 'srt', 'ass', 'vobsub']
 export const PRESET_AUDIO_ORDER: Array<string> = ['truehd_atmos', 'eac3_atmos', 'dts_x', 'truehd', 'dts_hd_ma', 'dts_hd_hr', 'eac3', 'dts', 'ac3', 'aac']
 export const PRESET_AUDIO_BRANDING: string = '[Sky Mix]'
 const PRESET_ENCODE_OPTIONS: Array<string> = ['libx264', '-crf 18', '-preset slow', '-x264-params ref=5:bframes=5']
 export const PRESET_NORMALIZE_MIN_THRESHOLD: number = 0.3
-export const PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS = 'de'
+export const PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS = ''
 
 const PRESET_RENAME_FIX: boolean = true
-export const PRESET_NORMALIZE_AUDIO: 'OFF' | 'PEAK' | 'EBU R128' = 'PEAK'
+export const PRESET_NORMALIZE_AUDIO: 'OFF' | 'PEAK' = 'OFF'
 const PRESET_ENCODE_VIDEO: boolean = false
 export const PRESET_THROW_AWAY_UNKNOWN_TRACKS: boolean = false
-export const PRESET_DEBUG_MODE: boolean = false // Save the metadata as a JSON file, print out debug information per file
+export const PRESET_DEBUG_LEVEL: 'OFF' | 'LOW' | 'FULL' = 'LOW' // Save the metadata as a JSON file, print out debug information per file
 
+const INPUT_DIR = 'C:\\Users\\alec_\\Desktop\\Loki\\A plague tale'
 const OUTPUT_DIR = 'C:\\Users\\alec_\\Desktop\\Loki\\OUTPUT'
 
 async function processFile(file: MediaFile) {
@@ -46,7 +47,7 @@ async function processFile(file: MediaFile) {
         const metadata = await getCombinedMetadata(file)
         const tracks = metadata.media?.track || []
 
-        if (PRESET_DEBUG_MODE) {
+        if (PRESET_DEBUG_LEVEL == 'FULL') {
             const data = JSON.stringify(metadata, null, 2)
             fs.writeFileSync(`${file.fullPath}-combined.json`, data, 'utf-8')
             console.log("SAFE DEBUG FILE")
@@ -157,14 +158,21 @@ async function buildScript(file: MediaFile, tracks: SeparatedTracks): Promise<vo
 
 function renameFix(file: MediaFile): string {
     if (PRESET_RENAME_FIX) {
-        const f_name = file.name.toLowerCase()
-        const parsed: ParsedMediaFile | null = getParsedMediaFile(file)
+        console.log(`${BLUE}> RenameFix`)
+        console.log(`${RESET}> - ${BLUE}Original${RESET}: ${file.name}`)
 
+        const f_name = file.name.toLowerCase()
+
+        if (f_name.startsWith('s0') || f_name.startsWith('s1')) {
+            console.log(`${RESET}> - ${BLUE}Name is in correct format!`)
+            return `${file.name}.mkv`
+        }
+
+        const parsed: ParsedMediaFile | null = getParsedMediaFile(file)
         let name = 'Unknown'
         let extra = ''
 
-        console.log(`${BLUE}> RenameFix`)
-        console.log(`${RESET}> - ${BLUE}Original${RESET}: ${file.name}`)
+
         if (parsed) {
             console.log(`${RESET}> - ${BLUE}Match found!${RESET} - Season: ${parsed.season}, Episode: ${parsed.episode}, Title: ${parsed.title}`)
 
@@ -242,8 +250,7 @@ function separateTracks(tracks: BaseTrack[]): SeparatedTracks {
 
 async function main() {
     try {
-        const rootDir = 'C:\\Users\\alec_\\Desktop\\Loki\\ENCODE'
-        const files = findMediaFiles(rootDir)
+        const files = findMediaFiles(INPUT_DIR)
 
         console.log(`Found ${files.length} video files to analyze...`)
 

@@ -1,5 +1,4 @@
-import { PRESET_DEBUG_MODE } from '../index'
-import * as console from 'node:console'
+import { PRESET_DEBUG_LEVEL } from '../index'
 
 export const RESET = '\u001b[0m'
 export const BLACK = '\u001b[30m'
@@ -20,7 +19,7 @@ export function error(error: string) {
 }
 
 export function debug(message: string) {
-    if (PRESET_DEBUG_MODE) {
+    if (PRESET_DEBUG_LEVEL == 'LOW') {
         console.log(`${WHITE}[${CYAN}DEBUG${WHITE}] ${WHITE}> ${RESET}${message}`)
     }
 }

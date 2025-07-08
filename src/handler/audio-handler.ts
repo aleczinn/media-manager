@@ -146,7 +146,7 @@ export function getAudioType(track: AudioTrack, withChannel: boolean = true): st
 
     // DTS Varianten
     else if (codecId.includes('dts')) {
-        const commercialIfAny = track.Format_Commercial_IfAny.toLowerCase()
+        const commercialIfAny = (track?.Format_Commercial_IfAny || '').toLowerCase()
 
         if (additionalFeatures.includes('xxl x') || commercialIfAny.includes('dts:x')) {
             name = 'dts_x'

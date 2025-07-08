@@ -3,7 +3,7 @@ import { BaseTrack } from './BaseTrack'
 export interface AudioTrack extends BaseTrack {
     '@type': 'Audio';
     Format: string;
-    Format_Commercial_IfAny: string;
+    Format_Commercial_IfAny? : string;
     Format_Settings_Endianness: string;
     Format_AdditionalFeatures?: string;
     CodecID: string;
