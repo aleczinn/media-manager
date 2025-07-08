@@ -2,11 +2,16 @@ import { SubtitleTrack } from '../types/SubtitleTrack'
 import { VideoTrack } from '../types/VideoTrack'
 import { AudioTrack } from '../types/AudioTrack'
 import { debug } from './logger'
-import { PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS, PRESET_LANGUAGES, PRESET_THROW_AWAY_UNKNOWN_TRACKS } from '../index'
+import {
+    PRESET_DEBUG_LEVEL,
+    PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS,
+    PRESET_LANGUAGES_ORDER,
+    PRESET_THROW_AWAY_UNKNOWN_TRACKS
+} from '../index'
 import { ParsedMediaFile } from '../types/ParsedMediaFile'
 import { MediaFile } from '../types/MediaFile'
-import ffmpeg from 'fluent-ffmpeg'
-import { PURPLE, RESET } from '../ansi'
+import { PURPLE } from '../ansi'
+import { getAudioType } from '../handler/audio-handler'
 
 export function isDefaultTrack(track: VideoTrack | AudioTrack | SubtitleTrack): boolean {
     const title = (track.Title || '').toLowerCase()
@@ -15,21 +20,16 @@ export function isDefaultTrack(track: VideoTrack | AudioTrack | SubtitleTrack): 
 }
 
 export function filterUnknownLanguageTracks(tracks: (AudioTrack | SubtitleTrack)[]): void {
+    if (!PRESET_THROW_AWAY_UNKNOWN_TRACKS) return;
+
     const filteredTracks = tracks.filter((track: AudioTrack | SubtitleTrack) => {
         const language = track.Language || ''
 
-        if (PRESET_THROW_AWAY_UNKNOWN_TRACKS && language === '') {
+        if (language === '' || language === 'und') {
             debug(`Unknown track got removed: "${track.Title}" (${language})`)
             return false
         }
-
-        const isKnownLanguage = PRESET_LANGUAGES.includes(language.toLowerCase())
-
-        if (!isKnownLanguage) {
-            debug(`Removing track because language is not supported: "${track.Title}" (${language})`)
-        }
-
-        return isKnownLanguage
+        return true
     })
 
     tracks.length = 0
@@ -58,6 +58,9 @@ export function fixLanguageInTrack(track: (VideoTrack | AudioTrack | SubtitleTra
     }
     if (language === 'rus') {
         track.Language = 'ru'
+    }
+    if (language === '') {
+        track.Language = 'und'
     }
     track.Language = language
 }
@@ -91,7 +94,7 @@ export function getParsedMediaFile(file: MediaFile): ParsedMediaFile | null {
                 .trim() // Entferne Leerzeichen am Anfang und Ende
                 .replace(/\w\S*/g, (txt) => // Erster Buchstabe jedes Wortes groß (Title Case)
                     txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
-                );
+                )
         }
 
         // S01E02 Format

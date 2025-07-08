@@ -1,6 +1,6 @@
 import { SubtitleTrack } from '../types/SubtitleTrack'
 import { debug } from '../util/logger'
-import { PRESET_LANGUAGES, PRESET_SUBTITLE_ORDER, PRESET_SUBTITLE_PRIORITY } from '../index'
+import { PRESET_LANGUAGES_ORDER, PRESET_SUBTITLE_ORDER, PRESET_SUBTITLE_PRIORITY } from '../index'
 import { filterUnknownLanguageTracks, getLanguageName, isDefaultTrack } from '../util/utils'
 import { RED, RESET, YELLOW } from '../ansi'
 import * as console from 'node:console'
@@ -47,8 +47,8 @@ function sortSubtitleTracks(tracks: SubtitleTrack[]): void {
         const formatB = getSubtitleFormat(b)
 
         // Sort by language priority (de, en, then rest)
-        const langPriorityA = PRESET_LANGUAGES.indexOf(langA)
-        const langPriorityB = PRESET_LANGUAGES.indexOf(langB)
+        const langPriorityA = PRESET_LANGUAGES_ORDER.indexOf(langA)
+        const langPriorityB = PRESET_LANGUAGES_ORDER.indexOf(langB)
         const finalLangA = langPriorityA === -1 ? 999 : langPriorityA
         const finalLangB = langPriorityB === -1 ? 999 : langPriorityB
 

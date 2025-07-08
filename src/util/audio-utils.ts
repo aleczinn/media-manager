@@ -25,9 +25,10 @@ export async function applyNormalization(file: MediaFile, tracks: AudioTrack[], 
 
     if (PRESET_NORMALIZE_AUDIO == 'PEAK') {
         return await normalizePeak(file, track, command)
-    } else if (PRESET_NORMALIZE_AUDIO == 'EBU R128') {
-        return await normalizeEBU(file, track, command)
     }
+    // else if (PRESET_NORMALIZE_AUDIO == 'EBU R128') {
+    //     return await normalizeEBU(file, track, command)
+    // }
     return false
 }
 

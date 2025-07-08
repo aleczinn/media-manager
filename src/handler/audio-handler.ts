@@ -1,7 +1,7 @@
 import { AudioTrack } from '../types/AudioTrack'
 import { debug } from '../util/logger'
 import { filterUnknownLanguageTracks } from '../util/utils'
-import { PRESET_AUDIO_ORDER, PRESET_LANGUAGES } from '../index'
+import { PRESET_AUDIO_ORDER, PRESET_LANGUAGES_ORDER } from '../index'
 import { PURPLE, RED, RESET } from '../ansi'
 import console from 'node:console'
 
@@ -20,20 +20,12 @@ export function processAudio(tracks: AudioTrack[]): void {
     })
 
     filterUnknownLanguageTracks(tracks)
+    printDebug('AFTER FILTER UNKNOWN AUDIO TRACKS', tracks)
     sortAudioTracks(tracks)
     setDefaultAudioTrack(tracks)
     renameAudioTracks(tracks)
     customFilter(tracks)
-
-    debug('\n')
-    debug(`${PURPLE}=== FINAL AUDIO TRACKS ===`)
-    tracks.forEach((track, i) => {
-        const lang = track.Language || 'unknown'
-        const type = getAudioType(track)
-        const localIndex = track.LOCAL_INDEX
-        debug(`${PURPLE}[${i}] ${lang} ${type} - "${track.Title}" (li: ${localIndex})`)
-    })
-    debug('\n')
+    printDebug('FINAL AUDIO TRACKS', tracks)
 }
 
 function sortAudioTracks(tracks: AudioTrack[]): void {
@@ -42,12 +34,12 @@ function sortAudioTracks(tracks: AudioTrack[]): void {
         const langA = (a.Language || '').toLowerCase()
         const langB = (b.Language || '').toLowerCase()
 
-        const langIndexA = PRESET_LANGUAGES.indexOf(langA)
-        const langIndexB = PRESET_LANGUAGES.indexOf(langB)
+        const langIndexA = PRESET_LANGUAGES_ORDER.indexOf(langA)
+        const langIndexB = PRESET_LANGUAGES_ORDER.indexOf(langB)
 
         // Known langauges have higher priority than unknown
-        const langPriorityA = langIndexA !== -1 ? langIndexA : PRESET_LANGUAGES.length
-        const langPriorityB = langIndexB !== -1 ? langIndexB : PRESET_LANGUAGES.length
+        const langPriorityA = langIndexA !== -1 ? langIndexA : PRESET_LANGUAGES_ORDER.length
+        const langPriorityB = langIndexB !== -1 ? langIndexB : PRESET_LANGUAGES_ORDER.length
 
         if (langPriorityA !== langPriorityB) {
             return langPriorityA - langPriorityB
@@ -224,4 +216,20 @@ function getAudioTrackName(type: string): string {
             return 'Stereo'
     }
     return 'unknown-audio-name'
+}
+
+function printDebug(title: string, tracks: AudioTrack[]): void {
+    if (tracks.length === 0) {
+        debug(`${PURPLE}No more Audio files found after > ${title}`)
+        return;
+    }
+
+    debug('\n')
+    debug(`${PURPLE}=== ${title} ===`)
+    tracks.forEach((track, i) => {
+        const lang = track.Language || 'unknown'
+        const type = getAudioType(track as AudioTrack)
+        const localIndex = track.LOCAL_INDEX
+        debug(`${PURPLE}[${i}] ${lang} ${type} - "${track.Title}" (li: ${localIndex})`)
+    })
 }
