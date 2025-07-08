@@ -3,19 +3,14 @@ import { VideoTrack } from '../types/VideoTrack'
 import { AudioTrack } from '../types/AudioTrack'
 import { debug } from './logger'
 import {
-    PRESET_DEBUG_LEVEL,
     PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS,
-    PRESET_LANGUAGES_ORDER,
     PRESET_THROW_AWAY_UNKNOWN_TRACKS
 } from '../index'
 import { ParsedMediaFile } from '../types/ParsedMediaFile'
 import { MediaFile } from '../types/MediaFile'
-import { PURPLE } from '../ansi'
-import { getAudioType } from '../handler/audio-handler'
 
 export function isDefaultTrack(track: VideoTrack | AudioTrack | SubtitleTrack): boolean {
     const title = (track.Title || '').toLowerCase()
-
     return title.includes('default') || track.Default === 'Yes'
 }
 
@@ -26,7 +21,7 @@ export function filterUnknownLanguageTracks(tracks: (AudioTrack | SubtitleTrack)
         const language = track.Language || ''
 
         if (language === '' || language === 'und') {
-            debug(`Unknown track got removed: "${track.Title}" (${language})`)
+            debug(`Unknown track got removed: "${track.Title}"`)
             return false
         }
         return true
@@ -73,7 +68,8 @@ export function getLanguageName(language: string): string {
         'fr': 'French',
         'es': 'Spanish',
         'it': 'Italian',
-        'ru': 'Russian'
+        'ru': 'Russian',
+        'und': 'Unknown',
     }
     return langMap[language.toLowerCase()] || language.toUpperCase()
 }
