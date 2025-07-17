@@ -82,7 +82,7 @@ export function getParsedMediaFile(file: MediaFile): ParsedMediaFile | null {
     let title = ''
 
     if (match) {
-        const titleMatch = file.name.match(/^(.+?)[\s\.\-_]*(?:[Ss]\d+[Ee]\d+|\d+x\d+)/)
+        const titleMatch = file.name.match(/^(.+?)[\s.\-_]*(?:[Ss]\d+[Ee]\d+|\d+x\d+)/)
 
         if (titleMatch) {
             title = titleMatch[1]
