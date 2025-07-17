@@ -186,7 +186,7 @@ function renameFix(file: MediaFile): string {
                 extra += ' {edition-Extended}'
             } else if (upscale) {
                 extra += ' {edition-Upscale}'
-            } else if (f_name.includes('director')) {
+            } else if (directorsCut) {
                 extra += ` {edition-Director's Cut}`
             }
 
