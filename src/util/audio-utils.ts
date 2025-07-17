@@ -57,8 +57,8 @@ async function analyzePeakVolume(file: MediaFile, track: AudioTrack): Promise<an
                     console.log(`${RESET}> - ${PURPLE}Progress${RESET}: ${progress.percent.toFixed(2)}%`)
                 }
             })
-            .on('end', () => reject('Keine Peak-Daten gefunden!'))
-            .on('error', (err) => reject(`Fehler bei Peak-Analyse: ${err.message}`))
+            .on('end', () => reject('No Peak-Data found!'))
+            .on('error', (err) => reject(`Error while analysing peak: ${err.message}`))
             .output('/dev/null') // Linux/Mac oder 'NUL' für Windows
             .run()
     })
@@ -78,7 +78,7 @@ async function normalizePeak(file: MediaFile, track: AudioTrack, command: Ffmpeg
 
             console.log(`${RESET}> - Analyzing audio track "${track.Language} - ${track.Title}"`)
             console.log(`${RESET}> - Current peak: ${peakData.maxVolume}dB`)
-            console.log(`${RESET}> - Gain needed: +${peakData.gainNeeded}dB`)
+            console.log(`${RESET}> - Gain needed: ${PURPLE}+${peakData.gainNeeded}dB`)
 
             if (peakData.gainNeeded > PRESET_NORMALIZE_MIN_THRESHOLD) {
                 const safeGain = Math.min(peakData.gainNeeded, 20)
@@ -97,10 +97,10 @@ async function normalizePeak(file: MediaFile, track: AudioTrack, command: Ffmpeg
                     `-disposition:a:0`, 'default'
                 ])
 
-                console.log(`${RESET}> - Peak normalization applied to track "${track.Language} - ${track.Title}" only (+${safeGain}dB)`)
+                console.log(`${RESET}> - Peak normalization applied to track "${track.Language} - ${track.Title}" only ${PURPLE}(+${safeGain}dB)`)
                 return true
             } else {
-                console.log(`${RESET}> - Peak normalization skipped for track "${track.Language} - ${track.Title}", already near 0dB peak`)
+                console.log(`${RESET}> - Peak normalization ${PURPLE}skipped ${RESET}for track "${track.Language} - ${track.Title}", already near 0dB peak`)
             }
         } catch (error) {
             console.error(`${RED}> Peak analysis failed: `, error)
