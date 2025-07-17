@@ -176,8 +176,16 @@ function renameFix(file: MediaFile): string {
         if (parsed) {
             console.log(`${RESET}> - ${BLUE}Match found!${RESET} - Season: ${parsed.season}, Episode: ${parsed.episode}, Title: ${parsed.title}`)
 
-            if (f_name.includes('extended')) {
+            const extended = f_name.includes('extended')
+            const upscale = f_name.includes('upsuhd')
+            const directorsCut = f_name.includes('director')
+
+            if (extended && upscale) {
+                extra += ' {edition-Extended-Upscale}'
+            } else if (extended) {
                 extra += ' {edition-Extended}'
+            } else if (upscale) {
+                extra += ' {edition-Upscale}'
             } else if (f_name.includes('director')) {
                 extra += ` {edition-Director's Cut}`
             }
@@ -186,6 +194,8 @@ function renameFix(file: MediaFile): string {
                 extra += ' {source-Disney+}'
             } else if (f_name.includes('amazon')) {
                 extra += ' {source-Amazon}'
+            } else if (f_name.includes('nf')) {
+                extra += ' {source-Netflix}'
             } else if (f_name.includes('atvp')) {
                 extra += ' {source-ATVP}'
             } else if (f_name.includes('rtl')) {
