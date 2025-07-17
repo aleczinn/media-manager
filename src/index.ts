@@ -27,12 +27,12 @@ export const PRESET_NORMALIZE_MIN_THRESHOLD: number = 0.3
 export const PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS = 'de'
 
 const PRESET_RENAME_FIX: boolean = true
-export const PRESET_NORMALIZE_AUDIO: 'OFF' | 'PEAK' = 'OFF'
+export const PRESET_NORMALIZE_AUDIO: 'OFF' | 'PEAK' = 'PEAK'
 const PRESET_ENCODE_VIDEO: boolean = false
 export const PRESET_THROW_AWAY_UNKNOWN_TRACKS: boolean = false
-export const PRESET_DEBUG_LEVEL: 'OFF' | 'LOW' | 'FULL' = 'LOW' // Save the metadata as a JSON file, print out debug information per file
+export const PRESET_DEBUG_LEVEL: 'OFF' | 'LOW' | 'FULL' = 'OFF' // Save the metadata as a JSON file, print out debug information per file
 
-const INPUT_DIR = 'C:\\Users\\alec_\\Desktop\\Loki\\A plague tale'
+const INPUT_DIR = 'C:\\Users\\alec_\\Desktop\\Loki\\INPUT'
 const OUTPUT_DIR = 'C:\\Users\\alec_\\Desktop\\Loki\\OUTPUT'
 
 async function processFile(file: MediaFile) {
@@ -163,7 +163,7 @@ function renameFix(file: MediaFile): string {
 
         const f_name = file.name.toLowerCase()
 
-        if (f_name.startsWith('s0') || f_name.startsWith('s1')) {
+        if (f_name.startsWith('s0') || f_name.startsWith('s1') || f_name.includes('{source-') || f_name.includes('{edition-')) {
             console.log(`${RESET}> - ${BLUE}Name is in correct format!`)
             return `${file.name}.mkv`
         }
@@ -253,6 +253,10 @@ async function main() {
         const files = findMediaFiles(INPUT_DIR)
 
         console.log(`Found ${files.length} video files to analyze...`)
+
+        if (PRESET_DEBUG_LEVEL != 'OFF') {
+            console.log(`Using Debug Level: ${PRESET_DEBUG_LEVEL}`)
+        }
 
         for (const file of files) {
             await processFile(file)
