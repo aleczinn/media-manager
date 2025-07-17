@@ -3,7 +3,7 @@ import { VideoTrack } from '../types/VideoTrack'
 import { AudioTrack } from '../types/AudioTrack'
 import { debug } from './logger'
 import {
-    PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS,
+    PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS, PRESET_LANGUAGES_ORDER,
     PRESET_THROW_AWAY_UNKNOWN_TRACKS
 } from '../index'
 import { ParsedMediaFile } from '../types/ParsedMediaFile'
@@ -15,14 +15,15 @@ export function isDefaultTrack(track: VideoTrack | AudioTrack | SubtitleTrack): 
 }
 
 export function filterUnknownLanguageTracks(tracks: (AudioTrack | SubtitleTrack)[]): void {
-    if (!PRESET_THROW_AWAY_UNKNOWN_TRACKS) return;
-
     const filteredTracks = tracks.filter((track: AudioTrack | SubtitleTrack) => {
         const language = track.Language || ''
 
-        if (language === '' || language === 'und') {
-            debug(`Unknown track got removed: "${track.Title}"`)
-            return false
+        const isUnknownTrack = PRESET_THROW_AWAY_UNKNOWN_TRACKS && (language === '' || language === 'und');
+        const isSupportedTrack = PRESET_LANGUAGES_ORDER.includes(language);
+
+        if (isUnknownTrack || !isSupportedTrack) {
+            debug(`Unknown/not supported track got removed: "${track.Title}" ${language}`)
+            return false;
         }
         return true
     })
