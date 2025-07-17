@@ -203,7 +203,11 @@ function renameFix(file: MediaFile): string {
             } else if (f_name.includes('web')) {
                 extra += ' {source-Web}'
             } else if (f_name.includes('uhd')) {
-                extra += ' {source-UHD}'
+                if (upscale) {
+                    extra += ' {source-BluRay-CHECKHERE}'
+                } else {
+                    extra += ' {source-UHD}'
+                }
             } else if (f_name.includes('bluray')) {
                 extra += ' {source-BluRay}'
             }
