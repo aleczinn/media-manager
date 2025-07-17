@@ -177,7 +177,7 @@ function renameFix(file: MediaFile): string {
             console.log(`${RESET}> - ${BLUE}Match found!${RESET} - Season: ${parsed.season}, Episode: ${parsed.episode}, Title: ${parsed.title}`)
 
             const extended = f_name.includes('extended')
-            const upscale = f_name.includes('upsuhd')
+            const upscale = f_name.includes('upsuhd') || f_name.includes('upscale')
             const directorsCut = f_name.includes('director')
 
             if (extended && upscale) {
