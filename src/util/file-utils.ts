@@ -118,8 +118,9 @@ export function findMediaFiles(rootDir: string, extensions: string[] = ['.mkv', 
                     scanDirectory(fullPath)
                 } else if (item.isFile()) {
                     const extension = path.extname(item.name).toLowerCase()
+                    const isSample = item.name.toLowerCase().includes('sample');
 
-                    if (extensions.includes(extension)) {
+                    if (extensions.includes(extension) && !isSample) {
                         const fileName = path.basename(item.name, extension)
                         const folderName = path.basename(currentDir)
 

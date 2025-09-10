@@ -23,7 +23,7 @@ export const PRESET_SUBTITLE_ORDER: Array<string> = ['pgs', 'srt', 'ass', 'vobsu
 export const PRESET_AUDIO_ORDER: Array<string> = ['truehd_atmos', 'eac3_atmos', 'dts_x', 'truehd', 'dts_hd_ma', 'dts_hd_hr', 'eac3', 'dts', 'ac3', 'aac']
 export const PRESET_AUDIO_BRANDING: string = '[Sky Mix]'
 const PRESET_ENCODE_OPTIONS: Array<string> = ['libx264', '-crf 18', '-preset slow', '-x264-params ref=5:bframes=5']
-export const PRESET_NORMALIZE_MIN_THRESHOLD: number = 0.3
+export const PRESET_NORMALIZE_MIN_THRESHOLD: number = 1.0
 export const PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS = 'de'
 
 const PRESET_RENAME_FIX: boolean = true
