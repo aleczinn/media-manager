@@ -188,7 +188,7 @@ function getAudioTrackName(type: string): string {
         case 'ac3_5':
             return 'Dolby Digital 5.1'
         case 'ac3_2':
-            return 'Dolby Digital Stereo'
+            return 'Dolby Stereo'
 
         case 'dts_x_7':
             return 'DTS:X 7.1'
