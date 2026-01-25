@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import { MediaFile } from './types/MediaFile'
-import { findMediaFiles, getCombinedMetadata } from './util/file-utils'
-import { BLUE, CYAN, GREEN, RESET, WHITE } from './ansi'
+import { ensureDir, findMediaFiles, getCombinedMetadata } from './util/file-utils'
+import { BLUE, CYAN, GREEN, RESET, WHITE, YELLOW } from './ansi'
 import { GeneralTrack } from './types/GeneralTrack'
 import { BaseTrack } from './types/BaseTrack'
 import { VideoTrack } from './types/VideoTrack'
@@ -16,13 +16,18 @@ import { processVideo } from './handler/video-handler'
 import ffmpeg from 'fluent-ffmpeg'
 import { ParsedMediaFile } from './types/ParsedMediaFile'
 import { applyNormalization } from './util/audio-utils'
+import path from 'path'
+import { exec } from 'child_process'
+import { promisify } from 'util'
+
+const execAsync = promisify(exec)
 
 export const PRESET_LANGUAGES_ORDER: Array<string> = ['de', 'en']
 export const PRESET_SUBTITLE_PRIORITY: Array<string> = ['forced', 'normal', 'cc', 'sdh']
 export const PRESET_SUBTITLE_ORDER: Array<string> = ['pgs', 'srt', 'ass', 'vobsub']
 export const PRESET_AUDIO_ORDER: Array<string> = ['truehd_atmos', 'eac3_atmos', 'dts_x', 'truehd', 'dts_hd_ma', 'dts_hd_hr', 'eac3', 'dts', 'ac3', 'aac']
 export const PRESET_AUDIO_BRANDING: string = '[Sky Mix]'
-const PRESET_ENCODE_OPTIONS: Array<string> = ['libx264', '-crf 18', '-preset slow', '-x264-params ref=5:bframes=5']
+export const PRESET_ENCODE_OPTIONS: Array<string> = ['libx264', '-crf 18', '-preset slow', '-x264-params ref=5:bframes=5']
 export const PRESET_NORMALIZE_MIN_THRESHOLD: number = 1.0
 export const PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS = 'de'
 
@@ -34,6 +39,9 @@ export const PRESET_DEBUG_LEVEL: 'OFF' | 'LOW' | 'FULL' = 'OFF' // Save the meta
 
 const INPUT_DIR = 'C:\\Users\\alec_\\Desktop\\Loki\\INPUT'
 const OUTPUT_DIR = 'C:\\Users\\alec_\\Desktop\\Loki\\OUTPUT'
+// const INPUT_DIR = 'P:\\downloads\\rookie';
+// const OUTPUT_DIR = `${INPUT_DIR}\\export`;
+
 
 async function processFile(file: MediaFile) {
     const { size } = await fs.promises.stat(file.fullPath)
@@ -50,7 +58,7 @@ async function processFile(file: MediaFile) {
         if (PRESET_DEBUG_LEVEL == 'FULL') {
             const data = JSON.stringify(metadata, null, 2)
             fs.writeFileSync(`${file.fullPath}-combined.json`, data, 'utf-8')
-            console.log("SAFE DEBUG FILE")
+            console.log('SAFE DEBUG FILE');
         }
 
         let separatedTracks: SeparatedTracks = separateTracks(tracks)
@@ -73,7 +81,19 @@ async function processFile(file: MediaFile) {
 async function buildScript(file: MediaFile, tracks: SeparatedTracks): Promise<void> {
     const command = ffmpeg(file.fullPath)
 
-    command.outputOptions('-metadata title=')
+    command.outputOptions(`-metadata title=`);
+
+    const descriptionPath = path.join(file.path, `${file.name}.txt`);
+    if (fs.existsSync(descriptionPath)) {
+        const description = fs.readFileSync(descriptionPath, 'utf-8').trim();
+        console.log(`${GREEN}✓${RESET} Beschreibung gefunden (${description.length} Zeichen)`)
+
+        command.outputOptions([
+            '-metadata', `description=${description}`,
+            '-metadata', `comment=${description}`,
+            '-metadata', `synopsis=${description}`
+        ]);
+    }
 
     // VIDEO
     tracks.video.forEach((track: VideoTrack, index: number) => {
@@ -130,8 +150,6 @@ async function buildScript(file: MediaFile, tracks: SeparatedTracks): Promise<vo
 
     const name = renameFix(file)
 
-    console.log(`\n${GREEN}> Building file...`)
-
     await new Promise<void>((resolve, reject) => {
         let startTime = Date.now()
 
@@ -142,7 +160,7 @@ async function buildScript(file: MediaFile, tracks: SeparatedTracks): Promise<vo
                     let estimatedTotal = elapsed / (progress.percent / 100)
                     let remaining = estimatedTotal - elapsed
 
-                    console.log(`${RESET}> ${GREEN}FPS${RESET}: ${progress.currentFps} ${GREEN}Frames${RESET}: ${progress.frames} ${GREEN}Zeit${RESET}: ${progress.timemark} ${GREEN}Progress${RESET}: ${progress.percent.toFixed(2)}% [${GREEN}Verbleibend${RESET}: ${remaining.toFixed(2)}s]`)
+                    process.stdout.write(`\r${RESET}> ${GREEN}Building File${RESET} ${progress.percent.toFixed(2)}% | FPS${RESET}: ${progress.currentFps} ${GREEN}Frames${RESET}: ${progress.frames} ${GREEN}Zeit${RESET}: ${progress.timemark} [${GREEN}Verbleibend${RESET}: ${remaining.toFixed(2)}s]`);
                 }
             })
             .on('error', (err) => {
@@ -150,7 +168,7 @@ async function buildScript(file: MediaFile, tracks: SeparatedTracks): Promise<vo
                 reject(err)
             })
             .on('end', () => {
-                console.log(`${GREEN}> Processing done!`)
+                process.stdout.write('\n')
                 resolve()
             })
     })
@@ -162,6 +180,7 @@ function renameFix(file: MediaFile): string {
         console.log(`${RESET}> - ${BLUE}Original${RESET}: ${file.name}`)
 
         const f_name = file.name.toLowerCase()
+        const d_name = file.fullPath.toLowerCase();
 
         if (f_name.startsWith('s0') || f_name.startsWith('s1') || f_name.includes('{source-') || f_name.includes('{edition-')) {
             console.log(`${RESET}> - ${BLUE}Name is in correct format!`)
@@ -190,11 +209,11 @@ function renameFix(file: MediaFile): string {
                 extra += ` {edition-Director's Cut}`
             }
 
-            if (f_name.includes('dsnp')) {
+            if (f_name.includes('dsnp') || d_name.includes('dspn') || d_name.includes('disney+')) {
                 extra += ' {source-Disney+}'
-            } else if (f_name.includes('amazon')) {
+            } else if (f_name.includes('amazon') || d_name.includes('amazon')) {
                 extra += ' {source-Amazon}'
-            } else if (f_name.includes('nf')) {
+            } else if (f_name.includes('netflix') || d_name.includes('netflix')) {
                 extra += ' {source-Netflix}'
             } else if (f_name.includes('atvp')) {
                 extra += ' {source-ATVP}'
@@ -204,7 +223,7 @@ function renameFix(file: MediaFile): string {
                 extra += ' {source-Web}'
             } else if (f_name.includes('uhd')) {
                 if (upscale) {
-                    extra += ' {source-BluRay-CHECKHERE}'
+                    extra += ' {source-BluRay}'
                 } else {
                     extra += ' {source-UHD}'
                 }
@@ -262,8 +281,51 @@ function separateTracks(tracks: BaseTrack[]): SeparatedTracks {
     return { general, video, audio, subtitle }
 }
 
+async function mergeSubsIntoOneFile(file: MediaFile) {
+    const subsDir = path.join(file.path, 'Subs')
+    await ensureDir(subsDir);
+
+    const subFiles = fs.readdirSync(subsDir).filter(f => f.endsWith('.idx'))
+    const outputFile = path.join(OUTPUT_DIR, file.name + '.mkv')
+
+    const mkvmergePath = 'C:\\Program Files\\MKVToolNix\\mkvmerge.exe'
+
+    let cmd = `"${mkvmergePath}" -o "${outputFile}" "${file.fullPath}"`
+
+    subFiles.forEach((sub, i) => {
+        const fullPath = path.join(subsDir, sub)
+        const name = path.basename(fullPath).toLowerCase()
+
+        let language = 'de'
+        let title = 'Deutsch'
+
+        if (name.includes('eng-forced')) {
+            language = 'en'
+            title = 'English Forced'
+        } else if (name.includes('forced')) {
+            title = 'Deutsch Erzwungen'
+        } else if (name.includes('eng')) {
+            language = 'en'
+            title = 'English'
+        }
+
+        cmd += ` --language 0:${language} --track-name "0:${title}" "${fullPath}"`
+    })
+
+    try {
+        const { stdout, stderr } = await execAsync(cmd)
+        console.log('MKVMerge completed successfully')
+        if (stderr) console.warn('MKVMerge warnings:', stderr)
+    } catch (error) {
+        console.error('MKVMerge error:', error)
+        throw error
+    }
+}
+
 async function main() {
     try {
+        await ensureDir(OUTPUT_DIR);
+
         const files = findMediaFiles(INPUT_DIR)
 
         console.log(`Found ${files.length} video files to analyze...`)
@@ -274,10 +336,11 @@ async function main() {
 
         for (const file of files) {
             await processFile(file)
+            // await mergeSubsIntoOneFile(file);
         }
     } catch (error) {
         console.error(error)
     }
 }
 
-main()
+main();
