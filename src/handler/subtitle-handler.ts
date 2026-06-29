@@ -21,7 +21,7 @@ export function processSubtitles(tracks: SubtitleTrack[]): void {
 
     filterUnknownLanguageTracks(tracks)
     sortSubtitleTracks(tracks)
-    setDefaultSubtitleTrack(tracks)
+    setSubtitleFlags(tracks)
     renameSubtitleTracks(tracks)
     customFilter(tracks)
 
@@ -98,23 +98,24 @@ function sortSubtitleTracks(tracks: SubtitleTrack[]): void {
     tracks.push(...filtered)
 }
 
-function setDefaultSubtitleTrack(tracks: SubtitleTrack[]): void {
+function setSubtitleFlags(tracks: SubtitleTrack[]): void {
     if (tracks.length === 0) return
 
     tracks.forEach(track => {
+        track.Forced = isForcedSubtitle(track) ? 'Yes' : 'No'
         track.Default = 'No'
         track.Original = 'No'
     })
 
-    const firstForcedTrack = tracks.find(track => {
-        const language = track.Language || ''
-        const isGermanOrEnglish = ['de', 'en'].includes(language)
-        return isForcedSubtitle(track) && isGermanOrEnglish
-    })
+    // const firstForcedTrack = tracks.find(track => {
+    //     const language = track.Language || ''
+    //     const isGermanOrEnglish = ['de', 'en'].includes(language)
+    //     return isForcedSubtitle(track) && isGermanOrEnglish
+    // })
 
-    if (firstForcedTrack) {
-        firstForcedTrack.Default = 'Yes'
-    }
+    // if (firstForcedTrack) {
+    //     firstForcedTrack.Default = 'Yes'
+    // }
 }
 
 function renameSubtitleTracks(tracks: SubtitleTrack[]): void {

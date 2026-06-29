@@ -76,13 +76,13 @@ export function getLanguageName(language: string): string {
 }
 
 export function getParsedMediaFile(file: MediaFile): ParsedMediaFile | null {
-    // Regex for S01E02 or 1x02 Format
-    const regex = /[Ss](\d+)[Ee](\d+)|(\d+)x(\d+)/
+    // Regex für S01E02, 1x02 oder standalone E01 Format
+    const regex = /[Ss](\d+)[Ee](\d+)|(\d+)x(\d+)|(?<![Ss\d])[Ee](\d+)/
     const match = file.name.match(regex)
     let title = ''
 
     if (match) {
-        const titleMatch = file.name.match(/^(.+?)[\s.\-_]*(?:[Ss]\d+[Ee]\d+|\d+x\d+)/)
+        const titleMatch = file.name.match(/^(.+?)[\s.\-_]*(?:[Ss]\d+[Ee]\d+|\d+x\d+|[Ee]\d+)/)
 
         if (titleMatch) {
             title = titleMatch[1]
@@ -116,6 +116,19 @@ export function getParsedMediaFile(file: MediaFile): ParsedMediaFile | null {
                 season: match[3],
                 episode: match[4],
                 title: title
+            }
+        }
+
+        // Standalone E01 Format (keine Season vorhanden)
+        if (match[5]) {
+            return {
+                name: file.name,
+                path: file.path,
+                fullPath: file.fullPath,
+                extension: file.extension,
+                season: '-1',
+                episode: match[5],
+                title
             }
         }
     }

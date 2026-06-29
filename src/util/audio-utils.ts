@@ -1,28 +1,20 @@
 import { MediaFile } from '../types/MediaFile'
-import { SeparatedTracks } from '../types/SeparatedTracks'
-import ffmpeg, { FfmpegCommand, FfmpegCommandOptions } from 'fluent-ffmpeg'
-import { GREEN, PURPLE, RED, RESET, YELLOW } from '../ansi'
+import ffmpeg, { FfmpegCommand } from 'fluent-ffmpeg'
+import { PURPLE, RED, RESET, YELLOW } from '../ansi'
 import { AudioTrack } from '../types/AudioTrack'
 import {
+    NORMALIZE, NORMALIZE_SUPPORTED_AUDIO_FORMATS, NORMALIZE_SUPPORTED_CHANNEL_COUNT,
     PRESET_AUDIO_BRANDING,
     PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS,
-    PRESET_NORMALIZE_AUDIO,
     PRESET_NORMALIZE_MIN_THRESHOLD
 } from '../index'
-import { debug } from './logger'
-
-const NORMALIZE_SUPPORTED_AUDIO_FORMATS = ['dts', 'eac3', 'ac3', 'opus', 'aac']
-const NORMALIZE_SUPPORTED_CHANNEL_COUNT = [2, 6]
 
 export async function applyNormalization(file: MediaFile, tracks: AudioTrack[], command: FfmpegCommand): Promise<boolean> {
     const track: AudioTrack = tracks[0]
 
-    if (PRESET_NORMALIZE_AUDIO == 'PEAK') {
+    if (NORMALIZE) {
         return await normalizePeak(file, track, command)
     }
-    // else if (PRESET_NORMALIZE_AUDIO == 'EBU R128') {
-    //     return await normalizeEBU(file, track, command)
-    // }
     return false
 }
 
@@ -92,7 +84,7 @@ async function normalizePeak(file: MediaFile, track: AudioTrack, command: Ffmpeg
                     `-b:a:0`, channels == 2 ? '384k' : '640k',
                     `-metadata:s:a:0`, `title=${channels == 2 ? 'Dolby Stereo' : 'Dolby Digital 5.1'} ${PRESET_AUDIO_BRANDING}`,
                     `-metadata:s:a:0`, `language=${track?.Language || PRESET_LANGUAGE_FOR_UNKNOWN_TRACKS || 'und'}`,
-                    `-disposition:a:0`, 'default'
+                    `-disposition:a:0`, '0' // "default" is also an option
                 ])
 
                 console.log(`${RESET}> - Peak normalization applied to track "${track.Language} - ${track.Title}" only ${PURPLE}(+${safeGain}dB)`)
@@ -104,7 +96,7 @@ async function normalizePeak(file: MediaFile, track: AudioTrack, command: Ffmpeg
             console.error(`${RED}> Peak analysis failed: `, error)
         }
     } else {
-        console.error(`${RED}> Unsupported audio format (${getAudioType(track)}) - Supported: AC3, EAC3, DTS & AAC (2 or 5.1 channels)`)
+        console.error(`${PURPLE}> Normalization${RESET}: ${RED}Unsupported audio format (${getAudioType(track)}) - Supported: AC3, EAC3, DTS & AAC (2 or 5.1 channels)`)
     }
     return false
 }
@@ -167,6 +159,9 @@ export function getAudioType(track: AudioTrack, withChannel: boolean = true): st
     // Opus
     else if (codecId.includes('opus') || format.includes('opus')) {
         name = 'opus'
+    }
+    else if (codecId.includes('pcm')) {
+        name = 'pcm'
     }
     return withChannel ? `${name}_${channels}` : name
 }
@@ -232,6 +227,8 @@ export function getAudioTrackName(type: string): string {
             return 'AAC 5.1'
         case 'aac_2':
             return 'Stereo'
+        case 'pcm_2':
+            return 'Stereo'
     }
-    return 'unknown-audio-name'
+    return `${type} is not supported`
 }
