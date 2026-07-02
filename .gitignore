@@ -7,3 +7,4 @@ dist
 temp.json
 data/test
 .env
+out
