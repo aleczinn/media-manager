@@ -107,6 +107,9 @@ async function buildScript(file: MediaFile, tracks: SeparatedTracks): Promise<vo
     // VIDEO
     tracks.video.forEach((track: VideoTrack, index: number) => {
         command.outputOptions(`-map 0:v:${track.LOCAL_INDEX}`)
+
+        command.outputOptions(`-map_metadata:s:v:${index}`, '-1')
+
         if (PRESET_ENCODE_VIDEO) {
             console.log(`> [INFO] Using encoding for video stream ${index} with options:`, PRESET_ENCODE_OPTIONS)
             command.outputOptions(`-c:v:${index}`)
