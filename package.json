@@ -5,6 +5,7 @@
     "main": "index.js",
     "scripts": {
         "dev": "ts-node-dev --poll src/index.ts",
+        "check": "ts-node-dev --poll src/corruption-checker.ts",
         "build": "tsc",
         "start": "node dist/app.js"
     },
