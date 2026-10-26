@@ -4,14 +4,16 @@ import { getAudioTrackName, getAudioType } from '@shared/audio-names'
 import { subtitleTrackId } from '@shared/external-subs'
 import { normalizeLanguage } from '@shared/languages'
 import {
-    autoSubtitleType,
+    autoSubtitleState,
     getSubtitleFormat,
     resolveSubtitleType,
-    SUBTITLE_TYPES,
+    SUBTITLE_STATES,
+    subtitleState,
     type ResolvedSubtitleType,
+    type SubtitleRemovalReason,
     type TrackPlan
 } from '@shared/pipeline'
-import type { FileAnalysis, SubtitleTrackInfo, SubtitleType } from '@shared/types'
+import type { FileAnalysis, SubtitleOverride, SubtitleTrackInfo } from '@shared/types'
 import { describePeak } from '@/lib/peak'
 import { useStore } from '@/lib/store'
 import { cn, formatDuration } from '@/lib/utils'
@@ -64,47 +66,66 @@ function Section({ icon: Icon, label, children }: { icon: typeof Film; label: st
     )
 }
 
-const TYPE_LABELS: Record<SubtitleType, string> = { normal: 'Normal', forced: 'Forced', sdh: 'SDH', cc: 'CC' }
+const STATE_LABELS: Record<SubtitleOverride, string> = { removed: 'Entfernt', normal: 'Normal', forced: 'Forced', sdh: 'SDH', cc: 'CC' }
+
+const REMOVAL_HINTS: Record<SubtitleRemovalReason, string> = {
+    manual: 'Manuell entfernt',
+    external: 'Entfernt: Externe Untertitel sind ausgeschaltet',
+    language: 'Entfernt: Sprache steht nicht in der Sprachliste',
+    duplicate: 'Entfernt: Duplikat, eine bevorzugte Spur gleicher Sprache und Art ist vorhanden'
+}
 
 /** Erklärung für den Tooltip, woher der Typ kommt */
-function typeHint(track: SubtitleTrackInfo, resolved: ResolvedSubtitleType, auto: ResolvedSubtitleType): string {
-    if (resolved.source === 'override') return `Manuell überschrieben (automatisch: ${TYPE_LABELS[auto.type]})`
+function typeHint(track: SubtitleTrackInfo, resolved: ResolvedSubtitleType): string {
     if (resolved.source === 'detected') {
         const byFilename = (resolved.type === 'forced' && track.filenameForced) || (resolved.type === 'sdh' && track.filenameSdh)
         return `Von der App erkannt: ${byFilename ? 'Hinweis im Dateinamen' : 'sehr wenige Einträge'}`
     }
-    return resolved.type === 'normal' ? 'Normaler Untertitel' : `${TYPE_LABELS[resolved.type]} laut Datei (Markierung oder Titel)`
+    return resolved.type === 'normal' ? 'Normaler Untertitel' : `${STATE_LABELS[resolved.type]} laut Datei (Markierung oder Titel)`
 }
 
-/** Untertitelspur der Quelle; der Typ-Chip schaltet per Klick Normal → Forced → SDH → CC durch */
+/** Untertitelspur der Quelle; der Chip schaltet per Klick Entfernt → Normal → Forced → SDH → CC durch */
 function SourceSubtitleLine({
     fileId,
     track,
-    durationSec,
-    language,
-    removed
+    analysis,
+    plan,
+    language
 }: {
     fileId: string
     track: SubtitleTrackInfo
-    durationSec: number
+    analysis: FileAnalysis
+    plan: TrackPlan
     language: string
-    removed: boolean
 }) {
     const setTypeOverride = useStore((s) => s.setTypeOverride)
+    const settings = useStore((s) => s.settings)
+    const { durationSec } = analysis
+    const id = subtitleTrackId(track)
+    const state = subtitleState(plan, track, durationSec)
+    const removalReason = plan.removedSubtitles[id]
     const resolved = resolveSubtitleType(track, durationSec)
-    const auto = autoSubtitleType(track, durationSec)
+    const manual = track.typeOverride !== undefined
+    const removed = state === 'removed'
     const perMinute = track.eventCount !== null && durationSec > 0 ? track.eventCount / (durationSec / 60) : null
 
-    // Nächster Typ; landet man wieder beim automatischen, wird die manuelle Wahl entfernt
-    const cycle = () => {
-        const next = SUBTITLE_TYPES[(SUBTITLE_TYPES.indexOf(resolved.type) + 1) % SUBTITLE_TYPES.length]
-        setTypeOverride(fileId, subtitleTrackId(track), next === auto.type ? null : next)
+    // Linksklick vor (+1), Rechtsklick zurück (-1); landet man wieder beim automatischen Zustand, wird die manuelle Wahl entfernt
+    const cycle = (step: 1 | -1) => {
+        if (!settings) return
+        const count = SUBTITLE_STATES.length
+        const next = SUBTITLE_STATES[(SUBTITLE_STATES.indexOf(state) + step + count) % count]
+        setTypeOverride(fileId, id, next === autoSubtitleState(analysis, track, settings) ? null : next)
     }
 
     const hint = [
-        typeHint(track, resolved, auto),
+        manual && settings
+            ? `Manuell überschrieben (automatisch: ${STATE_LABELS[autoSubtitleState(analysis, track, settings)]})`
+            : removalReason
+              ? REMOVAL_HINTS[removalReason]
+              : typeHint(track, resolved),
         perMinute !== null && `${track.eventCount} Einträge (${perMinute.toFixed(1).replace('.', ',')} pro Minute)`,
-        'Linksklick: Typ wechseln'
+        'Linksklick: weiter (Entfernt → Normal → Forced → SDH → CC)',
+        'Rechtsklick: zurück'
     ]
         .filter(Boolean)
         .join('\n')
@@ -131,24 +152,31 @@ function SourceSubtitleLine({
             )}
             <button
                 type="button"
-                onClick={cycle}
+                onClick={() => cycle(1)}
+                onContextMenu={(event) => {
+                    event.preventDefault()
+                    cycle(-1)
+                }}
                 title={hint}
                 className={cn(
                     'ml-auto shrink-0 rounded-full border px-2 py-px text-[10px] transition-colors',
-                    resolved.source === 'override' && 'border-warning/50 bg-warning/15 text-warning hover:bg-warning/25',
-                    resolved.source === 'detected' && 'border-primary/50 bg-primary/15 text-primary hover:bg-primary/25',
-                    resolved.source === 'file' && 'border-input text-muted-foreground hover:bg-accent hover:text-foreground'
+                    manual
+                        ? 'border-warning/50 bg-warning/15 text-warning hover:bg-warning/25'
+                        : removed
+                          ? 'border-dashed border-input text-muted-foreground/70 hover:bg-accent hover:text-foreground'
+                          : resolved.source === 'detected'
+                            ? 'border-primary/50 bg-primary/15 text-primary hover:bg-primary/25'
+                            : 'border-input text-muted-foreground hover:bg-accent hover:text-foreground'
                 )}
             >
-                {TYPE_LABELS[resolved.type]}
-                {resolved.source === 'override' && ' (manuell überschrieben)'}
+                {STATE_LABELS[state]}
+                {manual && ' (manuell überschrieben)'}
             </button>
         </li>
     )
 }
 
 /** Aufklappbare Übersicht der Spuren: vorher (Quelle) und nachher (Ausgabe). */
-
 export function TrackDetails({
     fileId,
     analysis,
@@ -165,7 +193,6 @@ export function TrackDetails({
     const peak = useStore((s) => (peakKey ? s.peaks[peakKey] : undefined))
     const peakInfo = settings && peakKey ? describePeak(peak, settings) : null
     const keptAudio = new Set(plan.audio.map((track) => track.source.index))
-    const keptSubtitles = new Set(plan.subtitle.map((track) => subtitleTrackId(track.source)))
 
     const audioMeta = (track: FileAnalysis['audio'][number]) =>
         `${getAudioTrackName(getAudioType(track)) ?? track.codecId} · ${track.channels} ch`
@@ -197,9 +224,9 @@ export function TrackDetails({
                             key={subtitleTrackId(track)}
                             fileId={fileId}
                             track={track}
-                            durationSec={analysis.durationSec}
+                            analysis={analysis}
+                            plan={plan}
                             language={normalizeLanguage(track.language, unknownLanguage)}
-                            removed={!keptSubtitles.has(subtitleTrackId(track))}
                         />
                     ))}
                 </Section>

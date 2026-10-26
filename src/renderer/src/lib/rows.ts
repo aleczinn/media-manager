@@ -5,7 +5,7 @@ import { peakKey, type PeakRequest } from '@shared/peak'
 import { planTracks, type TrackPlan } from '@shared/pipeline'
 import { buildTargetStem } from '@shared/rename'
 import { estimateRequiredBytes } from '@shared/space'
-import type { ApplyFileResult, ApplyJob, FileAnalysis, SubtitleType } from '@shared/types'
+import type { ApplyFileResult, ApplyJob, FileAnalysis, SubtitleOverride } from '@shared/types'
 import { useStore, type FileEntry } from './store'
 
 export interface Row {
@@ -116,7 +116,7 @@ export function useDerived(): Derived {
 }
 
 /** Trägt die manuell gewählten Untertiteltypen in eine Kopie der Analyse ein */
-function applyTypeOverrides(analysis: FileAnalysis, overrides: Record<string, SubtitleType> | undefined): FileAnalysis {
+function applyTypeOverrides(analysis: FileAnalysis, overrides: Record<string, SubtitleOverride> | undefined): FileAnalysis {
     if (!overrides || Object.keys(overrides).length === 0) return analysis
     return {
         ...analysis,

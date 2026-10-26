@@ -1,6 +1,7 @@
 import { getAudioTrackName, getAudioType } from './audio-names'
+import { subtitleTrackId } from './external-subs'
 import { getLanguageName, normalizeLanguage } from './languages'
-import type { AudioTrackInfo, FileAnalysis, Settings, SubtitleTrackInfo, SubtitleType, VideoTrackInfo } from './types'
+import type { AudioTrackInfo, FileAnalysis, Settings, SubtitleOverride, SubtitleTrackInfo, SubtitleType, VideoTrackInfo } from './types'
 
 export interface PlannedVideo {
     source: VideoTrackInfo
@@ -28,10 +29,15 @@ export interface NormalizeCandidate {
     bitrate: '384k' | '640k'
 }
 
+/** Warum eine Untertitelspur nicht in die Ausgabe kommt */
+export type SubtitleRemovalReason = 'manual' | 'external' | 'language' | 'duplicate'
+
 export interface TrackPlan {
     video: PlannedVideo[]
     audio: PlannedAudio[]
     subtitle: PlannedSubtitle[]
+    /** Entfernte Untertitelspuren (Schlüssel `subtitleTrackId`) mit Grund */
+    removedSubtitles: Record<string, SubtitleRemovalReason>
     /** Spur, die normalisiert werden würde (Gain steht erst nach der Analyse fest) */
     normalize: NormalizeCandidate | null
     /** Grund, warum nicht normalisiert wird (nur wenn Normalisierung aktiv ist) */
@@ -65,9 +71,6 @@ export function getSubtitleFormat(track: SubtitleTrackInfo): string {
 /** Normale Untertitel haben 10–20 Einträge pro Minute, Forced-Spuren nur vereinzelte */
 export const FORCED_MAX_EVENTS_PER_MINUTE = 1.5
 
-/** Reihenfolge beim Durchschalten in der Oberfläche */
-export const SUBTITLE_TYPES: SubtitleType[] = ['normal', 'forced', 'sdh', 'cc']
-
 /**
  * Woher der Typ stammt:
  * - `override`: manuell in der Oberfläche gewählt
@@ -85,9 +88,14 @@ function isSparse(track: SubtitleTrackInfo, durationSec: number): boolean {
     return track.eventCount !== null && durationSec > 0 && track.eventCount / (durationSec / 60) < FORCED_MAX_EVENTS_PER_MINUTE
 }
 
-/** Bestimmt den Typ einer Untertitelspur. Eine manuelle Wahl gewinnt immer. */
+/** Spur wurde manuell auf einen Typ gesetzt und wird deshalb immer übernommen */
+export function isManuallyKept(track: SubtitleTrackInfo): boolean {
+    return track.typeOverride !== undefined && track.typeOverride !== 'removed'
+}
+
+/** Bestimmt den Typ einer Untertitelspur. Ein manuell gewählter Typ gewinnt immer. */
 export function resolveSubtitleType(track: SubtitleTrackInfo, durationSec: number): ResolvedSubtitleType {
-    if (track.typeOverride) return { type: track.typeOverride, source: 'override' }
+    if (track.typeOverride && track.typeOverride !== 'removed') return { type: track.typeOverride, source: 'override' }
 
     const title = (track.title || '').toLowerCase()
     if (track.forced || title.includes('forced') || title.includes('erzwungen')) return { type: 'forced', source: 'file' }
@@ -156,11 +164,24 @@ function planAudio(tracks: AudioTrackInfo[], settings: Settings): PlannedAudio[]
     }))
 }
 
-function planSubtitles(tracks: SubtitleTrackInfo[], settings: Settings, durationSec: number): PlannedSubtitle[] {
+function planSubtitles(
+    tracks: SubtitleTrackInfo[],
+    settings: Settings,
+    durationSec: number
+): Pick<TrackPlan, 'subtitle' | 'removedSubtitles'> {
     const { pipeline, languages, subtitlePriority, subtitleOrder, unknownLanguage } = settings
+    const removedSubtitles: Record<string, SubtitleRemovalReason> = {}
+
+    // Entfernt eine Spur mit Grund; manuell übernommene Spuren bleiben immer drin
+    const keepOr = (source: SubtitleTrackInfo, keep: boolean, reason: SubtitleRemovalReason) => {
+        if (keep || isManuallyKept(source)) return true
+        removedSubtitles[subtitleTrackId(source)] = reason
+        return false
+    }
 
     let subtitles = tracks
-        .filter((source) => pipeline.mergeSubtitles || source.inputIndex === 0)
+        .filter((source) => keepOr(source, source.typeOverride !== 'removed', 'manual'))
+        .filter((source) => keepOr(source, pipeline.mergeSubtitles || source.inputIndex === 0, 'external'))
         .map((source) => ({
             source,
             language: normalizeLanguage(source.language, unknownLanguage),
@@ -168,7 +189,7 @@ function planSubtitles(tracks: SubtitleTrackInfo[], settings: Settings, duration
         }))
 
     if (pipeline.filterLanguages) {
-        subtitles = subtitles.filter((track) => languages.includes(track.language))
+        subtitles = subtitles.filter((track) => keepOr(track.source, languages.includes(track.language), 'language'))
     }
 
     if (pipeline.sortTracks) {
@@ -188,18 +209,21 @@ function planSubtitles(tracks: SubtitleTrackInfo[], settings: Settings, duration
         const seen = new Set<string>()
         subtitles = subtitles.filter((track) => {
             const key = `${track.language}-${track.type}`
-            if (seen.has(key)) return false
+            const keep = keepOr(track.source, !seen.has(key), 'duplicate')
             seen.add(key)
-            return true
+            return keep
         })
     }
 
-    return subtitles.map(({ source, language, type }) => ({
-        source,
-        language,
-        title: pipeline.renameTracks ? subtitleTitle(language, type) : source.title,
-        dispositions: subtitleDispositions(source, type)
-    }))
+    return {
+        removedSubtitles,
+        subtitle: subtitles.map(({ source, language, type }) => ({
+            source,
+            language,
+            title: pipeline.renameTracks ? subtitleTitle(language, type) : source.title,
+            dispositions: subtitleDispositions(source, type)
+        }))
+    }
 }
 
 function planNormalize(audio: PlannedAudio[], settings: Settings): Pick<TrackPlan, 'normalize' | 'normalizeSkipReason'> {
@@ -232,7 +256,26 @@ function planNormalize(audio: PlannedAudio[], settings: Settings): Pick<TrackPla
 export function planTracks(analysis: FileAnalysis, settings: Settings): TrackPlan {
     const video = analysis.video.map((source) => ({ source, title: settings.pipeline.cleanMetadata ? '' : source.title }))
     const audio = planAudio(analysis.audio, settings)
-    const subtitle = planSubtitles(analysis.subtitle, settings, analysis.durationSec)
+    const subtitles = planSubtitles(analysis.subtitle, settings, analysis.durationSec)
 
-    return { video, audio, subtitle, ...planNormalize(audio, settings) }
+    return { video, audio, ...subtitles, ...planNormalize(audio, settings) }
+}
+
+/** Reihenfolge beim Durchschalten einer Untertitelspur in der Oberfläche */
+export const SUBTITLE_STATES: SubtitleOverride[] = ['removed', 'normal', 'forced', 'sdh', 'cc']
+
+/** Zustand einer Spur im Plan: entfernt oder ihr Typ */
+export function subtitleState(plan: TrackPlan, track: SubtitleTrackInfo, durationSec: number): SubtitleOverride {
+    return plan.removedSubtitles[subtitleTrackId(track)] ? 'removed' : resolveSubtitleType(track, durationSec).type
+}
+
+/** Zustand, den die Spur ohne ihre manuelle Wahl hätte (zum Vergleich beim Durchschalten) */
+export function autoSubtitleState(analysis: FileAnalysis, track: SubtitleTrackInfo, settings: Settings): SubtitleOverride {
+    const id = subtitleTrackId(track)
+    const withoutOverride = {
+        ...analysis,
+        subtitle: analysis.subtitle.map((t) => (subtitleTrackId(t) === id ? { ...t, typeOverride: undefined } : t))
+    }
+    const original = withoutOverride.subtitle.find((t) => subtitleTrackId(t) === id)!
+    return subtitleState(planTracks(withoutOverride, settings), original, analysis.durationSec)
 }

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { getAudioTrackName, getAudioType } from '../src/shared/audio-names'
 import { normalizeLanguage } from '../src/shared/languages'
-import { autoSubtitleType, planTracks, resolveSubtitleType } from '../src/shared/pipeline'
+import { autoSubtitleState, autoSubtitleType, planTracks, resolveSubtitleType, subtitleState } from '../src/shared/pipeline'
 import { DEFAULT_SETTINGS } from '../src/shared/settings'
-import type { AudioTrackInfo, FileAnalysis, SubtitleTrackInfo } from '../src/shared/types'
+import type { AudioTrackInfo, FileAnalysis, SubtitleOverride, SubtitleTrackInfo } from '../src/shared/types'
 
 const audio = (index: number, patch: Partial<AudioTrackInfo>): AudioTrackInfo => ({
     index,
@@ -220,5 +220,50 @@ describe('Externe Untertitel und Forced-Erkennung (The 100 S02E01)', () => {
     it('lässt externe Untertitel weg, wenn das Einbinden abgeschaltet ist', () => {
         const plan = planTracks(analysis, { ...DEFAULT_SETTINGS, pipeline: { ...DEFAULT_SETTINGS.pipeline, mergeSubtitles: false } })
         expect(plan.subtitle.map((t) => t.source.inputIndex)).toEqual([0])
+        expect(plan.removedSubtitles).toEqual({ '1:0': 'external', '2:0': 'external', '3:0': 'external' })
+    })
+})
+
+describe('Entfernte Untertitel und manuelle Wahl', () => {
+    const analysis: FileAnalysis = {
+        durationSec: 2880,
+        video: [],
+        audio: [],
+        subtitle: [
+            subtitle(0, { language: 'ger', eventCount: 600 }),
+            subtitle(1, { language: 'ara', eventCount: 630 }),
+            subtitle(2, { language: 'ger', eventCount: 620, codecId: 'S_HDMV/PGS' })
+        ]
+    }
+    const withOverride = (index: number, override: SubtitleOverride): FileAnalysis => ({
+        ...analysis,
+        subtitle: analysis.subtitle.map((t) => (t.index === index ? { ...t, typeOverride: override } : t))
+    })
+
+    it('nennt den Grund für entfernte Spuren', () => {
+        const plan = planTracks(analysis, DEFAULT_SETTINGS)
+        expect(plan.subtitle.map((t) => t.source.index)).toEqual([0])
+        expect(plan.removedSubtitles).toEqual({ '0:1': 'language', '0:2': 'duplicate' })
+        expect(subtitleState(plan, analysis.subtitle[1], 2880)).toBe('removed')
+        expect(autoSubtitleState(analysis, analysis.subtitle[1], DEFAULT_SETTINGS)).toBe('removed')
+    })
+
+    it('übernimmt eine manuell gesetzte Spur trotz Sprachfilter und Duplikat', () => {
+        const arabic = planTracks(withOverride(1, 'normal'), DEFAULT_SETTINGS)
+        expect(arabic.subtitle.map((t) => [t.source.index, t.title])).toEqual([
+            [0, 'Deutsch'],
+            [1, 'Arabic']
+        ])
+
+        const pgs = planTracks(withOverride(2, 'normal'), DEFAULT_SETTINGS)
+        expect(pgs.subtitle.map((t) => t.source.index)).toEqual([0, 2])
+    })
+
+    it('entfernt eine Spur manuell; die nächste gleicher Art rückt nach', () => {
+        const plan = planTracks(withOverride(0, 'removed'), DEFAULT_SETTINGS)
+        expect(plan.subtitle.map((t) => t.source.index)).toEqual([2])
+        expect(plan.removedSubtitles['0:0']).toBe('manual')
+        // Ohne die manuelle Wahl wäre die Spur normal übernommen worden
+        expect(autoSubtitleState(withOverride(0, 'removed'), analysis.subtitle[0], DEFAULT_SETTINGS)).toBe('normal')
     })
 })

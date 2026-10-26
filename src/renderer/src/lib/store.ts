@@ -10,7 +10,7 @@ import type {
     FileAnalysis,
     MediaFile,
     Settings,
-    SubtitleType
+    SubtitleOverride
 } from '@shared/types'
 
 export interface FileEntry {
@@ -42,8 +42,8 @@ interface State {
     excluded: Record<string, boolean>
     /** Vom Nutzer bearbeitete Zielnamen (ohne .mkv) */
     overrides: Record<string, string>
-    /** Manuell gewählter Untertiteltyp je Datei und Spur (`subtitleTrackId`) */
-    typeOverrides: Record<string, Record<string, SubtitleType>>
+    /** Manuelle Untertitel-Wahl (Typ oder entfernt) je Datei und Spur (`subtitleTrackId`) */
+    typeOverrides: Record<string, Record<string, SubtitleOverride>>
     expanded: Record<string, boolean>
     outputNames: string[]
     disk: DiskSpace | null
@@ -62,7 +62,7 @@ interface State {
     toggleExcluded(id: string): void
     setAllExcluded(excluded: boolean): void
     setOverride(id: string, stem: string | null): void
-    setTypeOverride(fileId: string, trackId: string, type: SubtitleType | null): void
+    setTypeOverride(fileId: string, trackId: string, type: SubtitleOverride | null): void
     toggleExpanded(id: string): void
     setForceApply(force: boolean): void
     apply(jobs: ApplyJob[]): Promise<void>

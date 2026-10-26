@@ -44,6 +44,9 @@ export interface AudioTrackInfo {
 
 export type SubtitleType = 'normal' | 'forced' | 'sdh' | 'cc'
 
+/** Manuelle Wahl in der Oberfläche: ein Typ (Spur wird sicher übernommen) oder `removed` (Spur fliegt raus) */
+export type SubtitleOverride = SubtitleType | 'removed'
+
 export interface SubtitleTrackInfo {
     /** Eingabe für ffmpeg: 0 = Videodatei, 1…n = externe Untertiteldatei */
     inputIndex: number
@@ -56,8 +59,8 @@ export interface SubtitleTrackInfo {
     /** Hinweise aus dem Dateinamen externer Untertitel (z. B. `-forced`, `.sdh`) */
     filenameForced?: boolean
     filenameSdh?: boolean
-    /** Manuell gewählter Typ aus der Oberfläche */
-    typeOverride?: SubtitleType
+    /** Manuelle Wahl aus der Oberfläche; schlägt Sprachfilter und Duplikat-Entfernung */
+    typeOverride?: SubtitleOverride
     title: string
     language: string
     codecId: string
