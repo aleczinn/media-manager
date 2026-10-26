@@ -1,0 +1,15 @@
+appId: local.media-manager-v2
+productName: Media Manager
+directories:
+    buildResources: build
+    output: dist
+files:
+    - out/**/*
+    - package.json
+asarUnpack:
+    - node_modules/mediainfo.js/**
+win:
+    target: portable
+    icon: build/icon.ico
+portable:
+    artifactName: MediaManager-${version}-portable.exe
