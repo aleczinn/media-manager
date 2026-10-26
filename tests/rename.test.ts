@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTargetStem, detectEdition, detectSource, parseEpisode, validateStem } from '../src/shared/rename'
+import { buildTargetStem, detectEdition, detectSource, parseEpisode, sourceFolders, validateStem } from '../src/shared/rename'
 
 const file = (name: string, dir = 'C:\\in') => ({ name, fullPath: `${dir}\\${name}.mkv` })
 
@@ -42,6 +42,41 @@ describe('detectEdition / detectSource', () => {
 
     it('fällt auf die Standard-Quelle zurück', () => {
         expect(detectSource('Show.S01E01.x264', 'C:\\in\\Show.S01E01.x264.mkv', 'TV')).toBe('TV')
+    })
+})
+
+describe('Quellerkennung über Ordnernamen', () => {
+    // Echte Struktur: Input\Staffelordner\Folgenordner\rsg-...mkv
+    const the100 = {
+        name: 'rsg-the-100-s02e01-1080p',
+        fullPath:
+            'C:\\Loki\\INPUT\\The 100 S02 German DL 1080p BluRay x264-RSG - serienfans org\\The.100.S02E01.Die.48.German.DL.1080p.BluRay.x264-RSG\\rsg-the-100-s02e01-1080p.mkv',
+        relativePath:
+            'The 100 S02 German DL 1080p BluRay x264-RSG - serienfans org\\The.100.S02E01.Die.48.German.DL.1080p.BluRay.x264-RSG\\rsg-the-100-s02e01-1080p.mkv'
+    }
+
+    it('liefert die Ordner von innen nach außen inkl. Input-Ordner', () => {
+        expect(sourceFolders(the100)).toEqual([
+            'The.100.S02E01.Die.48.German.DL.1080p.BluRay.x264-RSG',
+            'The 100 S02 German DL 1080p BluRay x264-RSG - serienfans org',
+            'INPUT'
+        ])
+    })
+
+    it('erkennt BluRay aus dem Ordner, wenn der Dateiname keine Quelle enthält', () => {
+        expect(buildTargetStem(the100, 'Web')).toBe('S02e01 - Unknown {source-BluRay}')
+    })
+
+    it('der Dateiname hat Vorrang vor dem Ordner, der innerste Ordner vor äußeren', () => {
+        expect(detectSource('Show.S01E01.WEB', 'x', 'TV', ['Show.S01.BluRay'])).toBe('Web')
+        expect(detectSource('Show.S01E01', 'x', 'TV', ['Show.S01E01.WEB-DL', 'Show.S01.BluRay'])).toBe('Web')
+        expect(detectSource('Show.S01E01', 'x', 'TV', ['Show.S01.UHD.Upscale'])).toBe('BluRay')
+    })
+
+    it('ignoriert Ordner oberhalb des Input-Ordners', () => {
+        const file = { name: 'Show.S01E01', fullPath: 'C:\\WebstormProjects\\in\\Show.S01E01.mkv', relativePath: 'Show.S01E01.mkv' }
+        expect(sourceFolders(file)).toEqual(['in'])
+        expect(buildTargetStem(file, 'TV')).toBe('S01e01 - Unknown {source-TV}')
     })
 })
 

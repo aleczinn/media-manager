@@ -40,19 +40,47 @@ export function detectEdition(fileName: string): string | null {
     return null
 }
 
-export function detectSource(fileName: string, fullPath: string, defaultSource: string): string {
-    const name = fileName.toLowerCase()
-    const path = fullPath.toLowerCase()
-    const upscale = name.includes('upsuhd') || name.includes('upscale')
+const isUpscale = (name: string) => name.includes('upsuhd') || name.includes('upscale')
 
-    if (name.includes('dsnp') || path.includes('dsnp') || path.includes('disney')) return 'Disney+'
-    if (path.includes('amazon')) return 'Amazon'
-    if (path.includes('netflix')) return 'Netflix'
+/** Quellen, die am Namen erkannt werden (erst Dateiname, dann Ordnernamen) */
+function sourceFromName(name: string, upscale: boolean): string | null {
     if (name.includes('atvp')) return 'ATVP'
     if (name.includes('rtl')) return 'RTL+'
     if (name.includes('web')) return 'Web'
     if (name.includes('uhd')) return upscale ? 'BluRay' : 'UHD'
     if (name.includes('bluray') || name.includes('bdrip')) return 'BluRay'
+    return null
+}
+
+/**
+ * Ordnernamen für die Quellerkennung, von innen nach außen: die Unterordner innerhalb des Input-Ordners
+ * und der Input-Ordner selbst. Höher liegende Ordner zählen nicht (z. B. „WebstormProjects“ ≠ Web).
+ */
+export function sourceFolders(file: { fullPath: string; relativePath?: string }): string[] {
+    if (!file.relativePath) return []
+    const inner = file.relativePath.split(/[\\/]/).slice(0, -1).reverse()
+    const root = file.fullPath.slice(0, file.fullPath.length - file.relativePath.length).replace(/[\\/]+$/, '')
+    const rootName = root.split(/[\\/]/).pop() ?? ''
+    return rootName ? [...inner, rootName] : inner
+}
+
+export function detectSource(fileName: string, fullPath: string, defaultSource: string, folders: string[] = []): string {
+    const name = fileName.toLowerCase()
+    const path = fullPath.toLowerCase()
+    const upscale = isUpscale(name)
+
+    if (name.includes('dsnp') || path.includes('dsnp') || path.includes('disney')) return 'Disney+'
+    if (path.includes('amazon')) return 'Amazon'
+    if (path.includes('netflix')) return 'Netflix'
+
+    const fromFileName = sourceFromName(name, upscale)
+    if (fromFileName) return fromFileName
+
+    for (const folder of folders) {
+        const lower = folder.toLowerCase()
+        const fromFolder = sourceFromName(lower, upscale || isUpscale(lower))
+        if (fromFolder) return fromFolder
+    }
     return defaultSource
 }
 
@@ -71,14 +99,18 @@ export const UNKNOWN_TITLE = 'Unknown'
  * Erzeugt den Zielnamen ohne Endung, z. B. `S01e02 - Titel {edition-Extended} {source-Web}`.
  * Ohne Titel wird `Unknown` eingesetzt. Nicht erkannte Dateien behalten ihren Namen.
  */
-export function buildTargetStem(file: { name: string; fullPath: string }, defaultSource: string, title = ''): string {
+export function buildTargetStem(
+    file: { name: string; fullPath: string; relativePath?: string },
+    defaultSource: string,
+    title = ''
+): string {
     if (isAlreadyFormatted(file.name)) return file.name
 
     const parsed = parseEpisode(file.name)
     if (!parsed) return file.name
 
     const edition = detectEdition(file.name)
-    const source = detectSource(file.name, file.fullPath, defaultSource)
+    const source = detectSource(file.name, file.fullPath, defaultSource, sourceFolders(file))
 
     let stem = `S${pad(parsed.season ?? 1)}e${pad(parsed.episode)} - ${title.trim() || UNKNOWN_TITLE}`
     if (edition) stem += ` {edition-${edition}}`
