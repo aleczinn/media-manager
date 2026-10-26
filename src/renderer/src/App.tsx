@@ -4,6 +4,7 @@ import { ApplyBar } from '@/components/ApplyBar'
 import { FileTable } from '@/components/FileTable'
 import { FolderBar } from '@/components/FolderBar'
 import { PipelineOptions } from '@/components/PipelineOptions'
+import { SeriesBar } from '@/components/SeriesBar'
 import { SettingsDialog } from '@/components/SettingsDialog'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useDerived } from '@/lib/rows'
@@ -72,6 +73,7 @@ export function App() {
                     <>
                         <FolderBar />
                         <PipelineOptions />
+                        <SeriesBar derived={derived} />
                         <FileTable derived={derived} />
                         <ApplyBar derived={derived} />
                     </>

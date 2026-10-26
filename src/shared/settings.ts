@@ -20,6 +20,7 @@ export const DEFAULT_SETTINGS: Settings = {
     ffprobePath: '',
     spaceWarningGb: 10,
     concurrency: 2,
+    tmdbApiKey: '',
     pipeline: {
         filterLanguages: true,
         sortTracks: true,
@@ -29,7 +30,8 @@ export const DEFAULT_SETTINGS: Settings = {
         normalize: true,
         renameFile: true,
         cleanMetadata: true,
-        encodeVideo: false
+        encodeVideo: false,
+        saveThumbnails: true
     }
 }
 

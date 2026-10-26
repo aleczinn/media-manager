@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { PeakState } from '@shared/peak'
+import type { EpisodeRef } from '@shared/tmdb-match'
 import type {
     ApplyFileResult,
     ApplyJob,
@@ -10,8 +11,22 @@ import type {
     FileAnalysis,
     MediaFile,
     Settings,
-    SubtitleOverride
+    SubtitleOverride,
+    TmdbEpisode,
+    TmdbSeasonSummary,
+    TmdbShow
 } from '@shared/types'
+
+interface TmdbState {
+    show: TmdbShow | null
+    seasons: TmdbSeasonSummary[]
+    /** Alle Episoden der Serie, nach Staffel und Folge sortiert */
+    episodes: TmdbEpisode[]
+    loading: boolean
+    error: string | null
+}
+
+const emptyTmdb: TmdbState = { show: null, seasons: [], episodes: [], loading: false, error: null }
 
 export interface FileEntry {
     file: MediaFile
@@ -50,6 +65,10 @@ interface State {
     forceApply: boolean
     /** Peak-Analysen, Schlüssel aus `peakKey()` */
     peaks: Record<string, PeakState>
+    /** Zugeordnete TMDB-Serie (gilt für die laufende Sitzung) */
+    tmdb: TmdbState
+    /** Manuell gewählte Episode je Datei; `null` = bewusst keine Zuordnung */
+    episodeOverrides: Record<string, EpisodeRef | null>
     run: RunState
 
     init(): Promise<() => void>
@@ -63,6 +82,10 @@ interface State {
     setAllExcluded(excluded: boolean): void
     setOverride(id: string, stem: string | null): void
     setTypeOverride(fileId: string, trackId: string, type: SubtitleOverride | null): void
+    assignShow(show: TmdbShow): Promise<void>
+    clearShow(): void
+    /** `undefined` = zurück auf die automatische Zuordnung */
+    setEpisode(fileId: string, ref: EpisodeRef | null | undefined): void
     toggleExpanded(id: string): void
     setForceApply(force: boolean): void
     apply(jobs: ApplyJob[]): Promise<void>
@@ -85,6 +108,8 @@ export const useStore = create<State>()((set, get) => ({
     disk: null,
     forceApply: false,
     peaks: {},
+    tmdb: emptyTmdb,
+    episodeOverrides: {},
     run: emptyRun,
 
     async init() {
@@ -174,6 +199,8 @@ export const useStore = create<State>()((set, get) => ({
             overrides: {},
             typeOverrides: {},
             expanded: {},
+            tmdb: emptyTmdb,
+            episodeOverrides: {},
             run: emptyRun
         })
         try {
@@ -218,6 +245,52 @@ export const useStore = create<State>()((set, get) => ({
             if (type === null) delete forFile[trackId]
             else forFile[trackId] = type
             return { typeOverrides: { ...state.typeOverrides, [fileId]: forFile } }
+        })
+    },
+
+    async assignShow(show) {
+        set({ tmdb: { ...emptyTmdb, show, loading: true }, episodeOverrides: {} })
+        const isCurrent = () => get().tmdb.show?.id === show.id
+
+        const seasons = await window.api.tmdbSeasons(show.id)
+        if (!isCurrent()) return
+        if (!seasons.ok) {
+            set((state) => ({ tmdb: { ...state.tmdb, loading: false, error: seasons.error } }))
+            return
+        }
+
+        // Alle Staffeln laden, damit jede Folge im Dropdown frei gewählt werden kann (Specials = Staffel 0 ans Ende)
+        const results = await Promise.all(seasons.data.map((season) => window.api.tmdbSeason(show.id, season.season)))
+        if (!isCurrent()) return
+        const failed = results.find((result) => !result.ok)
+        const episodes = results
+            .flatMap((result) => (result.ok ? result.data : []))
+            .sort((a, b) => (a.season || 999) - (b.season || 999) || a.episode - b.episode)
+
+        set({
+            tmdb: {
+                show,
+                seasons: seasons.data,
+                episodes,
+                loading: false,
+                error: failed && !failed.ok ? failed.error : null
+            }
+        })
+    },
+
+    clearShow() {
+        set({ tmdb: emptyTmdb, episodeOverrides: {} })
+    },
+
+    setEpisode(fileId, ref) {
+        set((state) => {
+            const episodeOverrides = { ...state.episodeOverrides }
+            if (ref === undefined) delete episodeOverrides[fileId]
+            else episodeOverrides[fileId] = ref
+            // Ein bewusst gewählter Titel soll im Namen ankommen, daher die Namensbearbeitung zurücksetzen
+            const overrides = { ...state.overrides }
+            delete overrides[fileId]
+            return { episodeOverrides, overrides }
         })
     },
 

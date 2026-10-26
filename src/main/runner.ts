@@ -8,6 +8,7 @@ import { planTracks } from '../shared/pipeline'
 import type { ApplyFileResult, ApplyJob, ApplyPhase, ApplyProgress, ApplySummary, Settings } from '../shared/types'
 import { parseProgressLine, resolveBinaries, runProcess } from './ffmpeg'
 import { clampConcurrency, type PeakService } from './peak-service'
+import { downloadImage } from './tmdb'
 
 export interface RunnerEvents {
     progress(progress: ApplyProgress): void
@@ -137,6 +138,17 @@ export class Runner {
             if (code !== 0) throw new Error(stderrTail.slice(-5).join('\n') || `ffmpeg beendet mit Code ${code}`)
 
             await fsp.rename(tempPath, targetPath)
+
+            if (job.thumbUrl) {
+                // Ein fehlendes Bild macht die fertige Datei nicht kaputt, es wird nur vermerkt
+                try {
+                    await saveThumbnail(job.thumbUrl, targetPath)
+                    notes.push('Vorschaubild gespeichert')
+                } catch (error) {
+                    notes.push(`Vorschaubild fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`)
+                }
+            }
+
             return { fileId: job.fileId, status: 'ok', message: notes.join(' · ') || undefined }
         } catch (error) {
             await fsp.rm(tempPath, { force: true }).catch(() => undefined)
@@ -159,6 +171,18 @@ export class Runner {
 
     private throwIfCancelled(): void {
         if (this.cancelled) throw new CancelledError()
+    }
+}
+
+/** Speichert das Episodenbild als `<Zielname>-thumb.jpg` neben der MKV (erst als .partial, dann umbenannt) */
+async function saveThumbnail(url: string, targetPath: string): Promise<void> {
+    const thumbPath = targetPath.replace(/\.mkv$/i, '') + '-thumb.jpg'
+    const tempPath = `${thumbPath}.partial`
+    try {
+        await fsp.writeFile(tempPath, await downloadImage(url))
+        await fsp.rename(tempPath, thumbPath)
+    } finally {
+        await fsp.rm(tempPath, { force: true }).catch(() => undefined)
     }
 }
 

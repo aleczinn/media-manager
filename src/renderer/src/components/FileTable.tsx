@@ -20,6 +20,7 @@ import type { Derived, Row } from '@/lib/rows'
 import { describePeak } from '@/lib/peak'
 import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
+import { EpisodePicker } from './EpisodePicker'
 import { TrackDetails } from './TrackDetails'
 
 function WithTooltip({ text, children }: { text: string; children: ReactElement }) {
@@ -117,6 +118,7 @@ function TrackSummary({ row }: { row: Row }) {
 function FileRow({ row }: { row: Row }) {
     const expanded = useStore((s) => !!s.expanded[row.entry.file.id])
     const running = useStore((s) => s.run.running)
+    const hasShow = useStore((s) => s.tmdb.episodes.length > 0)
     const { toggleExcluded, toggleExpanded, setOverride } = useStore.getState()
     const { file } = row.entry
     const done = row.result?.status === 'ok'
@@ -157,37 +159,40 @@ function FileRow({ row }: { row: Row }) {
                     </span>
                 </div>
 
-                {/* Rechts: Zielname */}
-                <div className="flex min-w-0 items-center gap-1.5 border-l py-2 pr-3 pl-3">
-                    <div
-                        className={cn(
-                            'flex h-8 min-w-0 flex-1 items-center rounded-md border border-transparent bg-black/20 pr-2 transition-colors focus-within:border-ring',
-                            row.conflict && !row.excluded && 'border-destructive/70 bg-destructive/10',
-                            done && 'border-success/40 bg-success/5'
-                        )}
-                    >
-                        <input
-                            value={row.stem}
-                            disabled={row.excluded || running || done}
-                            onChange={(event) => setOverride(file.id, event.target.value)}
-                            spellCheck={false}
-                            className="h-full min-w-0 flex-1 bg-transparent px-2.5 text-sm outline-none disabled:cursor-not-allowed"
-                        />
-                        <span className="shrink-0 text-sm text-muted-foreground">.mkv</span>
+                {/* Rechts: Zielname, darunter die TMDB-Episode */}
+                <div className="flex min-w-0 flex-col justify-center gap-1 self-stretch border-l py-2 pr-3 pl-3">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                        <div
+                            className={cn(
+                                'flex h-8 min-w-0 flex-1 items-center rounded-md border border-transparent bg-black/20 pr-2 transition-colors focus-within:border-ring',
+                                row.conflict && !row.excluded && 'border-destructive/70 bg-destructive/10',
+                                done && 'border-success/40 bg-success/5'
+                            )}
+                        >
+                            <input
+                                value={row.stem}
+                                disabled={row.excluded || running || done}
+                                onChange={(event) => setOverride(file.id, event.target.value)}
+                                spellCheck={false}
+                                className="h-full min-w-0 flex-1 bg-transparent px-2.5 text-sm outline-none disabled:cursor-not-allowed"
+                            />
+                            <span className="shrink-0 text-sm text-muted-foreground">.mkv</span>
+                        </div>
+                        <span className="flex w-7 shrink-0 justify-center">
+                            {row.conflict && !row.excluded ? (
+                                <WithTooltip text={row.conflict.message}>
+                                    <AlertTriangle className="size-4 text-destructive" />
+                                </WithTooltip>
+                            ) : row.overridden && !done ? (
+                                <WithTooltip text="Auf Vorschlag zurücksetzen">
+                                    <Button variant="ghost" size="icon-sm" onClick={() => setOverride(file.id, null)} disabled={running}>
+                                        <RotateCcw className="size-3.5" />
+                                    </Button>
+                                </WithTooltip>
+                            ) : null}
+                        </span>
                     </div>
-                    <span className="flex w-7 shrink-0 justify-center">
-                        {row.conflict && !row.excluded ? (
-                            <WithTooltip text={row.conflict.message}>
-                                <AlertTriangle className="size-4 text-destructive" />
-                            </WithTooltip>
-                        ) : row.overridden && !done ? (
-                            <WithTooltip text="Auf Vorschlag zurücksetzen">
-                                <Button variant="ghost" size="icon-sm" onClick={() => setOverride(file.id, null)} disabled={running}>
-                                    <RotateCcw className="size-3.5" />
-                                </Button>
-                            </WithTooltip>
-                        ) : null}
-                    </span>
+                    {hasShow && <EpisodePicker row={row} disabled={row.excluded || running || done} />}
                 </div>
             </div>
 

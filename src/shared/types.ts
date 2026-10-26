@@ -101,6 +101,8 @@ export interface PipelineOptions {
     cleanMetadata: boolean
     /** Video neu encodieren statt kopieren */
     encodeVideo: boolean
+    /** Episodenbild von TMDB als `<Zielname>-thumb.jpg` speichern (nur mit zugeordneter Serie) */
+    saveThumbnails: boolean
 }
 
 export interface Settings {
@@ -129,8 +131,35 @@ export interface Settings {
     spaceWarningGb: number
     /** Wie viele Dateien gleichzeitig analysiert bzw. geschrieben werden (1–4) */
     concurrency: number
+    /** TMDB API-Key (v3) oder Read Access Token; leer = keine TMDB-Anbindung */
+    tmdbApiKey: string
     pipeline: PipelineOptions
 }
+
+export interface TmdbShow {
+    id: number
+    name: string
+    originalName: string
+    year: number | null
+    overview: string
+    posterPath: string | null
+}
+
+export interface TmdbEpisode {
+    season: number
+    episode: number
+    title: string
+    stillPath: string | null
+}
+
+export interface TmdbSeasonSummary {
+    season: number
+    name: string
+    episodeCount: number
+}
+
+/** Antwort der TMDB-Aufrufe: Daten oder eine verständliche Fehlermeldung */
+export type TmdbResult<T> = { ok: true; data: T } | { ok: false; error: string }
 
 export interface FfmpegStatus {
     ffmpeg: string | null
@@ -153,6 +182,8 @@ export interface ApplyJob {
     /** Zielname inkl. .mkv */
     targetName: string
     analysis: FileAnalysis
+    /** Episodenbild, das als `<Zielname>-thumb.jpg` gespeichert wird */
+    thumbUrl?: string
 }
 
 export type ApplyPhase = 'analyze' | 'build'
@@ -188,11 +219,16 @@ export interface MediaManagerApi {
     scan(dir: string): Promise<MediaFile[]>
     analyze(requestId: number, files: MediaFile[]): Promise<void>
     prefetchPeaks(requests: PeakRequest[]): Promise<void>
+    tmdbSearch(query: string, year: number | null): Promise<TmdbResult<TmdbShow[]>>
+    tmdbSeasons(showId: number): Promise<TmdbResult<TmdbSeasonSummary[]>>
+    tmdbSeason(showId: number, season: number): Promise<TmdbResult<TmdbEpisode[]>>
+    tmdbTest(apiKey: string): Promise<TmdbResult<true>>
     listOutput(dir: string): Promise<string[]>
     diskSpace(dir: string): Promise<DiskSpace | null>
     apply(jobs: ApplyJob[], outputDir: string): Promise<ApplySummary>
     cancelApply(): Promise<void>
     openPath(path: string): Promise<void>
+    openExternal(url: string): Promise<void>
     onAnalysis(listener: (event: AnalysisEvent) => void): () => void
     onApplyProgress(listener: (progress: ApplyProgress) => void): () => void
     onApplyFileDone(listener: (result: ApplyFileResult) => void): () => void

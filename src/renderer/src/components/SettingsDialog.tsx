@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { useStore } from '@/lib/store'
+import { cn } from '@/lib/utils'
 
 type NumberKey = 'spaceWarningGb' | 'normalizeMinGain' | 'normalizeMaxGain'
 
@@ -43,6 +44,7 @@ const toDraft = (s: Settings): Draft => ({
     ffmpegPath: s.ffmpegPath,
     ffprobePath: s.ffprobePath,
     concurrency: s.concurrency,
+    tmdbApiKey: s.tmdbApiKey,
     spaceWarningGb: String(s.spaceWarningGb),
     normalizeMinGain: String(s.normalizeMinGain),
     normalizeMaxGain: String(s.normalizeMaxGain)
@@ -59,6 +61,7 @@ const fromDraft = (d: Draft): Partial<Settings> => ({
     videoEncodeArgs: d.videoEncodeArgs.trim(),
     ffmpegPath: d.ffmpegPath.trim(),
     ffprobePath: d.ffprobePath.trim(),
+    tmdbApiKey: d.tmdbApiKey.trim(),
     spaceWarningGb: Math.max(0, number(d.spaceWarningGb, DEFAULT_SETTINGS.spaceWarningGb)),
     normalizeMinGain: number(d.normalizeMinGain, DEFAULT_SETTINGS.normalizeMinGain),
     normalizeMaxGain: number(d.normalizeMaxGain, DEFAULT_SETTINGS.normalizeMaxGain)
@@ -125,12 +128,20 @@ export function SettingsDialog() {
 
     const onOpenChange = (next: boolean) => {
         if (next && settings) setDraft(toDraft(settings))
+        if (next) setTmdbStatus(null)
         setOpen(next)
     }
 
     const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => (d ? { ...d, [key]: value } : d))
 
-    const bind = (key: NumberKey | 'audioBranding' | 'videoEncodeArgs' | 'ffmpegPath' | 'ffprobePath') => ({
+    const [tmdbStatus, setTmdbStatus] = useState<{ ok: boolean; text: string } | null>(null)
+    const testTmdb = async () => {
+        setTmdbStatus({ ok: true, text: 'Prüfe …' })
+        const result = await window.api.tmdbTest(draft?.tmdbApiKey.trim() ?? '')
+        setTmdbStatus(result.ok ? { ok: true, text: 'Verbindung erfolgreich' } : { ok: false, text: result.error })
+    }
+
+    const bind = (key: NumberKey | 'audioBranding' | 'videoEncodeArgs' | 'ffmpegPath' | 'ffprobePath' | 'tmdbApiKey') => ({
         value: draft?.[key] ?? '',
         onChange: (event: { target: { value: string } }) => set(key, event.target.value)
     })
@@ -148,7 +159,14 @@ export function SettingsDialog() {
     }
 
     const resetDefaults = () =>
-        setDraft(toDraft({ ...DEFAULT_SETTINGS, ffmpegPath: draft?.ffmpegPath ?? '', ffprobePath: draft?.ffprobePath ?? '' }))
+        setDraft(
+            toDraft({
+                ...DEFAULT_SETTINGS,
+                ffmpegPath: draft?.ffmpegPath ?? '',
+                ffprobePath: draft?.ffprobePath ?? '',
+                tmdbApiKey: draft?.tmdbApiKey ?? ''
+            })
+        )
 
     const addableLanguages = KNOWN_LANGUAGES.filter((code) => !draft?.languages.includes(code))
     // Eigene Werte aus älteren Einstellungen weiterhin anzeigen
@@ -360,6 +378,35 @@ export function SettingsDialog() {
                                         {bin} {ffmpeg?.[bin] ?? 'nicht gefunden'}
                                     </span>
                                 ))}
+                            </div>
+                        </Group>
+
+                        <Group title="TMDB">
+                            <Field label="API-Key" hint="API-Key (v3) oder Read Access Token für Folgentitel und Vorschaubilder">
+                                <Input {...bind('tmdbApiKey')} type="password" placeholder="leer = keine TMDB-Anbindung" />
+                                <Button variant="secondary" onClick={testTmdb} disabled={!draft.tmdbApiKey.trim()}>
+                                    Testen
+                                </Button>
+                            </Field>
+                            <div className="flex flex-col gap-1.5 pl-[216px] text-xs text-muted-foreground">
+                                {tmdbStatus && (
+                                    <span className={cn('flex items-center gap-1', tmdbStatus.ok ? 'text-success' : 'text-destructive')}>
+                                        {tmdbStatus.ok ? <CheckCircle2 className="size-3.5" /> : <XCircle className="size-3.5" />}
+                                        {tmdbStatus.text}
+                                    </span>
+                                )}
+                                <span>
+                                    Kostenloser Key: Konto bei TMDB anlegen, dann unter{' '}
+                                    <button
+                                        type="button"
+                                        className="text-primary underline-offset-2 hover:underline"
+                                        onClick={() => window.api.openExternal('https://www.themoviedb.org/settings/api')}
+                                    >
+                                        themoviedb.org/settings/api
+                                    </button>{' '}
+                                    erzeugen.
+                                </span>
+                                <span>This product uses the TMDB API but is not endorsed or certified by TMDB.</span>
                             </div>
                         </Group>
                     </div>

@@ -8,6 +8,7 @@ import { PeakService } from './peak-service'
 import { Runner } from './runner'
 import { findMediaFiles, listOutputNames } from './scanner'
 import { loadSettings, saveSettings } from './settings-store'
+import { getSeason, getSeasons, searchTv, testKey } from './tmdb'
 
 const ANALYZE_CONCURRENCY = 2
 
@@ -87,6 +88,15 @@ export function registerIpc(getWindow: () => BrowserWindow | null): { runner: Ru
     ipcMain.handle('shell:openPath', async (_event, target: string) => {
         await shell.openPath(target)
     })
+    ipcMain.handle('shell:openExternal', async (_event, url: string) => {
+        // Nur Webadressen im Standardbrowser öffnen
+        if (/^https:\/\//i.test(url)) await shell.openExternal(url)
+    })
+
+    ipcMain.handle('tmdb:search', (_event, query: string, year: number | null) => searchTv(loadSettings().tmdbApiKey, query, year))
+    ipcMain.handle('tmdb:seasons', (_event, showId: number) => getSeasons(loadSettings().tmdbApiKey, showId))
+    ipcMain.handle('tmdb:season', (_event, showId: number, season: number) => getSeason(loadSettings().tmdbApiKey, showId, season))
+    ipcMain.handle('tmdb:test', (_event, apiKey: string) => testKey(apiKey))
 
     return { runner, peaks }
 }

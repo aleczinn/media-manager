@@ -5,7 +5,8 @@ import { peakKey, type PeakRequest } from '@shared/peak'
 import { planTracks, type TrackPlan } from '@shared/pipeline'
 import { buildTargetStem } from '@shared/rename'
 import { estimateRequiredBytes } from '@shared/space'
-import type { ApplyFileResult, ApplyJob, FileAnalysis, SubtitleOverride } from '@shared/types'
+import { episodeRefFromName, findEpisode, sanitizeTitle, tmdbImageUrl } from '@shared/tmdb-match'
+import type { ApplyFileResult, ApplyJob, FileAnalysis, SubtitleOverride, TmdbEpisode } from '@shared/types'
 import { useStore, type FileEntry } from './store'
 
 export interface Row {
@@ -19,6 +20,10 @@ export interface Row {
     plan: TrackPlan | null
     /** Schlüssel der Peak-Analyse, falls die Datei normalisiert würde */
     peakKey: string | null
+    /** Zugeordnete TMDB-Episode (automatisch per SxxEyy oder manuell gewählt) */
+    episode: TmdbEpisode | null
+    /** Episode wurde manuell gewählt (auch „keine Zuordnung“) */
+    episodeManual: boolean
     conflict: Conflict | null
     result: ApplyFileResult | undefined
 }
@@ -44,6 +49,8 @@ export function useDerived(): Derived {
     const typeOverrides = useStore((s) => s.typeOverrides)
     const outputNames = useStore((s) => s.outputNames)
     const results = useStore((s) => s.run.results)
+    const tmdbEpisodes = useStore((s) => s.tmdb.episodes)
+    const episodeOverrides = useStore((s) => s.episodeOverrides)
 
     return useMemo(() => {
         if (!settings) {
@@ -51,7 +58,11 @@ export function useDerived(): Derived {
         }
 
         const base = files.map((entry) => {
-            const autoStem = settings.pipeline.renameFile ? buildTargetStem(entry.file, settings.defaultSource) : entry.file.name
+            const episodeManual = entry.file.id in episodeOverrides
+            const ref = episodeManual ? episodeOverrides[entry.file.id] : episodeRefFromName(entry.file.name)
+            const episode = tmdbEpisodes.length > 0 ? findEpisode(tmdbEpisodes, ref) : null
+            const title = episode ? sanitizeTitle(episode.title) : ''
+            const autoStem = settings.pipeline.renameFile ? buildTargetStem(entry.file, settings.defaultSource, title) : entry.file.name
             const override = overrides[entry.file.id]
             const analysis = entry.analysis ? applyTypeOverrides(entry.analysis, typeOverrides[entry.file.id]) : null
             const plan = analysis ? planTracks(analysis, settings) : null
@@ -66,6 +77,8 @@ export function useDerived(): Derived {
                 peakKey: plan?.normalize
                     ? peakKey({ inputPath: entry.file.fullPath, size: entry.file.size, trackIndex: plan.normalize.source.index })
                     : null,
+                episode,
+                episodeManual,
                 result: results[entry.file.id]
             }
         })
@@ -90,7 +103,8 @@ export function useDerived(): Derived {
                 inputPath: row.entry.file.fullPath,
                 size: row.entry.file.size,
                 targetName: `${row.stem}.mkv`,
-                analysis: row.analysis!
+                analysis: row.analysis!,
+                thumbUrl: settings.pipeline.saveThumbnails && row.episode?.stillPath ? tmdbImageUrl(row.episode.stillPath) : undefined
             })),
             // Auch Dateien mit Namenskonflikt vorab analysieren, der Konflikt wird meist noch behoben
             peakRequests: rows
@@ -112,7 +126,7 @@ export function useDerived(): Derived {
                 }))
             )
         }
-    }, [settings, files, excluded, overrides, typeOverrides, outputNames, results])
+    }, [settings, files, excluded, overrides, typeOverrides, outputNames, results, tmdbEpisodes, episodeOverrides])
 }
 
 /** Trägt die manuell gewählten Untertiteltypen in eine Kopie der Analyse ein */

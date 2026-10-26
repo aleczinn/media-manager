@@ -44,6 +44,11 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
   - Manuell gewählte Spuren kommen immer in die Datei, auch wenn ihre Sprache nicht in der Liste steht
   - Pro Sprache und Typ bleibt nur die bevorzugte Spur, nach einstellbarer Format-Reihenfolge
   - Einheitliche Titel wie „Deutsch Erzwungen“ oder „English SDH“ mit passenden Markierungen; Schriften für ASS-Untertitel werden mitkopiert, MP4-Untertitel nach SRT umgewandelt
+- 🎞️ **TMDB**
+  - Serie einmal bei [TMDB](https://www.themoviedb.org) suchen und zuordnen; der Suchbegriff wird aus Ordner- und Dateiname vorbelegt
+  - Jede Folge bekommt per Staffel und Folge ihren Titel, auf Deutsch und ohne Übersetzung auf Englisch
+  - Pro Datei lässt sich die Episode per Dropdown umstellen, z. B. wenn TMDB eine Doppelfolge als eine Episode führt
+  - Optional wird das Episodenbild als `<Zielname>-thumb.jpg` neben der Datei gespeichert (wie es Jellyfin, Emby und Kodi erwarten)
 - 🎬 **Video & Metadaten**
   - Video wird verlustfrei kopiert oder optional neu encodiert (H.264, H.265, NVIDIA, Intel QSV, AV1) mit eigenen Encoder-Argumenten
   - Container- und Videotitel werden geleert, eine gleichnamige `.txt` neben der Datei wird als Beschreibung übernommen
@@ -64,10 +69,17 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
 1. **Input** und **Output** wählen. Beide Ordner werden gespeichert und beim nächsten Start wieder geöffnet.
 2. Unter **Verarbeitung** die gewünschten Schritte an- oder abschalten.
 3. Links Dateien ausschließen, die nicht verarbeitet werden sollen. Über den Pfeil vor einer Datei öffnet sich die Spurübersicht; dort lassen sich Untertitel per Klick auf den Chip übernehmen, entfernen oder umtypisieren.
-4. Rechts die Zielnamen prüfen und z. B. den Episodentitel statt `Unknown` eintragen.
-5. **Anwenden** klicken. Fertige Dateien werden grün markiert, übersprungene und fehlerhafte zeigen ihren Grund im Tooltip.
+4. Bei Serien über **Serie zuordnen** die Serie bei TMDB auswählen. Die Folgentitel landen automatisch in den Zielnamen; unter jedem Namen lässt sich die Episode bei Bedarf umstellen.
+5. Rechts die Zielnamen prüfen und bei Bedarf von Hand anpassen.
+6. **Anwenden** klicken. Fertige Dateien werden grün markiert, übersprungene und fehlerhafte zeigen ihren Grund im Tooltip.
 
 Die Einstellungen liegen in `%APPDATA%\media-manager-v2\settings.json`.
+
+### TMDB-API-Key
+
+Für die Folgentitel braucht die App einen kostenlosen API-Key von TMDB: Konto auf [themoviedb.org](https://www.themoviedb.org) anlegen, unter [Einstellungen → API](https://www.themoviedb.org/settings/api) einen Key erzeugen und ihn in der App unter **Einstellungen → TMDB** eintragen. Akzeptiert werden der API-Key (v3) und der Read Access Token.
+
+This product uses the TMDB API but is not endorsed or certified by TMDB.
 
 ## Development
 
@@ -118,4 +130,4 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 - [Lucide](https://lucide.dev) (ISC) für die Icons
 - [Zustand](https://github.com/pmndrs/zustand) (MIT) für den App-Zustand
 
-FFmpeg wird nicht mitgeliefert, sondern als installiertes Programm aufgerufen.
+FFmpeg wird nicht mitgeliefert, sondern als installiertes Programm aufgerufen. Folgentitel und Episodenbilder stammen von [TMDB](https://www.themoviedb.org).

@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, shell } from 'electron'
 import { registerIpc } from './ipc'
 import type { PeakService } from './peak-service'
 import type { Runner } from './runner'
@@ -34,6 +34,11 @@ function createWindow(): void {
     mainWindow.once('ready-to-show', () => mainWindow?.show())
     mainWindow.on('closed', () => {
         mainWindow = null
+    })
+    // Links nie in einem neuen App-Fenster öffnen, sondern (nur https) im Standardbrowser
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+        if (/^https:\/\//i.test(url)) void shell.openExternal(url)
+        return { action: 'deny' }
     })
 
     if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
