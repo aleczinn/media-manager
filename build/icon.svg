@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8b7cff"/>
+      <stop offset="1" stop-color="#4f3fd6"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#bg)"/>
+  <!-- Klappe -->
+  <g transform="rotate(-12 52 92)">
+    <rect x="48" y="66" width="164" height="30" rx="7" fill="#ffffff"/>
+    <path d="M78 66h22l-16 30H62zM124 66h22l-16 30h-22zM170 66h22l-16 30h-22z" fill="#5a4ae0"/>
+  </g>
+  <!-- Körper -->
+  <rect x="48" y="104" width="160" height="104" rx="12" fill="#ffffff"/>
+  <!-- Pegel / Waveform -->
+  <g fill="#5a4ae0">
+    <rect x="74" y="146" width="12" height="20" rx="6"/>
+    <rect x="96" y="132" width="12" height="48" rx="6"/>
+    <rect x="118" y="122" width="12" height="68" rx="6"/>
+    <rect x="140" y="136" width="12" height="40" rx="6"/>
+    <rect x="162" y="128" width="12" height="56" rx="6"/>
+  </g>
+</svg>

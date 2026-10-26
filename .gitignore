@@ -8,3 +8,5 @@ temp.json
 data/test
 .env
 out
+*.log
+*.tsbuildinfo
