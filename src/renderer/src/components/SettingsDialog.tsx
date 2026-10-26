@@ -167,7 +167,8 @@ export function SettingsDialog() {
                     Einstellungen
                 </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-3xl">
+            {/* Kein Autofokus aufs erste Feld beim Öffnen */}
+            <DialogContent className="max-w-3xl" onOpenAutoFocus={(event) => event.preventDefault()}>
                 <DialogHeader>
                     <DialogTitle>Einstellungen</DialogTitle>
                     <DialogDescription>Werden dauerhaft gespeichert. Reihenfolgen per Drag & Drop am Griff ändern.</DialogDescription>
