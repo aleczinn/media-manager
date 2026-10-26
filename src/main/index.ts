@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { app, BrowserWindow } from 'electron'
 import { registerIpc } from './ipc'
+import type { PeakService } from './peak-service'
 import type { Runner } from './runner'
 import { loadSettings, saveSettings } from './settings-store'
 
@@ -10,7 +11,7 @@ if (!app.commandLine.hasSwitch('user-data-dir')) {
 }
 
 let mainWindow: BrowserWindow | null = null
-let runner: Runner | null = null
+let services: { runner: Runner; peaks: PeakService } | null = null
 
 function createWindow(): void {
     mainWindow = new BrowserWindow({
@@ -43,7 +44,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
-    runner = registerIpc(() => mainWindow)
+    services = registerIpc(() => mainWindow)
     createWindow()
 
     app.on('activate', () => {
@@ -52,8 +53,9 @@ app.whenReady().then(() => {
 })
 
 app.on('before-quit', () => {
-    // Laufendes ffmpeg beenden, die halbe .partial-Datei räumt der Runner weg
-    if (runner?.isRunning) runner.cancel()
+    // Laufende ffmpeg-Prozesse beenden, die halben .partial-Dateien räumt der Runner weg
+    if (services?.runner.isRunning) services.runner.cancel()
+    services?.peaks.killAll()
 
     // Einstellungen werden bei jeder Änderung gespeichert; hier nur zur Sicherheit noch einmal
     try {

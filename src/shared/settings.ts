@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS: Settings = {
     ffmpegPath: '',
     ffprobePath: '',
     spaceWarningGb: 10,
+    concurrency: 2,
     pipeline: {
         filterLanguages: true,
         sortTracks: true,

@@ -1,56 +1,52 @@
-import { useState, type ChangeEvent, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { CheckCircle2, Settings2, XCircle } from 'lucide-react'
+import {
+    AUDIO_FORMATS,
+    CONCURRENCY_OPTIONS,
+    completeOrder,
+    labelOf,
+    NORMALIZE_CHANNELS,
+    SOURCES,
+    SUBTITLE_FORMATS,
+    SUBTITLE_TYPES,
+    VIDEO_CODECS
+} from '@shared/catalog'
+import { getLanguageName, KNOWN_LANGUAGES } from '@shared/languages'
 import { DEFAULT_SETTINGS } from '@shared/settings'
 import type { Settings } from '@shared/types'
+import { SortableList } from '@/components/SortableList'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select } from '@/components/ui/select'
 import { useStore } from '@/lib/store'
 
-/** Alle Felder als Text, damit Listen und Zahlen frei bearbeitet werden können. */
-interface Draft {
-    audioBranding: string
-    defaultSource: string
-    spaceWarningGb: string
-    languages: string
-    unknownLanguage: string
-    normalizeMinGain: string
-    normalizeMaxGain: string
-    normalizeFormats: string
-    normalizeChannels: string
-    audioOrder: string
-    subtitlePriority: string
-    subtitleOrder: string
-    videoCodec: string
-    videoEncodeArgs: string
-    ffmpegPath: string
-    ffprobePath: string
-}
+type NumberKey = 'spaceWarningGb' | 'normalizeMinGain' | 'normalizeMaxGain'
+
+/** Bearbeitungsstand des Dialogs; Zahlen als Text, damit sie frei eingegeben werden können */
+type Draft = Omit<Settings, 'inputDir' | 'outputDir' | 'pipeline' | NumberKey> & Record<NumberKey, string>
 
 const toDraft = (s: Settings): Draft => ({
     audioBranding: s.audioBranding,
     defaultSource: s.defaultSource,
-    spaceWarningGb: String(s.spaceWarningGb),
-    languages: s.languages.join(', '),
+    languages: s.languages,
     unknownLanguage: s.unknownLanguage,
-    normalizeMinGain: String(s.normalizeMinGain),
-    normalizeMaxGain: String(s.normalizeMaxGain),
-    normalizeFormats: s.normalizeFormats.join(', '),
-    normalizeChannels: s.normalizeChannels.join(', '),
-    audioOrder: s.audioOrder.join(', '),
-    subtitlePriority: s.subtitlePriority.join(', '),
-    subtitleOrder: s.subtitleOrder.join(', '),
+    normalizeFormats: s.normalizeFormats,
+    normalizeChannels: s.normalizeChannels,
+    audioOrder: completeOrder(s.audioOrder, AUDIO_FORMATS),
+    subtitlePriority: completeOrder(s.subtitlePriority, SUBTITLE_TYPES),
+    subtitleOrder: completeOrder(s.subtitleOrder, SUBTITLE_FORMATS),
     videoCodec: s.videoCodec,
     videoEncodeArgs: s.videoEncodeArgs,
     ffmpegPath: s.ffmpegPath,
-    ffprobePath: s.ffprobePath
+    ffprobePath: s.ffprobePath,
+    concurrency: s.concurrency,
+    spaceWarningGb: String(s.spaceWarningGb),
+    normalizeMinGain: String(s.normalizeMinGain),
+    normalizeMaxGain: String(s.normalizeMaxGain)
 })
-
-const list = (value: string) =>
-    value
-        .split(',')
-        .map((item) => item.trim().toLowerCase())
-        .filter(Boolean)
 
 const number = (value: string, fallback: number) => {
     const parsed = parseFloat(value.replace(',', '.'))
@@ -58,35 +54,31 @@ const number = (value: string, fallback: number) => {
 }
 
 const fromDraft = (d: Draft): Partial<Settings> => ({
+    ...d,
     audioBranding: d.audioBranding.trim(),
-    defaultSource: d.defaultSource.trim() || DEFAULT_SETTINGS.defaultSource,
-    spaceWarningGb: Math.max(0, number(d.spaceWarningGb, DEFAULT_SETTINGS.spaceWarningGb)),
-    languages: list(d.languages),
-    unknownLanguage: d.unknownLanguage.trim().toLowerCase() || 'und',
-    normalizeMinGain: number(d.normalizeMinGain, DEFAULT_SETTINGS.normalizeMinGain),
-    normalizeMaxGain: number(d.normalizeMaxGain, DEFAULT_SETTINGS.normalizeMaxGain),
-    normalizeFormats: list(d.normalizeFormats),
-    normalizeChannels: list(d.normalizeChannels)
-        .map(Number)
-        .filter((n) => Number.isInteger(n) && n > 0),
-    audioOrder: list(d.audioOrder),
-    subtitlePriority: list(d.subtitlePriority),
-    subtitleOrder: list(d.subtitleOrder),
-    videoCodec: d.videoCodec.trim() || DEFAULT_SETTINGS.videoCodec,
     videoEncodeArgs: d.videoEncodeArgs.trim(),
     ffmpegPath: d.ffmpegPath.trim(),
-    ffprobePath: d.ffprobePath.trim()
+    ffprobePath: d.ffprobePath.trim(),
+    spaceWarningGb: Math.max(0, number(d.spaceWarningGb, DEFAULT_SETTINGS.spaceWarningGb)),
+    normalizeMinGain: number(d.normalizeMinGain, DEFAULT_SETTINGS.normalizeMinGain),
+    normalizeMaxGain: number(d.normalizeMaxGain, DEFAULT_SETTINGS.normalizeMaxGain)
 })
+
+function toggle<T>(list: T[], value: T, checked: boolean): T[] {
+    return checked ? [...list.filter((item) => item !== value), value] : list.filter((item) => item !== value)
+}
+
+const languageLabel = (code: string) => (code === 'und' ? 'Keine Sprache (und)' : `${getLanguageName(code)} (${code})`)
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
     return (
-        <label className="grid grid-cols-[200px_1fr] items-start gap-4">
+        <div className="grid grid-cols-[200px_1fr] items-start gap-4">
             <span className="pt-2 text-sm">
                 {label}
                 {hint && <span className="block text-xs text-muted-foreground">{hint}</span>}
             </span>
-            <div className="flex items-center gap-2">{children}</div>
-        </label>
+            <div className="flex min-w-0 items-center gap-2">{children}</div>
+        </div>
     )
 }
 
@@ -96,6 +88,30 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
             <h3 className="text-xs font-semibold tracking-wide text-primary uppercase">{title}</h3>
             {children}
         </section>
+    )
+}
+
+function CheckboxGroup<T extends string | number>({
+    options,
+    selected,
+    onChange
+}: {
+    options: { value: T; label: string }[]
+    selected: T[]
+    onChange: (selected: T[]) => void
+}) {
+    return (
+        <div className="grid w-full grid-cols-2 gap-x-4 gap-y-2 pt-2">
+            {options.map((option) => (
+                <Label key={option.value} className="cursor-pointer font-normal">
+                    <Checkbox
+                        checked={selected.includes(option.value)}
+                        onCheckedChange={(checked) => onChange(toggle(selected, option.value, checked === true))}
+                    />
+                    {option.label}
+                </Label>
+            ))}
+        </div>
     )
 }
 
@@ -112,14 +128,16 @@ export function SettingsDialog() {
         setOpen(next)
     }
 
-    const bind = (key: keyof Draft) => ({
+    const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => (d ? { ...d, [key]: value } : d))
+
+    const bind = (key: NumberKey | 'audioBranding' | 'videoEncodeArgs' | 'ffmpegPath' | 'ffprobePath') => ({
         value: draft?.[key] ?? '',
-        onChange: (event: ChangeEvent<HTMLInputElement>) => setDraft((d) => (d ? { ...d, [key]: event.target.value } : d))
+        onChange: (event: { target: { value: string } }) => set(key, event.target.value)
     })
 
     const browse = async (key: 'ffmpegPath' | 'ffprobePath') => {
         const file = await window.api.selectExecutable(draft?.[key])
-        if (file) setDraft((d) => (d ? { ...d, [key]: file } : d))
+        if (file) set(key, file)
     }
 
     const save = async () => {
@@ -132,6 +150,15 @@ export function SettingsDialog() {
     const resetDefaults = () =>
         setDraft(toDraft({ ...DEFAULT_SETTINGS, ffmpegPath: draft?.ffmpegPath ?? '', ffprobePath: draft?.ffprobePath ?? '' }))
 
+    const addableLanguages = KNOWN_LANGUAGES.filter((code) => !draft?.languages.includes(code))
+    // Eigene Werte aus älteren Einstellungen weiterhin anzeigen
+    const sourceOptions = draft && !SOURCES.includes(draft.defaultSource) ? [draft.defaultSource, ...SOURCES] : SOURCES
+    const codecOptions =
+        draft && !VIDEO_CODECS.some((codec) => codec.value === draft.videoCodec)
+            ? [{ value: draft.videoCodec, label: draft.videoCodec }, ...VIDEO_CODECS]
+            : VIDEO_CODECS
+    const unknownLanguageOptions = [...new Set([...KNOWN_LANGUAGES, draft?.unknownLanguage ?? 'und', 'und'])]
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogTrigger asChild>
@@ -143,7 +170,7 @@ export function SettingsDialog() {
             <DialogContent className="max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>Einstellungen</DialogTitle>
-                    <DialogDescription>Werden dauerhaft gespeichert. Listen werden mit Komma getrennt.</DialogDescription>
+                    <DialogDescription>Werden dauerhaft gespeichert. Reihenfolgen per Drag & Drop am Griff ändern.</DialogDescription>
                 </DialogHeader>
 
                 {draft && (
@@ -153,16 +180,67 @@ export function SettingsDialog() {
                                 <Input {...bind('audioBranding')} placeholder="[Sky Mix]" />
                             </Field>
                             <Field label="Standard-Quelle" hint="Wenn im Dateinamen keine Quelle erkannt wird">
-                                <Input {...bind('defaultSource')} />
+                                <Select
+                                    value={draft.defaultSource}
+                                    onChange={(event) => set('defaultSource', event.target.value)}
+                                    className="w-56"
+                                >
+                                    {sourceOptions.map((source) => (
+                                        <option key={source} value={source}>
+                                            {source}
+                                        </option>
+                                    ))}
+                                </Select>
                             </Field>
                         </Group>
 
                         <Group title="Sprachen">
                             <Field label="Sprachen (Reihenfolge)" hint="Andere Sprachen werden beim Filtern entfernt">
-                                <Input {...bind('languages')} placeholder="de, en" />
+                                <div className="flex w-full flex-col gap-2">
+                                    <SortableList
+                                        items={draft.languages}
+                                        onChange={(languages) => set('languages', languages)}
+                                        getLabel={languageLabel}
+                                        onRemove={
+                                            draft.languages.length > 1
+                                                ? (code) =>
+                                                      set(
+                                                          'languages',
+                                                          draft.languages.filter((item) => item !== code)
+                                                      )
+                                                : undefined
+                                        }
+                                    />
+                                    {addableLanguages.length > 0 && (
+                                        <Select
+                                            value=""
+                                            onChange={(event) =>
+                                                event.target.value && set('languages', [...draft.languages, event.target.value])
+                                            }
+                                            className="w-56"
+                                        >
+                                            <option value="">Sprache hinzufügen …</option>
+                                            {addableLanguages.map((code) => (
+                                                <option key={code} value={code}>
+                                                    {languageLabel(code)}
+                                                </option>
+                                            ))}
+                                        </Select>
+                                    )}
+                                </div>
                             </Field>
                             <Field label="Sprache für Spuren ohne Tag">
-                                <Input {...bind('unknownLanguage')} className="w-24" />
+                                <Select
+                                    value={draft.unknownLanguage}
+                                    onChange={(event) => set('unknownLanguage', event.target.value)}
+                                    className="w-56"
+                                >
+                                    {unknownLanguageOptions.map((code) => (
+                                        <option key={code} value={code}>
+                                            {languageLabel(code)}
+                                        </option>
+                                    ))}
+                                </Select>
                             </Field>
                         </Group>
 
@@ -173,32 +251,81 @@ export function SettingsDialog() {
                             <Field label="Maximaler Gain (dB)">
                                 <Input {...bind('normalizeMaxGain')} className="w-24" />
                             </Field>
-                            <Field label="Unterstützte Formate">
-                                <Input {...bind('normalizeFormats')} />
+                            <Field label="Unterstützte Formate" hint="Nur diese Formate werden als Quelle normalisiert">
+                                <CheckboxGroup
+                                    options={AUDIO_FORMATS}
+                                    selected={draft.normalizeFormats}
+                                    onChange={(formats) => set('normalizeFormats', formats)}
+                                />
                             </Field>
-                            <Field label="Unterstützte Kanalzahlen">
-                                <Input {...bind('normalizeChannels')} className="w-32" />
+                            <Field label="Unterstützte Kanäle" hint="AC3 kann maximal 5.1">
+                                <CheckboxGroup
+                                    options={NORMALIZE_CHANNELS}
+                                    selected={draft.normalizeChannels}
+                                    onChange={(channels) => set('normalizeChannels', channels)}
+                                />
                             </Field>
                         </Group>
 
                         <Group title="Sortierung">
-                            <Field label="Audio-Formate">
-                                <Input {...bind('audioOrder')} />
+                            <Field label="Audio-Formate" hint="Bei gleicher Sprache und Kanalzahl gewinnt das obere Format">
+                                <SortableList
+                                    items={draft.audioOrder}
+                                    onChange={(order) => set('audioOrder', order)}
+                                    getLabel={(value) => labelOf(AUDIO_FORMATS, value)}
+                                />
                             </Field>
                             <Field label="Untertitel-Typen">
-                                <Input {...bind('subtitlePriority')} />
+                                <SortableList
+                                    items={draft.subtitlePriority}
+                                    onChange={(order) => set('subtitlePriority', order)}
+                                    getLabel={(value) => labelOf(SUBTITLE_TYPES, value)}
+                                />
                             </Field>
-                            <Field label="Untertitel-Formate">
-                                <Input {...bind('subtitleOrder')} />
+                            <Field label="Untertitel-Formate" hint="Beim Entfernen von Duplikaten bleibt das obere Format">
+                                <SortableList
+                                    items={draft.subtitleOrder}
+                                    onChange={(order) => set('subtitleOrder', order)}
+                                    getLabel={(value) => labelOf(SUBTITLE_FORMATS, value)}
+                                />
                             </Field>
                         </Group>
 
                         <Group title="Video-Encoding">
                             <Field label="Codec">
-                                <Input {...bind('videoCodec')} className="w-40" />
+                                <Select
+                                    value={draft.videoCodec}
+                                    onChange={(event) => set('videoCodec', event.target.value)}
+                                    className="w-72"
+                                >
+                                    {codecOptions.map((codec) => (
+                                        <option key={codec.value} value={codec.value}>
+                                            {codec.label}
+                                        </option>
+                                    ))}
+                                </Select>
                             </Field>
                             <Field label="Encoder-Argumente">
                                 <Input {...bind('videoEncodeArgs')} className="font-mono text-xs" />
+                            </Field>
+                        </Group>
+
+                        <Group title="Leistung">
+                            <Field
+                                label="Gleichzeitige Dateien"
+                                hint="Gilt für Peak-Analyse und Schreiben. Bei normalen Festplatten (HDD) 1 wählen."
+                            >
+                                <Select
+                                    value={String(draft.concurrency)}
+                                    onChange={(event) => set('concurrency', Number(event.target.value))}
+                                    className="w-56"
+                                >
+                                    {CONCURRENCY_OPTIONS.map((option) => (
+                                        <option key={option.value} value={option.value}>
+                                            {option.label}
+                                        </option>
+                                    ))}
+                                </Select>
                             </Field>
                         </Group>
 

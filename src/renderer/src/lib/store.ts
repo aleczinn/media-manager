@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { PeakState } from '@shared/peak'
 import type {
     ApplyFileResult,
     ApplyJob,
@@ -21,7 +22,12 @@ export interface FileEntry {
 interface RunState {
     running: boolean
     cancelling: boolean
-    progress: ApplyProgress | null
+    /** Fortschritt der gerade laufenden Dateien */
+    active: Record<string, ApplyProgress>
+    /** Anzahl Jobs und erledigte Jobs des aktuellen Laufs */
+    total: number
+    done: number
+    startedAt: number
     results: Record<string, ApplyFileResult>
     summary: ApplySummary | null
 }
@@ -39,6 +45,8 @@ interface State {
     outputNames: string[]
     disk: DiskSpace | null
     forceApply: boolean
+    /** Peak-Analysen, Schlüssel aus `peakKey()` */
+    peaks: Record<string, PeakState>
     run: RunState
 
     init(): Promise<() => void>
@@ -57,7 +65,7 @@ interface State {
     cancel(): Promise<void>
 }
 
-const emptyRun: RunState = { running: false, cancelling: false, progress: null, results: {}, summary: null }
+const emptyRun: RunState = { running: false, cancelling: false, active: {}, total: 0, done: 0, startedAt: 0, results: {}, summary: null }
 
 export const useStore = create<State>()((set, get) => ({
     settings: null,
@@ -71,6 +79,7 @@ export const useStore = create<State>()((set, get) => ({
     outputNames: [],
     disk: null,
     forceApply: false,
+    peaks: {},
     run: emptyRun,
 
     async init() {
@@ -87,10 +96,19 @@ export const useStore = create<State>()((set, get) => ({
                     )
                 }))
             }),
-            window.api.onApplyProgress((progress) => set((state) => ({ run: { ...state.run, progress } }))),
+            window.api.onApplyProgress((progress) =>
+                set((state) => ({ run: { ...state.run, active: { ...state.run.active, [progress.fileId]: progress } } }))
+            ),
             window.api.onApplyFileDone((result) =>
-                set((state) => ({ run: { ...state.run, results: { ...state.run.results, [result.fileId]: result } } }))
-            )
+                set((state) => {
+                    const active = { ...state.run.active }
+                    delete active[result.fileId]
+                    return {
+                        run: { ...state.run, active, done: state.run.done + 1, results: { ...state.run.results, [result.fileId]: result } }
+                    }
+                })
+            ),
+            window.api.onPeakUpdate(({ key, state: peak }) => set((state) => ({ peaks: { ...state.peaks, [key]: peak } })))
         ]
 
         // Bei Rückkehr ins Fenster Output-Ordner und freien Platz aktualisieren
@@ -141,6 +159,7 @@ export const useStore = create<State>()((set, get) => ({
         const dir = get().settings?.inputDir
         if (!dir || get().run.running) return
 
+        // Peak-Ergebnisse bleiben erhalten: Sie hängen an Pfad + Größe und gelten auch nach erneutem Einlesen
         const requestId = get().analyzeRequest + 1
         set({ scanning: true, analyzeRequest: requestId, files: [], excluded: {}, overrides: {}, expanded: {}, run: emptyRun })
         try {
@@ -192,13 +211,13 @@ export const useStore = create<State>()((set, get) => ({
         if (!outputDir || jobs.length === 0 || get().run.running) return
 
         set((state) => ({
-            run: { running: true, cancelling: false, progress: null, results: state.run.results, summary: null }
+            run: { ...emptyRun, running: true, total: jobs.length, startedAt: Date.now(), results: state.run.results }
         }))
         try {
             const summary = await window.api.apply(jobs, outputDir)
             set((state) => ({ run: { ...state.run, summary } }))
         } finally {
-            set((state) => ({ forceApply: false, run: { ...state.run, running: false, cancelling: false, progress: null } }))
+            set((state) => ({ forceApply: false, run: { ...state.run, running: false, cancelling: false, active: {} } }))
             await get().refreshOutput()
         }
     },

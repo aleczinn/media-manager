@@ -3,10 +3,11 @@ import fsp from 'node:fs/promises'
 import path from 'node:path'
 import type { ChildProcess } from 'node:child_process'
 import { buildFfmpegArgs } from '../shared/build-args'
+import { decideGain } from '../shared/peak'
 import { planTracks } from '../shared/pipeline'
 import type { ApplyFileResult, ApplyJob, ApplyPhase, ApplyProgress, ApplySummary, Settings } from '../shared/types'
 import { parseProgressLine, resolveBinaries, runProcess } from './ffmpeg'
-import { analyzePeakVolume, decideGain } from './normalize'
+import { clampConcurrency, type PeakService } from './peak-service'
 
 export interface RunnerEvents {
     progress(progress: ApplyProgress): void
@@ -15,11 +16,14 @@ export interface RunnerEvents {
 
 class CancelledError extends Error {}
 
-/** Arbeitet die Dateien nacheinander ab. Quelldateien werden nie verändert. */
+/** Arbeitet die Dateien mit mehreren gleichzeitigen Jobs ab. Quelldateien werden nie verändert. */
 export class Runner {
-    private child: ChildProcess | null = null
+    private children = new Set<ChildProcess>()
+    private cancelWaiters = new Set<() => void>()
     private cancelled = false
     private running = false
+
+    constructor(private peaks: PeakService) {}
 
     get isRunning(): boolean {
         return this.running
@@ -27,7 +31,8 @@ export class Runner {
 
     cancel(): void {
         this.cancelled = true
-        this.child?.kill()
+        this.children.forEach((child) => child.kill())
+        this.cancelWaiters.forEach((wake) => wake())
     }
 
     async run(jobs: ApplyJob[], outputDir: string, settings: Settings, events: RunnerEvents): Promise<ApplySummary> {
@@ -39,21 +44,24 @@ export class Runner {
         try {
             await fsp.mkdir(outputDir, { recursive: true })
 
-            for (const [index, job] of jobs.entries()) {
-                let result: ApplyFileResult
-                if (this.cancelled) {
-                    result = { fileId: job.fileId, status: 'cancelled' }
-                } else {
-                    result = await this.processJob(job, outputDir, settings, (phase, percent, etaSec) =>
-                        events.progress({ fileId: job.fileId, phase, percent, etaSec, index, total: jobs.length })
-                    )
+            const queue = [...jobs]
+            const worker = async () => {
+                for (let job = queue.shift(); job; job = queue.shift()) {
+                    const { fileId } = job
+                    const result: ApplyFileResult = this.cancelled
+                        ? { fileId, status: 'cancelled' }
+                        : await this.processJob(job, outputDir, settings, (phase, percent, etaSec) =>
+                              events.progress({ fileId, phase, percent, etaSec })
+                          )
+                    summary[result.status]++
+                    events.fileDone(result)
                 }
-                summary[result.status]++
-                events.fileDone(result)
             }
+            await Promise.all(Array.from({ length: Math.min(clampConcurrency(settings.concurrency), jobs.length) }, worker))
         } finally {
             this.running = false
-            this.child = null
+            this.children.clear()
+            this.cancelWaiters.clear()
         }
 
         return summary
@@ -74,15 +82,6 @@ export class Runner {
 
         const { ffmpeg } = resolveBinaries(settings)
         const duration = job.analysis.durationSec
-        const onSpawn = (child: ChildProcess) => {
-            this.child = child
-            if (this.cancelled) child.kill()
-        }
-        const progressFor = (phase: ApplyPhase) => (outTimeSec: number, speed: number | null) => {
-            const percent = duration > 0 ? Math.min(100, (outTimeSec / duration) * 100) : 0
-            const etaSec = speed && duration > 0 ? Math.max(0, (duration - outTimeSec) / speed) : null
-            report(phase, percent, etaSec)
-        }
 
         try {
             const plan = planTracks(job.analysis, settings)
@@ -92,8 +91,13 @@ export class Runner {
             if (plan.normalize) {
                 report('analyze', 0, null)
                 try {
-                    const peak = await analyzePeakVolume(ffmpeg, job.inputPath, plan.normalize, progressFor('analyze'), onSpawn)
-                    this.throwIfCancelled()
+                    // Meist schon im Hintergrund erledigt, sonst wird die Analyse vorgezogen
+                    const peak = await this.untilCancelled(
+                        this.peaks.get(
+                            { inputPath: job.inputPath, size: job.size, trackIndex: plan.normalize.source.index, durationSec: duration },
+                            (percent, etaSec) => report('analyze', percent, etaSec)
+                        )
+                    )
                     gainDb = decideGain(peak, settings.normalizeMinGain, settings.normalizeMaxGain)
                     notes.push(
                         gainDb === null
@@ -114,13 +118,19 @@ export class Runner {
 
             report('build', 0, null)
             let speed: number | null = null
-            const onBuildProgress = progressFor('build')
             const { code, stderrTail } = await runProcess(ffmpeg, args, {
-                onSpawn,
+                onSpawn: (child) => {
+                    this.children.add(child)
+                    child.once('close', () => this.children.delete(child))
+                    if (this.cancelled) child.kill()
+                },
                 onStdoutLine: (line) => {
                     const progress = parseProgressLine(line)
                     if (progress.speed !== undefined) speed = progress.speed
-                    if (progress.outTimeSec !== undefined) onBuildProgress(progress.outTimeSec, speed)
+                    if (progress.outTimeSec !== undefined && duration > 0) {
+                        const percent = Math.min(100, (progress.outTimeSec / duration) * 100)
+                        report('build', percent, speed ? Math.max(0, (duration - progress.outTimeSec) / speed) : null)
+                    }
                 }
             })
             this.throwIfCancelled()
@@ -134,9 +144,17 @@ export class Runner {
                 return { fileId: job.fileId, status: 'cancelled', message: 'Abgebrochen' }
             }
             return { fileId: job.fileId, status: 'error', message: error instanceof Error ? error.message : String(error) }
-        } finally {
-            this.child = null
         }
+    }
+
+    /** Wartet auf das Promise, bricht aber sofort ab, wenn der Lauf abgebrochen wird. */
+    private untilCancelled<T>(promise: Promise<T>): Promise<T> {
+        this.throwIfCancelled()
+        return new Promise<T>((resolve, reject) => {
+            const wake = () => reject(new CancelledError())
+            this.cancelWaiters.add(wake)
+            promise.then(resolve, reject).finally(() => this.cancelWaiters.delete(wake))
+        })
     }
 
     private throwIfCancelled(): void {

@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { Derived, Row } from '@/lib/rows'
+import { describePeak } from '@/lib/peak'
 import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import { TrackDetails } from './TrackDetails'
@@ -31,15 +32,17 @@ function WithTooltip({ text, children }: { text: string; children: ReactElement 
 }
 
 function StatusIcon({ row }: { row: Row }) {
-    const progress = useStore((s) => s.run.progress)
-    const running = useStore((s) => s.run.running)
     const { entry, result } = row
+    const progress = useStore((s) => s.run.active[entry.file.id])
 
-    if (running && progress?.fileId === entry.file.id) {
+    if (progress) {
         return (
-            <span className="flex items-center gap-1 text-xs text-primary tabular-nums">
+            <span
+                className="flex items-center gap-1 text-xs text-primary tabular-nums"
+                title={progress.phase === 'analyze' ? 'Peak-Analyse' : 'Datei wird geschrieben'}
+            >
                 <Loader2 className="size-4 animate-spin" />
-                {Math.floor(progress.percent)}%
+                {progress.phase === 'analyze' ? 'Peak' : `${Math.floor(progress.percent)}%`}
             </span>
         )
     }
@@ -69,6 +72,27 @@ function StatusIcon({ row }: { row: Row }) {
     return null
 }
 
+function NormalizeIndicator({ peakKey }: { peakKey: string }) {
+    const peak = useStore((s) => s.peaks[peakKey])
+    const settings = useStore((s) => s.settings)
+    if (!settings) return null
+    const info = describePeak(peak, settings)
+
+    return (
+        <WithTooltip text={`Normalisierung: ${info.text}`}>
+            <span className="flex">
+                {info.tone === 'pending' && peak?.status === 'running' ? (
+                    <Loader2 className="size-3.5 animate-spin text-primary" />
+                ) : info.tone === 'error' ? (
+                    <AlertTriangle className="size-3.5 text-warning" />
+                ) : (
+                    <Sparkles className={cn('size-3.5', info.tone === 'none' ? 'text-muted-foreground' : 'text-primary')} />
+                )}
+            </span>
+        </WithTooltip>
+    )
+}
+
 function TrackSummary({ row }: { row: Row }) {
     const { analysis } = row.entry
     if (!analysis || !row.plan) return null
@@ -82,7 +106,7 @@ function TrackSummary({ row }: { row: Row }) {
             <span title="Untertitel vorher → nachher">
                 UT {analysis.subtitle.length}→{row.plan.subtitle.length}
             </span>
-            {row.plan.normalize && <Sparkles className="size-3.5 text-primary" aria-label="wird normalisiert" />}
+            {row.peakKey && <NormalizeIndicator peakKey={row.peakKey} />}
         </span>
     )
 }
@@ -164,7 +188,9 @@ function FileRow({ row }: { row: Row }) {
                 </div>
             </div>
 
-            {expanded && row.entry.analysis && row.plan && <TrackDetails analysis={row.entry.analysis} plan={row.plan} />}
+            {expanded && row.entry.analysis && row.plan && (
+                <TrackDetails analysis={row.entry.analysis} plan={row.plan} peakKey={row.peakKey} />
+            )}
         </div>
     )
 }

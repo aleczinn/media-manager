@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { findConflicts, type Conflict } from '@shared/conflicts'
+import { peakKey, type PeakRequest } from '@shared/peak'
 import { planTracks, type TrackPlan } from '@shared/pipeline'
 import { buildTargetStem } from '@shared/rename'
 import { estimateRequiredBytes } from '@shared/space'
@@ -13,6 +14,8 @@ export interface Row {
     stem: string
     overridden: boolean
     plan: TrackPlan | null
+    /** Schlüssel der Peak-Analyse, falls die Datei normalisiert würde */
+    peakKey: string | null
     conflict: Conflict | null
     result: ApplyFileResult | undefined
 }
@@ -21,6 +24,8 @@ export interface Derived {
     rows: Row[]
     /** Dateien, die beim Anwenden verarbeitet werden */
     jobs: ApplyJob[]
+    /** Peak-Analysen, die schon vor dem Anwenden im Hintergrund laufen können */
+    peakRequests: PeakRequest[]
     activeCount: number
     pendingAnalysis: number
     conflictCount: number
@@ -37,18 +42,24 @@ export function useDerived(): Derived {
     const results = useStore((s) => s.run.results)
 
     return useMemo(() => {
-        if (!settings) return { rows: [], jobs: [], activeCount: 0, pendingAnalysis: 0, conflictCount: 0, requiredBytes: 0 }
+        if (!settings) {
+            return { rows: [], jobs: [], peakRequests: [], activeCount: 0, pendingAnalysis: 0, conflictCount: 0, requiredBytes: 0 }
+        }
 
         const base = files.map((entry) => {
             const autoStem = settings.pipeline.renameFile ? buildTargetStem(entry.file, settings.defaultSource) : entry.file.name
             const override = overrides[entry.file.id]
+            const plan = entry.analysis ? planTracks(entry.analysis, settings) : null
             return {
                 entry,
                 excluded: !!excluded[entry.file.id],
                 autoStem,
                 stem: override ?? autoStem,
                 overridden: override !== undefined && override !== autoStem,
-                plan: entry.analysis ? planTracks(entry.analysis, settings) : null,
+                plan,
+                peakKey: plan?.normalize
+                    ? peakKey({ inputPath: entry.file.fullPath, size: entry.file.size, trackIndex: plan.normalize.source.index })
+                    : null,
                 result: results[entry.file.id]
             }
         })
@@ -69,9 +80,19 @@ export function useDerived(): Derived {
             jobs: runnable.map((row) => ({
                 fileId: row.entry.file.id,
                 inputPath: row.entry.file.fullPath,
+                size: row.entry.file.size,
                 targetName: `${row.stem}.mkv`,
                 analysis: row.entry.analysis!
             })),
+            // Auch Dateien mit Namenskonflikt vorab analysieren, der Konflikt wird meist noch behoben
+            peakRequests: rows
+                .filter((row) => !row.excluded && row.result?.status !== 'ok' && row.plan?.normalize)
+                .map((row) => ({
+                    inputPath: row.entry.file.fullPath,
+                    size: row.entry.file.size,
+                    trackIndex: row.plan!.normalize!.source.index,
+                    durationSec: row.entry.analysis!.durationSec
+                })),
             activeCount: active.length,
             pendingAnalysis: active.filter((row) => row.entry.status === 'pending').length,
             conflictCount: active.filter((row) => conflicts.has(row.entry.file.id)).length,

@@ -1,18 +1,12 @@
 import type { ChildProcess } from 'node:child_process'
-import type { NormalizeCandidate } from '../shared/pipeline'
+import type { PeakResult } from '../shared/peak'
 import { parseProgressLine, runProcess } from './ffmpeg'
-
-export interface PeakResult {
-    maxVolume: number
-    /** Benötigte Verstärkung bis 0 dBFS */
-    gainNeeded: number
-}
 
 /** Ermittelt den Spitzenpegel einer Tonspur mit `volumedetect`. */
 export async function analyzePeakVolume(
     ffmpeg: string,
     inputPath: string,
-    candidate: NormalizeCandidate,
+    trackIndex: number,
     onProgress: (outTimeSec: number, speed: number | null) => void,
     onSpawn: (child: ChildProcess) => void
 ): Promise<PeakResult> {
@@ -27,7 +21,7 @@ export async function analyzePeakVolume(
             '-i',
             inputPath,
             '-map',
-            `0:a:${candidate.source.index}`,
+            `0:a:${trackIndex}`,
             '-af',
             'volumedetect',
             '-progress',
@@ -54,10 +48,4 @@ export async function analyzePeakVolume(
     if (code !== 0) throw new Error(`Peak-Analyse fehlgeschlagen: ${stderrTail.slice(-3).join(' ')}`)
     if (maxVolume === null) throw new Error('Peak-Analyse lieferte keinen Wert')
     return { maxVolume, gainNeeded: -maxVolume }
-}
-
-/** Entscheidet wie im alten Projekt: erst ab Mindest-Gain normalisieren, Gain auf Maximum begrenzen. */
-export function decideGain(peak: PeakResult, minGain: number, maxGain: number): number | null {
-    if (peak.gainNeeded <= minGain) return null
-    return Math.min(peak.gainNeeded, maxGain)
 }

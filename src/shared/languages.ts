@@ -7,9 +7,25 @@ const ISO_639_2_TO_1: Record<string, string> = {
     fre: 'fr',
     fra: 'fr',
     ita: 'it',
-    rus: 'ru'
+    rus: 'ru',
+    kor: 'ko',
+    chi: 'zh',
+    zho: 'zh',
+    por: 'pt',
+    dut: 'nl',
+    nld: 'nl',
+    pol: 'pl',
+    tur: 'tr',
+    swe: 'sv',
+    dan: 'da',
+    nor: 'no',
+    fin: 'fi',
+    cze: 'cs',
+    ces: 'cs',
+    hun: 'hu'
 }
 
+/** Anzeigenamen, werden auch als Untertitel-Titel verwendet */
 const LANGUAGE_NAMES: Record<string, string> = {
     de: 'Deutsch',
     en: 'English',
@@ -18,8 +34,23 @@ const LANGUAGE_NAMES: Record<string, string> = {
     es: 'Spanish',
     it: 'Italian',
     ru: 'Russian',
+    ko: 'Korean',
+    zh: 'Chinese',
+    pt: 'Portuguese',
+    nl: 'Dutch',
+    pl: 'Polish',
+    tr: 'Turkish',
+    sv: 'Swedish',
+    da: 'Danish',
+    no: 'Norwegian',
+    fi: 'Finnish',
+    cs: 'Czech',
+    hu: 'Hungarian',
     und: 'Unknown'
 }
+
+/** Sprachen, die in den Einstellungen zur Auswahl stehen */
+export const KNOWN_LANGUAGES: string[] = Object.keys(LANGUAGE_NAMES).filter((code) => code !== 'und')
 
 /**
  * Vereinheitlicht ein Sprach-Tag auf zweistellige Codes (ger/deu → de, de-DE → de).

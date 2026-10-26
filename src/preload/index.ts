@@ -15,6 +15,7 @@ const api: MediaManagerApi = {
     checkFfmpeg: () => ipcRenderer.invoke('ffmpeg:check'),
     scan: (dir) => ipcRenderer.invoke('files:scan', dir),
     analyze: (requestId, files) => ipcRenderer.invoke('files:analyze', requestId, files),
+    prefetchPeaks: (requests) => ipcRenderer.invoke('peaks:prefetch', requests),
     listOutput: (dir) => ipcRenderer.invoke('output:list', dir),
     diskSpace: (dir) => ipcRenderer.invoke('disk:space', dir),
     apply: (jobs, outputDir) => ipcRenderer.invoke('apply:start', jobs, outputDir),
@@ -22,7 +23,8 @@ const api: MediaManagerApi = {
     openPath: (path) => ipcRenderer.invoke('shell:openPath', path),
     onAnalysis: (listener) => subscribe('analysis:result', listener),
     onApplyProgress: (listener) => subscribe('apply:progress', listener),
-    onApplyFileDone: (listener) => subscribe('apply:fileDone', listener)
+    onApplyFileDone: (listener) => subscribe('apply:fileDone', listener),
+    onPeakUpdate: (listener) => subscribe('peak:update', listener)
 }
 
 contextBridge.exposeInMainWorld('api', api)

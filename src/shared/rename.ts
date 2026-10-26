@@ -64,9 +64,12 @@ export function isAlreadyFormatted(name: string): boolean {
 
 const pad = (value: number) => String(value).padStart(2, '0')
 
+/** Platzhalter-Titel wie im alten CLI, bis der Nutzer den Episodentitel einträgt */
+export const UNKNOWN_TITLE = 'Unknown'
+
 /**
- * Erzeugt den Zielnamen ohne Endung, z. B. `S01E02 - Titel {edition-Extended} {source-Web}`.
- * Ohne Titel entfällt der ` - `-Teil. Nicht erkannte Dateien behalten ihren Namen.
+ * Erzeugt den Zielnamen ohne Endung, z. B. `S01e02 - Titel {edition-Extended} {source-Web}`.
+ * Ohne Titel wird `Unknown` eingesetzt. Nicht erkannte Dateien behalten ihren Namen.
  */
 export function buildTargetStem(file: { name: string; fullPath: string }, defaultSource: string, title = ''): string {
     if (isAlreadyFormatted(file.name)) return file.name
@@ -77,8 +80,7 @@ export function buildTargetStem(file: { name: string; fullPath: string }, defaul
     const edition = detectEdition(file.name)
     const source = detectSource(file.name, file.fullPath, defaultSource)
 
-    let stem = `S${pad(parsed.season ?? 1)}E${pad(parsed.episode)}`
-    if (title.trim()) stem += ` - ${title.trim()}`
+    let stem = `S${pad(parsed.season ?? 1)}e${pad(parsed.episode)} - ${title.trim() || UNKNOWN_TITLE}`
     if (edition) stem += ` {edition-${edition}}`
     stem += ` {source-${source}}`
     return stem

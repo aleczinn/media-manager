@@ -46,18 +46,24 @@ describe('detectEdition / detectSource', () => {
 })
 
 describe('buildTargetStem', () => {
-    it('baut das Schema mit Padding und ohne Titel', () => {
-        expect(buildTargetStem(file('Show.S1E2.1080p.WEB-DL'), 'Web')).toBe('S01E02 {source-Web}')
+    it('baut das Schema wie das CLI mit kleinem e und Unknown als Platzhalter', () => {
+        expect(buildTargetStem(file('The.Expanse.2015.S02E01.German.DL.EAC3.2160p.DV.HDR.AMZN.WEB.H265-ZeroTwo'), 'Web')).toBe(
+            'S02e01 - Unknown {source-Web}'
+        )
+    })
+
+    it('füllt Staffel und Folge zweistellig auf', () => {
+        expect(buildTargetStem(file('Show.S1E2.1080p.WEB-DL'), 'Web')).toBe('S01e02 - Unknown {source-Web}')
     })
 
     it('fügt einen Titel ein', () => {
         expect(buildTargetStem(file('Show.S01E02.Extended.BluRay'), 'Web', 'Pilot')).toBe(
-            'S01E02 - Pilot {edition-Extended} {source-BluRay}'
+            'S01e02 - Pilot {edition-Extended} {source-BluRay}'
         )
     })
 
     it('nutzt Staffel 1, wenn keine angegeben ist', () => {
-        expect(buildTargetStem(file('Anime E07'), 'Web')).toBe('S01E07 {source-Web}')
+        expect(buildTargetStem(file('Anime E07'), 'Web')).toBe('S01e07 - Unknown {source-Web}')
     })
 
     it('lässt bereits formatierte und nicht erkannte Namen unverändert', () => {

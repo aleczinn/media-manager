@@ -48,6 +48,12 @@ export function App() {
         }
     }, [])
 
+    // Peak-Analysen schon während der Durchsicht im Hintergrund starten (der Main-Prozess ignoriert bekannte)
+    const { peakRequests } = derived
+    useEffect(() => {
+        if (peakRequests.length > 0) void window.api.prefetchPeaks(peakRequests)
+    }, [peakRequests])
+
     return (
         <TooltipProvider delayDuration={300}>
             <div className="flex h-full flex-col gap-3 p-4">

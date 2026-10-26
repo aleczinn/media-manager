@@ -1,3 +1,5 @@
+import type { PeakRequest, PeakUpdate } from './peak'
+
 export interface MediaFile {
     id: string
     /** Dateiname ohne Endung */
@@ -99,6 +101,8 @@ export interface Settings {
     ffprobePath: string
     /** Warnung, wenn nach dem Export weniger als so viele GB frei wären */
     spaceWarningGb: number
+    /** Wie viele Dateien gleichzeitig analysiert bzw. geschrieben werden (1–4) */
+    concurrency: number
     pipeline: PipelineOptions
 }
 
@@ -118,6 +122,8 @@ export type AnalysisEvent =
 export interface ApplyJob {
     fileId: string
     inputPath: string
+    /** Dateigröße, Teil des Schlüssels für zwischengespeicherte Peak-Analysen */
+    size: number
     /** Zielname inkl. .mkv */
     targetName: string
     analysis: FileAnalysis
@@ -130,8 +136,6 @@ export interface ApplyProgress {
     phase: ApplyPhase
     percent: number
     etaSec: number | null
-    index: number
-    total: number
 }
 
 export type ApplyStatus = 'ok' | 'skipped' | 'error' | 'cancelled'
@@ -157,6 +161,7 @@ export interface MediaManagerApi {
     checkFfmpeg(): Promise<FfmpegStatus>
     scan(dir: string): Promise<MediaFile[]>
     analyze(requestId: number, files: MediaFile[]): Promise<void>
+    prefetchPeaks(requests: PeakRequest[]): Promise<void>
     listOutput(dir: string): Promise<string[]>
     diskSpace(dir: string): Promise<DiskSpace | null>
     apply(jobs: ApplyJob[], outputDir: string): Promise<ApplySummary>
@@ -165,4 +170,5 @@ export interface MediaManagerApi {
     onAnalysis(listener: (event: AnalysisEvent) => void): () => void
     onApplyProgress(listener: (progress: ApplyProgress) => void): () => void
     onApplyFileDone(listener: (result: ApplyFileResult) => void): () => void
+    onPeakUpdate(listener: (update: PeakUpdate) => void): () => void
 }

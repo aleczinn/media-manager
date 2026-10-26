@@ -1,23 +1,26 @@
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import type { PeakRequest } from '../shared/peak'
 import type { ApplyJob, MediaFile, Settings } from '../shared/types'
 import { getDiskSpace } from './disk-space'
 import { checkFfmpeg, resolveBinaries } from './ffmpeg'
 import { analyzeFile } from './metadata'
+import { PeakService } from './peak-service'
 import { Runner } from './runner'
 import { findMediaFiles, listOutputNames } from './scanner'
 import { loadSettings, saveSettings } from './settings-store'
 
 const ANALYZE_CONCURRENCY = 2
 
-/** Registriert alle IPC-Handler und gibt den Runner zurück (zum Abbrechen beim Beenden). */
-export function registerIpc(getWindow: () => BrowserWindow | null): Runner {
-    const runner = new Runner()
-    let latestAnalyzeRequest = 0
-
+/** Registriert alle IPC-Handler und gibt Runner und Peak-Dienst zurück (zum Aufräumen beim Beenden). */
+export function registerIpc(getWindow: () => BrowserWindow | null): { runner: Runner; peaks: PeakService } {
     const send = (channel: string, payload: unknown) => {
         const window = getWindow()
         if (window && !window.isDestroyed()) window.webContents.send(channel, payload)
     }
+
+    const peaks = new PeakService(loadSettings, (update) => send('peak:update', update))
+    const runner = new Runner(peaks)
+    let latestAnalyzeRequest = 0
 
     ipcMain.handle('dialog:selectFolder', async (_event, defaultPath?: string) => {
         const window = getWindow()
@@ -68,6 +71,8 @@ export function registerIpc(getWindow: () => BrowserWindow | null): Runner {
         await Promise.all(Array.from({ length: ANALYZE_CONCURRENCY }, worker))
     })
 
+    ipcMain.handle('peaks:prefetch', (_event, requests: PeakRequest[]) => peaks.prefetch(requests))
+
     ipcMain.handle('output:list', (_event, dir: string) => listOutputNames(dir))
     ipcMain.handle('disk:space', (_event, dir: string) => getDiskSpace(dir))
 
@@ -83,5 +88,5 @@ export function registerIpc(getWindow: () => BrowserWindow | null): Runner {
         await shell.openPath(target)
     })
 
-    return runner
+    return { runner, peaks }
 }

@@ -54,10 +54,10 @@ function SpaceWarning({ required }: { required: number }) {
 }
 
 function RunProgress() {
-    const progress = useStore((s) => s.run.progress)
-    const cancelling = useStore((s) => s.run.cancelling)
+    const run = useStore((s) => s.run)
+    const active = Object.values(run.active)
 
-    if (!progress) {
+    if (run.total === 0) {
         return (
             <div className="flex flex-1 items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="size-4 animate-spin" />
@@ -66,23 +66,34 @@ function RunProgress() {
         )
     }
 
-    const overall = ((progress.index + progress.percent / 100) / progress.total) * 100
-    const phase = progress.phase === 'analyze' ? 'Peak-Analyse' : 'Datei wird geschrieben'
+    // Nur der Schreib-Durchgang zählt als Fortschritt, die Peak-Analyse ist im Vergleich kurz
+    const building = active.reduce((sum, progress) => sum + (progress.phase === 'build' ? progress.percent / 100 : 0), 0)
+    const fraction = Math.min(1, (run.done + building) / run.total)
+    const elapsedSec = (Date.now() - run.startedAt) / 1000
+    const etaSec = fraction > 0.02 ? (elapsedSec * (1 - fraction)) / fraction : null
+    const analyzing = active.filter((progress) => progress.phase === 'analyze').length
 
     return (
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
             <div className="flex items-center justify-between gap-4 text-sm">
                 <span className="truncate">
-                    <span className="text-muted-foreground">
-                        Datei {progress.index + 1}/{progress.total} ·
-                    </span>{' '}
-                    {cancelling ? 'Wird abgebrochen …' : `${phase} ${Math.floor(progress.percent)}%`}
+                    {run.cancelling ? (
+                        'Wird abgebrochen …'
+                    ) : (
+                        <>
+                            {run.done}/{run.total} fertig
+                            <span className="text-muted-foreground">
+                                {' '}
+                                · {active.length} in Arbeit{analyzing > 0 && ` (${analyzing}× Peak-Analyse)`}
+                            </span>
+                        </>
+                    )}
                 </span>
                 <span className="shrink-0 text-muted-foreground tabular-nums">
-                    {progress.etaSec !== null && `noch ca. ${formatDuration(progress.etaSec)} · `}gesamt {Math.floor(overall)}%
+                    {etaSec !== null && `noch ca. ${formatDuration(etaSec)} · `}gesamt {Math.floor(fraction * 100)}%
                 </span>
             </div>
-            <Progress value={overall} />
+            <Progress value={fraction * 100} />
         </div>
     )
 }

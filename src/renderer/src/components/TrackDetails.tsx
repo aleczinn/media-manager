@@ -4,6 +4,7 @@ import { getAudioTrackName, getAudioType } from '@shared/audio-names'
 import { normalizeLanguage } from '@shared/languages'
 import type { TrackPlan } from '@shared/pipeline'
 import type { FileAnalysis } from '@shared/types'
+import { describePeak } from '@/lib/peak'
 import { useStore } from '@/lib/store'
 import { cn, formatDuration } from '@/lib/utils'
 
@@ -56,8 +57,11 @@ function Section({ icon: Icon, label, children }: { icon: typeof Film; label: st
 }
 
 /** Aufklappbare Übersicht der Spuren: vorher (Quelle) und nachher (Ausgabe). */
-export function TrackDetails({ analysis, plan }: { analysis: FileAnalysis; plan: TrackPlan }) {
+export function TrackDetails({ analysis, plan, peakKey }: { analysis: FileAnalysis; plan: TrackPlan; peakKey: string | null }) {
     const unknownLanguage = useStore((s) => s.settings?.unknownLanguage ?? 'und')
+    const settings = useStore((s) => s.settings)
+    const peak = useStore((s) => (peakKey ? s.peaks[peakKey] : undefined))
+    const peakInfo = settings && peakKey ? describePeak(peak, settings) : null
     const keptAudio = new Set(plan.audio.map((track) => track.source.index))
     const keptSubtitles = new Set(plan.subtitle.map((track) => track.source.index))
 
@@ -112,6 +116,11 @@ export function TrackDetails({ analysis, plan }: { analysis: FileAnalysis; plan:
                             <Sparkles className="size-3.5 shrink-0" />
                             <span className="truncate">{plan.normalize.title}</span>
                             <span className="shrink-0 text-xs text-muted-foreground">AC3 {plan.normalize.bitrate} · neu</span>
+                        </li>
+                    )}
+                    {plan.normalize && peakInfo && (
+                        <li className={cn('py-0.5 pl-10 text-xs', peakInfo.tone === 'error' ? 'text-warning' : 'text-muted-foreground')}>
+                            {peakInfo.text}
                         </li>
                     )}
                     {plan.audio.map((track) => (
