@@ -35,7 +35,9 @@ const analysis: FileAnalysis = {
     ],
     subtitle: [
         {
+            inputIndex: 0,
             index: 0,
+            eventCount: null,
             title: 'Forced',
             language: 'de',
             codecId: 'S_TEXT/UTF8',
@@ -100,6 +102,41 @@ describe('buildFfmpegArgs', () => {
         const args = buildFfmpegArgs({ inputPath: 'in', outputPath: 'o', plan, settings, gainDb: null, description: null })
         expect(args.join(' ')).toContain('-c:v:0 libx264 -crf 18 -preset slow -x264-params ref=5:bframes=5')
         expect(args.join(' ')).toContain('-fps_mode cfr')
+    })
+
+    it('bindet externe Untertitel als zusätzliche Eingaben ein', () => {
+        const external = {
+            ...analysis.subtitle[0],
+            title: '',
+            forced: false,
+            default: false,
+            language: 'en',
+            codecId: 'dvd_subtitle',
+            eventCount: 612
+        }
+        const withExternal: FileAnalysis = {
+            ...analysis,
+            subtitle: [
+                ...analysis.subtitle,
+                { ...external, inputIndex: 1, externalPath: 'C:\\Subs\\x-eng.idx' },
+                { ...external, inputIndex: 2, externalPath: 'C:\\Subs\\x.de.srt', language: 'de', codecId: 'subrip' }
+            ]
+        }
+        const args = buildFfmpegArgs({
+            inputPath: 'in.mkv',
+            outputPath: 'o',
+            plan: planTracks(withExternal, DEFAULT_SETTINGS),
+            settings: DEFAULT_SETTINGS,
+            gainDb: null,
+            description: null
+        })
+        const joined = args.join(' ')
+
+        // Weitere Eingaben direkt nach der Hauptdatei, vor allen Ausgabeoptionen
+        expect(joined).toContain('-i in.mkv -i C:\\Subs\\x.de.srt -i C:\\Subs\\x-eng.idx -metadata title=')
+        expect(joined).toContain('-map 0:s:0 -c:s:0 copy -metadata:s:s:0 title=Deutsch Erzwungen')
+        expect(joined).toContain('-map 1:s:0 -c:s:1 copy -metadata:s:s:1 title=Deutsch -metadata:s:s:1 language=de')
+        expect(joined).toContain('-map 2:s:0 -c:s:2 copy -metadata:s:s:2 title=English -metadata:s:s:2 language=en')
     })
 })
 

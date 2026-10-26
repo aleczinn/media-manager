@@ -24,6 +24,11 @@ const OPTIONS: { key: keyof Options; label: string; hint: string }[] = [
         hint: 'Pro Sprache und Typ (Forced, Normal, SDH, CC) nur die beste Untertitelspur behalten'
     },
     {
+        key: 'mergeSubtitles',
+        label: 'Externe UT einbinden',
+        hint: 'Untertitel aus einem Subs-Ordner oder gleichnamige Dateien neben dem Video (.idx/.sub, .srt, .ass, .sup) mit aufnehmen'
+    },
+    {
         key: 'cleanMetadata',
         label: 'Metadaten bereinigen',
         hint: 'Container- und Videotitel leeren, Beschreibung aus gleichnamiger .txt übernehmen'

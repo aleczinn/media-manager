@@ -9,7 +9,8 @@ import type {
     FfmpegStatus,
     FileAnalysis,
     MediaFile,
-    Settings
+    Settings,
+    SubtitleType
 } from '@shared/types'
 
 export interface FileEntry {
@@ -41,6 +42,8 @@ interface State {
     excluded: Record<string, boolean>
     /** Vom Nutzer bearbeitete Zielnamen (ohne .mkv) */
     overrides: Record<string, string>
+    /** Manuell gewählter Untertiteltyp je Datei und Spur (`subtitleTrackId`) */
+    typeOverrides: Record<string, Record<string, SubtitleType>>
     expanded: Record<string, boolean>
     outputNames: string[]
     disk: DiskSpace | null
@@ -59,6 +62,7 @@ interface State {
     toggleExcluded(id: string): void
     setAllExcluded(excluded: boolean): void
     setOverride(id: string, stem: string | null): void
+    setTypeOverride(fileId: string, trackId: string, type: SubtitleType | null): void
     toggleExpanded(id: string): void
     setForceApply(force: boolean): void
     apply(jobs: ApplyJob[]): Promise<void>
@@ -75,6 +79,7 @@ export const useStore = create<State>()((set, get) => ({
     analyzeRequest: 0,
     excluded: {},
     overrides: {},
+    typeOverrides: {},
     expanded: {},
     outputNames: [],
     disk: null,
@@ -161,7 +166,16 @@ export const useStore = create<State>()((set, get) => ({
 
         // Peak-Ergebnisse bleiben erhalten: Sie hängen an Pfad + Größe und gelten auch nach erneutem Einlesen
         const requestId = get().analyzeRequest + 1
-        set({ scanning: true, analyzeRequest: requestId, files: [], excluded: {}, overrides: {}, expanded: {}, run: emptyRun })
+        set({
+            scanning: true,
+            analyzeRequest: requestId,
+            files: [],
+            excluded: {},
+            overrides: {},
+            typeOverrides: {},
+            expanded: {},
+            run: emptyRun
+        })
         try {
             const files = await window.api.scan(dir)
             set({ files: files.map((file) => ({ file, status: 'pending' })) })
@@ -195,6 +209,15 @@ export const useStore = create<State>()((set, get) => ({
             if (stem === null) delete overrides[id]
             else overrides[id] = stem
             return { overrides }
+        })
+    },
+
+    setTypeOverride(fileId, trackId, type) {
+        set((state) => {
+            const forFile = { ...state.typeOverrides[fileId] }
+            if (type === null) delete forFile[trackId]
+            else forFile[trackId] = type
+            return { typeOverrides: { ...state.typeOverrides, [fileId]: forFile } }
         })
     },
 

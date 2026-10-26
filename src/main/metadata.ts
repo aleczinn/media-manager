@@ -1,5 +1,7 @@
 import fs from 'node:fs/promises'
+import path from 'node:path'
 import mediaInfoFactory, { type MediaInfo } from 'mediainfo.js'
+import { subtitleHintsFromFilename } from '../shared/external-subs'
 import type { AudioTrackInfo, FileAnalysis, MediaFile, SubtitleTrackInfo, VideoTrackInfo } from '../shared/types'
 import { runProcess } from './ffmpeg'
 
@@ -9,6 +11,7 @@ interface FfprobeStream {
     codec_name?: string
     profile?: string
     channels?: number
+    nb_read_packets?: string
     tags?: Record<string, string>
     disposition?: Record<string, number>
 }
@@ -20,7 +23,7 @@ interface FfprobeResult {
 
 type MediaInfoTrack = Record<string, unknown> & { '@type': string; StreamOrder?: string }
 
-async function runFfprobe(ffprobe: string, file: string): Promise<FfprobeResult> {
+async function runFfprobe(ffprobe: string, file: string, extraArgs: string[] = []): Promise<FfprobeResult> {
     const { code, stdout, stderrTail } = await runProcess(ffprobe, [
         '-v',
         'error',
@@ -28,10 +31,63 @@ async function runFfprobe(ffprobe: string, file: string): Promise<FfprobeResult>
         'json',
         '-show_format',
         '-show_streams',
+        ...extraArgs,
         file
     ])
     if (code !== 0) throw new Error(stderrTail.join('\n') || `ffprobe beendet mit Code ${code}`)
     return JSON.parse(stdout) as FfprobeResult
+}
+
+/** Anzahl der Einträge aus den Statistik-Tags (z. B. von mkvmerge geschrieben) */
+function taggedEventCount(stream: FfprobeStream): number | null {
+    const key = Object.keys(stream.tags ?? {}).find((tag) => /^NUMBER_OF_FRAMES/i.test(tag))
+    const count = key ? parseInt(stream.tags![key], 10) : NaN
+    return Number.isFinite(count) ? count : null
+}
+
+/** Zählt die Einträge aller Untertitelspuren; liest dafür die Datei einmal komplett (ca. 1 s für 5 GB) */
+async function countSubtitleEvents(ffprobe: string, file: string): Promise<Map<number, number>> {
+    const probe = await runFfprobe(ffprobe, file, ['-select_streams', 's', '-count_packets'])
+    const counts = new Map<number, number>()
+    for (const stream of probe.streams ?? []) {
+        const count = parseInt(stream.nb_read_packets ?? '', 10)
+        if (Number.isFinite(count)) counts.set(stream.index, count)
+    }
+    return counts
+}
+
+/** Liest eine externe Untertiteldatei; Sprache aus der Datei (z. B. .idx), sonst aus dem Dateinamen */
+async function analyzeExternalSubtitle(
+    ffprobe: string,
+    filePath: string,
+    inputIndex: number,
+    videoName: string
+): Promise<SubtitleTrackInfo[]> {
+    const probe = await runFfprobe(ffprobe, filePath, ['-count_packets'])
+    const hints = subtitleHintsFromFilename(path.basename(filePath), videoName)
+
+    return (probe.streams ?? [])
+        .filter((stream) => stream.codec_type === 'subtitle')
+        .map((stream, index) => ({
+            inputIndex,
+            index,
+            externalPath: filePath,
+            eventCount: Number.isFinite(parseInt(stream.nb_read_packets ?? '', 10)) ? parseInt(stream.nb_read_packets!, 10) : null,
+            title: str(stream.tags?.title),
+            language: str(stream.tags?.language) || hints.language || '',
+            codecId: str(stream.codec_name),
+            default: false,
+            forced: flag(stream, 'forced'),
+            hearingImpaired: flag(stream, 'hearing_impaired'),
+            filenameForced: hints.forced,
+            filenameSdh: hints.sdh,
+            visualImpaired: false,
+            original: false,
+            dub: false,
+            commentary: false,
+            lyrics: false,
+            karaoke: false
+        }))
 }
 
 let mediaInfoPromise: Promise<MediaInfo<'object'>> | null = null
@@ -121,7 +177,9 @@ export async function analyzeFile(file: MediaFile, ffprobe: string): Promise<Fil
             analysis.audio.push(audio)
         } else {
             const subtitle: SubtitleTrackInfo = {
+                inputIndex: 0,
                 index,
+                eventCount: taggedEventCount(stream),
                 title,
                 language,
                 codecId: str(info?.CodecID) || str(stream.codec_name),
@@ -138,6 +196,30 @@ export async function analyzeFile(file: MediaFile, ffprobe: string): Promise<Fil
             analysis.subtitle.push(subtitle)
         }
     }
+
+    // Einträge zählen, wo keine Statistik-Tags vorhanden sind (für die Forced-Erkennung)
+    if (analysis.subtitle.some((track) => track.eventCount === null)) {
+        const subtitleStreams = (probe.streams ?? []).filter((stream) => stream.codec_type === 'subtitle')
+        try {
+            const counts = await countSubtitleEvents(ffprobe, file.fullPath)
+            analysis.subtitle.forEach((track, i) => {
+                track.eventCount ??= counts.get(subtitleStreams[i]?.index ?? -1) ?? null
+            })
+        } catch (error) {
+            console.warn(`Untertitel-Einträge konnten nicht gezählt werden (${file.fullPath}):`, error)
+        }
+    }
+
+    // Externe Untertitel als weitere ffmpeg-Eingaben (1…n)
+    const external = await Promise.all(
+        (file.externalSubtitles ?? []).map((sub, i) =>
+            analyzeExternalSubtitle(ffprobe, sub.path, i + 1, file.name).catch((error) => {
+                console.warn(`Externe Untertitel nicht lesbar (${sub.path}):`, error)
+                return [] as SubtitleTrackInfo[]
+            })
+        )
+    )
+    analysis.subtitle.push(...external.flat())
 
     return analysis
 }

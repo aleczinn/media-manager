@@ -11,6 +11,14 @@ export interface MediaFile {
     /** Pfad relativ zum Input-Ordner */
     relativePath: string
     size: number
+    /** Zugehörige externe Untertiteldateien (Subs-Ordner oder gleichnamige Dateien daneben) */
+    externalSubtitles: ExternalSubtitleFile[]
+}
+
+export interface ExternalSubtitleFile {
+    path: string
+    /** Größe inkl. zugehöriger .sub bei VobSub */
+    size: number
 }
 
 export interface VideoTrackInfo {
@@ -34,9 +42,22 @@ export interface AudioTrackInfo {
     default: boolean
 }
 
+export type SubtitleType = 'normal' | 'forced' | 'sdh' | 'cc'
+
 export interface SubtitleTrackInfo {
-    /** Index innerhalb der Untertitelspuren (ffmpeg `0:s:N`) */
+    /** Eingabe für ffmpeg: 0 = Videodatei, 1…n = externe Untertiteldatei */
+    inputIndex: number
+    /** Index innerhalb der Untertitelspuren dieser Eingabe (ffmpeg `N:s:index`) */
     index: number
+    /** Pfad der externen Datei, nur bei `inputIndex` > 0 */
+    externalPath?: string
+    /** Anzahl der Einträge, `null` wenn unbekannt */
+    eventCount: number | null
+    /** Hinweise aus dem Dateinamen externer Untertitel (z. B. `-forced`, `.sdh`) */
+    filenameForced?: boolean
+    filenameSdh?: boolean
+    /** Manuell gewählter Typ aus der Oberfläche */
+    typeOverride?: SubtitleType
     title: string
     language: string
     codecId: string
@@ -67,6 +88,8 @@ export interface PipelineOptions {
     renameTracks: boolean
     /** Pro Sprache und Untertiteltyp nur die beste Spur behalten */
     dedupeSubtitles: boolean
+    /** Externe Untertitel (Subs-Ordner, gleichnamige Dateien) mit einbinden */
+    mergeSubtitles: boolean
     /** Erste Tonspur peak-normalisiert als zusätzliche AC3-Spur einfügen */
     normalize: boolean
     /** Datei nach Schema umbenennen */

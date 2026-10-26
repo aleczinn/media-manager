@@ -28,6 +28,16 @@ export function buildFfmpegArgs({ inputPath, outputPath, plan, settings, gainDb,
     const { pipeline, unknownLanguage } = settings
     const args: string[] = ['-hide_banner', '-nostdin', '-y', '-fflags', '+genpts', '-i', inputPath]
 
+    // Externe Untertiteldateien als weitere Eingaben (1…n), in der Reihenfolge ihrer ersten Verwendung
+    const externalInputs = new Map<string, number>()
+    for (const { source } of plan.subtitle) {
+        if (source.externalPath && !externalInputs.has(source.externalPath)) {
+            externalInputs.set(source.externalPath, externalInputs.size + 1)
+            args.push('-i', source.externalPath)
+        }
+    }
+    const inputOf = (externalPath?: string) => (externalPath ? externalInputs.get(externalPath)! : 0)
+
     if (pipeline.cleanMetadata) {
         args.push('-metadata', 'title=')
         if (description) {
@@ -97,7 +107,7 @@ export function buildFfmpegArgs({ inputPath, outputPath, plan, settings, gainDb,
     plan.subtitle.forEach((track, i) => {
         args.push(
             '-map',
-            `0:s:${track.source.index}`,
+            `${inputOf(track.source.externalPath)}:s:${track.source.index}`,
             `-c:s:${i}`,
             subtitleCodec(track.source.codecId),
             `-metadata:s:s:${i}`,

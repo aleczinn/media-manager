@@ -1,6 +1,6 @@
 import { getAudioTrackName, getAudioType } from './audio-names'
 import { getLanguageName, normalizeLanguage } from './languages'
-import type { AudioTrackInfo, FileAnalysis, Settings, SubtitleTrackInfo, VideoTrackInfo } from './types'
+import type { AudioTrackInfo, FileAnalysis, Settings, SubtitleTrackInfo, SubtitleType, VideoTrackInfo } from './types'
 
 export interface PlannedVideo {
     source: VideoTrackInfo
@@ -38,8 +38,6 @@ export interface TrackPlan {
     normalizeSkipReason: string | null
 }
 
-type SubtitleType = 'forced' | 'sdh' | 'cc' | 'normal'
-
 /** Rangfolge in einer Liste, unbekannte Werte landen hinten. */
 function rank(list: string[], value: string): number {
     const index = list.indexOf(value)
@@ -64,47 +62,59 @@ export function getSubtitleFormat(track: SubtitleTrackInfo): string {
     return codec
 }
 
-function isForcedSubtitle(track: SubtitleTrackInfo): boolean {
+/** Normale Untertitel haben 10–20 Einträge pro Minute, Forced-Spuren nur vereinzelte */
+export const FORCED_MAX_EVENTS_PER_MINUTE = 1.5
+
+/** Reihenfolge beim Durchschalten in der Oberfläche */
+export const SUBTITLE_TYPES: SubtitleType[] = ['normal', 'forced', 'sdh', 'cc']
+
+/**
+ * Woher der Typ stammt:
+ * - `override`: manuell in der Oberfläche gewählt
+ * - `file`: steht so in der Datei (Flag oder Titel) bzw. normal
+ * - `detected`: von der App erkannt (wenige Einträge, Hinweis im Dateinamen)
+ */
+export type SubtitleTypeSource = 'override' | 'file' | 'detected'
+
+export interface ResolvedSubtitleType {
+    type: SubtitleType
+    source: SubtitleTypeSource
+}
+
+function isSparse(track: SubtitleTrackInfo, durationSec: number): boolean {
+    return track.eventCount !== null && durationSec > 0 && track.eventCount / (durationSec / 60) < FORCED_MAX_EVENTS_PER_MINUTE
+}
+
+/** Bestimmt den Typ einer Untertitelspur. Eine manuelle Wahl gewinnt immer. */
+export function resolveSubtitleType(track: SubtitleTrackInfo, durationSec: number): ResolvedSubtitleType {
+    if (track.typeOverride) return { type: track.typeOverride, source: 'override' }
+
     const title = (track.title || '').toLowerCase()
-    return title.includes('forced') || title.includes('erzwungen') || track.forced
+    if (track.forced || title.includes('forced') || title.includes('erzwungen')) return { type: 'forced', source: 'file' }
+    if (track.filenameForced || isSparse(track, durationSec)) return { type: 'forced', source: 'detected' }
+    if (track.hearingImpaired || title.includes('sdh') || title.includes('hearing impaired')) return { type: 'sdh', source: 'file' }
+    if (track.filenameSdh) return { type: 'sdh', source: 'detected' }
+    if (title.includes('cc')) return { type: 'cc', source: 'file' }
+    return { type: 'normal', source: 'file' }
 }
 
-function isSdhSubtitle(track: SubtitleTrackInfo): boolean {
-    const title = (track.title || '').toLowerCase()
-    return title.includes('sdh') || title.includes('hearing impaired') || track.hearingImpaired
+/** Typ ohne manuelle Wahl (zum Vergleich beim Durchschalten) */
+export function autoSubtitleType(track: SubtitleTrackInfo, durationSec: number): ResolvedSubtitleType {
+    return resolveSubtitleType({ ...track, typeOverride: undefined }, durationSec)
 }
 
-function isCcSubtitle(track: SubtitleTrackInfo): boolean {
-    return (track.title || '').toLowerCase().includes('cc')
+function subtitleTitle(language: string, type: SubtitleType): string {
+    const name = getLanguageName(language)
+    if (type === 'forced') return `${name} ${language === 'de' ? 'Erzwungen' : 'Forced'}`
+    if (type === 'sdh') return `${name} SDH`
+    if (type === 'cc') return `${name} CC`
+    return name
 }
 
-export function getSubtitleType(track: SubtitleTrackInfo): SubtitleType {
-    if (isForcedSubtitle(track)) return 'forced'
-    if (isSdhSubtitle(track)) return 'sdh'
-    if (isCcSubtitle(track)) return 'cc'
-    return 'normal'
-}
-
-function subtitleTitle(track: SubtitleTrackInfo, language: string): string {
-    let title = getLanguageName(language)
-
-    if (isForcedSubtitle(track)) {
-        title += language === 'de' ? ' Erzwungen' : ' Forced'
-    }
-
-    if (isSdhSubtitle(track)) {
-        title += ' SDH'
-    } else if (isCcSubtitle(track)) {
-        title += ' CC'
-    }
-
-    return title
-}
-
-function subtitleDispositions(track: SubtitleTrackInfo, forced: boolean): string[] {
+function subtitleDispositions(track: SubtitleTrackInfo, type: SubtitleType): string[] {
     const dispositions: string[] = []
-    if (forced) dispositions.push('forced')
-    if (track.hearingImpaired) dispositions.push('hearing_impaired')
+    if (type === 'forced') dispositions.push('forced')
+    if (type === 'sdh') dispositions.push('hearing_impaired')
     if (track.visualImpaired) dispositions.push('visual_impaired')
     if (track.dub) dispositions.push('dub')
     if (track.karaoke) dispositions.push('karaoke')
@@ -146,10 +156,16 @@ function planAudio(tracks: AudioTrackInfo[], settings: Settings): PlannedAudio[]
     }))
 }
 
-function planSubtitles(tracks: SubtitleTrackInfo[], settings: Settings): PlannedSubtitle[] {
+function planSubtitles(tracks: SubtitleTrackInfo[], settings: Settings, durationSec: number): PlannedSubtitle[] {
     const { pipeline, languages, subtitlePriority, subtitleOrder, unknownLanguage } = settings
 
-    let subtitles = tracks.map((source) => ({ source, language: normalizeLanguage(source.language, unknownLanguage) }))
+    let subtitles = tracks
+        .filter((source) => pipeline.mergeSubtitles || source.inputIndex === 0)
+        .map((source) => ({
+            source,
+            language: normalizeLanguage(source.language, unknownLanguage),
+            type: resolveSubtitleType(source, durationSec).type
+        }))
 
     if (pipeline.filterLanguages) {
         subtitles = subtitles.filter((track) => languages.includes(track.language))
@@ -160,7 +176,7 @@ function planSubtitles(tracks: SubtitleTrackInfo[], settings: Settings): Planned
             const langDiff = rank(languages, a.language) - rank(languages, b.language)
             if (langDiff !== 0) return langDiff
 
-            const typeDiff = rank(subtitlePriority, getSubtitleType(a.source)) - rank(subtitlePriority, getSubtitleType(b.source))
+            const typeDiff = rank(subtitlePriority, a.type) - rank(subtitlePriority, b.type)
             if (typeDiff !== 0) return typeDiff
 
             return rank(subtitleOrder, getSubtitleFormat(a.source)) - rank(subtitleOrder, getSubtitleFormat(b.source))
@@ -171,18 +187,18 @@ function planSubtitles(tracks: SubtitleTrackInfo[], settings: Settings): Planned
         // Bei aktiver Sortierung steht die beste Spur je Sprache + Typ vorne
         const seen = new Set<string>()
         subtitles = subtitles.filter((track) => {
-            const key = `${track.language}-${getSubtitleType(track.source)}`
+            const key = `${track.language}-${track.type}`
             if (seen.has(key)) return false
             seen.add(key)
             return true
         })
     }
 
-    return subtitles.map(({ source, language }) => ({
+    return subtitles.map(({ source, language, type }) => ({
         source,
         language,
-        title: pipeline.renameTracks ? subtitleTitle(source, language) : source.title,
-        dispositions: subtitleDispositions(source, isForcedSubtitle(source))
+        title: pipeline.renameTracks ? subtitleTitle(language, type) : source.title,
+        dispositions: subtitleDispositions(source, type)
     }))
 }
 
@@ -216,7 +232,7 @@ function planNormalize(audio: PlannedAudio[], settings: Settings): Pick<TrackPla
 export function planTracks(analysis: FileAnalysis, settings: Settings): TrackPlan {
     const video = analysis.video.map((source) => ({ source, title: settings.pipeline.cleanMetadata ? '' : source.title }))
     const audio = planAudio(analysis.audio, settings)
-    const subtitle = planSubtitles(analysis.subtitle, settings)
+    const subtitle = planSubtitles(analysis.subtitle, settings, analysis.durationSec)
 
     return { video, audio, subtitle, ...planNormalize(audio, settings) }
 }

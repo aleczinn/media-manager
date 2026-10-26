@@ -25,6 +25,7 @@ export const DEFAULT_SETTINGS: Settings = {
         sortTracks: true,
         renameTracks: true,
         dedupeSubtitles: true,
+        mergeSubtitles: true,
         normalize: true,
         renameFile: true,
         cleanMetadata: true,

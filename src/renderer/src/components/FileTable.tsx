@@ -94,17 +94,20 @@ function NormalizeIndicator({ peakKey }: { peakKey: string }) {
 }
 
 function TrackSummary({ row }: { row: Row }) {
-    const { analysis } = row.entry
+    const { analysis } = row
     if (!analysis || !row.plan) return null
     const audioAfter = row.plan.audio.length + (row.plan.normalize ? 1 : 0)
+    const embedded = analysis.subtitle.filter((track) => track.inputIndex === 0).length
+    const external = analysis.subtitle.length - embedded
 
     return (
         <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
             <span title="Audiospuren vorher → nachher">
                 A {analysis.audio.length}→{audioAfter}
             </span>
-            <span title="Untertitel vorher → nachher">
-                UT {analysis.subtitle.length}→{row.plan.subtitle.length}
+            <span title={`Untertitel vorher${external > 0 ? ' (eingebettet + extern)' : ''} → nachher`}>
+                UT {embedded}
+                {external > 0 && <span className="text-primary">+{external}</span>}→{row.plan.subtitle.length}
             </span>
             {row.peakKey && <NormalizeIndicator peakKey={row.peakKey} />}
         </span>
@@ -188,8 +191,8 @@ function FileRow({ row }: { row: Row }) {
                 </div>
             </div>
 
-            {expanded && row.entry.analysis && row.plan && (
-                <TrackDetails analysis={row.entry.analysis} plan={row.plan} peakKey={row.peakKey} />
+            {expanded && row.analysis && row.plan && (
+                <TrackDetails fileId={file.id} analysis={row.analysis} plan={row.plan} peakKey={row.peakKey} />
             )}
         </div>
     )

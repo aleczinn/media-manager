@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { getAudioTrackName, getAudioType } from '../src/shared/audio-names'
 import { normalizeLanguage } from '../src/shared/languages'
-import { planTracks } from '../src/shared/pipeline'
+import { autoSubtitleType, planTracks, resolveSubtitleType } from '../src/shared/pipeline'
 import { DEFAULT_SETTINGS } from '../src/shared/settings'
 import type { AudioTrackInfo, FileAnalysis, SubtitleTrackInfo } from '../src/shared/types'
 
@@ -19,7 +19,9 @@ const audio = (index: number, patch: Partial<AudioTrackInfo>): AudioTrackInfo =>
 })
 
 const subtitle = (index: number, patch: Partial<SubtitleTrackInfo>): SubtitleTrackInfo => ({
+    inputIndex: 0,
     index,
+    eventCount: null,
     title: '',
     language: 'de',
     codecId: 'S_TEXT/UTF8',
@@ -129,6 +131,7 @@ describe('planTracks', () => {
                 sortTracks: false,
                 renameTracks: false,
                 dedupeSubtitles: false,
+                mergeSubtitles: false,
                 normalize: false,
                 renameFile: false,
                 cleanMetadata: false,
@@ -145,5 +148,77 @@ describe('planTracks', () => {
         expect(plan.normalize).toBeNull()
         expect(plan.normalizeSkipReason).toBeNull()
         expect(plan.video[0].title).toBe('Encoded by X')
+    })
+})
+
+describe('Externe Untertitel und Forced-Erkennung (The 100 S02E01)', () => {
+    // 42,5 Minuten; eingebettete SRT ohne Forced-Flag mit 7 Einträgen, dazu drei VobSubs aus dem Subs-Ordner
+    const analysis: FileAnalysis = {
+        durationSec: 2549.8,
+        video: [{ index: 0, title: '', language: 'en', codec: 'h264' }],
+        audio: [audio(0, { language: 'ger' })],
+        subtitle: [
+            subtitle(0, { language: 'ger', eventCount: 7, default: true }),
+            subtitle(0, { inputIndex: 1, externalPath: 'Subs/x-eng.idx', language: 'en', codecId: 'dvd_subtitle', eventCount: 612 }),
+            subtitle(0, {
+                inputIndex: 2,
+                externalPath: 'Subs/x-forced.idx',
+                language: 'de',
+                codecId: 'dvd_subtitle',
+                eventCount: 7,
+                filenameForced: true
+            }),
+            subtitle(0, { inputIndex: 3, externalPath: 'Subs/x.idx', language: 'de', codecId: 'dvd_subtitle', eventCount: 593 })
+        ]
+    }
+
+    it('erkennt die eingebettete SRT als Forced und behält den vollständigen deutschen VobSub', () => {
+        const plan = planTracks(analysis, DEFAULT_SETTINGS)
+        expect(plan.subtitle.map((t) => [t.source.inputIndex, t.title, t.dispositions.join('+')])).toEqual([
+            [0, 'Deutsch Erzwungen', 'forced'],
+            [3, 'Deutsch', ''],
+            [1, 'English', '']
+        ])
+        // Wenige Einträge und Dateiname gelten als "erkannt", normale Spuren als "laut Datei"
+        expect(resolveSubtitleType(analysis.subtitle[0], analysis.durationSec)).toEqual({ type: 'forced', source: 'detected' })
+        expect(resolveSubtitleType(analysis.subtitle[2], analysis.durationSec)).toEqual({ type: 'forced', source: 'detected' })
+        expect(resolveSubtitleType(analysis.subtitle[3], analysis.durationSec)).toEqual({ type: 'normal', source: 'file' })
+    })
+
+    it('unterscheidet Markierungen aus der Datei von erkannten Typen', () => {
+        expect(resolveSubtitleType(subtitle(0, { forced: true }), 2549.8)).toEqual({ type: 'forced', source: 'file' })
+        expect(resolveSubtitleType(subtitle(0, { hearingImpaired: true }), 2549.8)).toEqual({ type: 'sdh', source: 'file' })
+        expect(resolveSubtitleType(subtitle(0, { filenameSdh: true }), 2549.8)).toEqual({ type: 'sdh', source: 'detected' })
+        expect(resolveSubtitleType(subtitle(0, { title: 'English CC' }), 2549.8)).toEqual({ type: 'cc', source: 'file' })
+    })
+
+    it('übernimmt einen manuell gewählten Typ', () => {
+        const corrected = {
+            ...analysis,
+            subtitle: analysis.subtitle.map((t, i) => (i === 0 ? { ...t, typeOverride: 'normal' as const } : t))
+        }
+        const plan = planTracks(corrected, DEFAULT_SETTINGS)
+        // Jetzt ist die SRT "Deutsch normal" und gewinnt per Format-Reihenfolge, der Forced-VobSub rückt nach
+        expect(plan.subtitle.map((t) => [t.source.inputIndex, t.title])).toEqual([
+            [2, 'Deutsch Erzwungen'],
+            [0, 'Deutsch'],
+            [1, 'English']
+        ])
+        expect(resolveSubtitleType(corrected.subtitle[0], analysis.durationSec).source).toBe('override')
+        expect(autoSubtitleType(corrected.subtitle[0], analysis.durationSec).type).toBe('forced')
+    })
+
+    it('setzt Titel und Markierung passend zum gewählten SDH-Typ', () => {
+        const corrected = {
+            ...analysis,
+            subtitle: analysis.subtitle.map((t, i) => (i === 1 ? { ...t, typeOverride: 'sdh' as const } : t))
+        }
+        const english = planTracks(corrected, DEFAULT_SETTINGS).subtitle.find((t) => t.language === 'en')
+        expect(english).toMatchObject({ title: 'English SDH', dispositions: ['hearing_impaired'] })
+    })
+
+    it('lässt externe Untertitel weg, wenn das Einbinden abgeschaltet ist', () => {
+        const plan = planTracks(analysis, { ...DEFAULT_SETTINGS, pipeline: { ...DEFAULT_SETTINGS.pipeline, mergeSubtitles: false } })
+        expect(plan.subtitle.map((t) => t.source.inputIndex)).toEqual([0])
     })
 })
