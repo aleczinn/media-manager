@@ -1,6 +1,6 @@
 # Media Manager
 
-[![Version](https://img.shields.io/badge/Media_Manager-1.0.1-8B7CFF?style=flat-square)](package.json)
+[![Version](https://img.shields.io/badge/Media_Manager-1.0.2-8B7CFF?style=flat-square)](package.json)
 [![Electron](https://img.shields.io/badge/Electron-45-47848F?style=flat-square&logo=electron)](https://www.electronjs.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
@@ -11,7 +11,7 @@
 
 Eine Desktop-App für Windows, die Serien- und Filmdateien für die eigene Mediathek aufbereitet. Sie liest einen Input-Ordner ein, schlägt für jede Datei einen einheitlichen Namen vor und baut daraus eine neue MKV im Output-Ordner: mit sortierten und sauber benannten Ton- und Untertitelspuren, einer lautstärke-normalisierten Tonspur und eingebundenen externen Untertiteln. Die Quelldateien bleiben dabei unverändert.
 
-![Media Manager mit zwei Serienfolgen; bei der aufgeklappten Folge stehen links die Spuren der Quelle und rechts die der fertigen Datei](docs/1.0.1.jpg)
+![Media Manager](docs/1.0.1.jpg)
 
 Links stehen die gefundenen Dateien, rechts die Zielnamen. Jede Datei lässt sich ausschließen, jeder Name bearbeiten, und pro Datei zeigt eine aufklappbare Übersicht, welche Spuren vorher da sind und welche in der fertigen Datei landen. Ein Klick auf **Anwenden** verarbeitet alles.
 
@@ -144,6 +144,13 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 - `scripts/corruption-checker.ts`: der Corruption-Checker
 
 ## Changelog
+
+1.0.2 | Artwork
+
+- Fanart.tv Integration (API-Schlüssel in Settings hinterlegen)
+- Verwaltung von Artwork wie Cover, Backdrop oder den Season-Bildern samt Overlays für z. B. 4K, Upscale
+
+![Bilder Bereich](docs/1.0.2.jpg)
 
 1.0.1 | TheMovieDatabase Integration
 
