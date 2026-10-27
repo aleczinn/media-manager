@@ -11,7 +11,7 @@
 
 Eine Desktop-App für Windows, die Serien- und Filmdateien für die eigene Mediathek aufbereitet. Sie liest einen Input-Ordner ein, schlägt für jede Datei einen einheitlichen Namen vor und baut daraus eine neue MKV im Output-Ordner: mit sortierten und sauber benannten Ton- und Untertitelspuren, einer lautstärke-normalisierten Tonspur und eingebundenen externen Untertiteln. Die Quelldateien bleiben dabei unverändert.
 
-![Media Manager mit zwei Serienfolgen; bei der aufgeklappten Folge stehen links die Spuren der Quelle und rechts die der fertigen Datei](docs/screenshot.jpg)
+![Media Manager mit zwei Serienfolgen; bei der aufgeklappten Folge stehen links die Spuren der Quelle und rechts die der fertigen Datei](docs/1.0.1.jpg)
 
 Links stehen die gefundenen Dateien, rechts die Zielnamen. Jede Datei lässt sich ausschließen, jeder Name bearbeiten, und pro Datei zeigt eine aufklappbare Übersicht, welche Spuren vorher da sind und welche in der fertigen Datei landen. Ein Klick auf **Anwenden** verarbeitet alles.
 
@@ -125,6 +125,20 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 - `src/preload/`: typisierte Brücke `window.api` zwischen Oberfläche und Main-Prozess
 - `src/renderer/`: React-Oberfläche mit Tailwind CSS und shadcn/ui-Komponenten
 - `scripts/corruption-checker.ts`: der Corruption-Checker
+
+## Changelog
+
+1.0.1 | TheMovieDatabase Integration
+
+- Exportieren von Thumbnails
+- Thumbnail Auswahl
+- Folgentitel können von TMDB zugewiesen werden, um sich das anschließende korrigieren zu sparen
+
+![Basis](docs/1.0.1.jpg)
+
+1.0.0 | Basis
+
+![Basis](docs/1.0.0.jpg)
 
 ## Verwendete Bibliotheken
 
