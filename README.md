@@ -152,6 +152,11 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 
 ## Changelog
 
+1.0.5 | Normalisierungshinweis
+
+- Reicht der Peak einer Tonspur schon, wird keine normalisierte Spur mehr angezeigt, sondern nur der Hinweis „Peak …, keine Normalisierung nötig“
+- Die Spurzahl in der Dateiliste (z. B. A 2→2) berücksichtigt das ebenfalls
+
 1.0.4 | Aktualisieren ohne Datenverlust
 
 - Aktualisieren behält Abwahl, eigene Namen, Untertitel-Wahl und die TMDB-Zuordnung
