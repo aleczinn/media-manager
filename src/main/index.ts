@@ -7,7 +7,7 @@ import { loadSettings, saveSettings } from './settings-store'
 
 // Fester Settings-Ordner, damit Dev-Start und gepackte .exe (anderer App-Name) dieselben Einstellungen nutzen
 if (!app.commandLine.hasSwitch('user-data-dir')) {
-    app.setPath('userData', path.join(app.getPath('appData'), 'media-manager-v2'))
+    app.setPath('userData', path.join(app.getPath('appData'), '.media-manager'))
 }
 
 let mainWindow: BrowserWindow | null = null

@@ -89,7 +89,7 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
 6. Rechts die Zielnamen prüfen und bei Bedarf von Hand anpassen.
 7. **Anwenden** klicken. Fertige Dateien werden grün markiert, übersprungene und fehlerhafte zeigen ihren Grund im Tooltip.
 
-Die Einstellungen liegen in `%APPDATA%\media-manager-v2\settings.json`.
+Die Einstellungen liegen in `%APPDATA%\.media-manager\settings.json`.
 
 ### TMDB-API-Key
 
