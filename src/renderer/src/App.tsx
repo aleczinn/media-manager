@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Clapperboard, Files, Images } from 'lucide-react'
+import { AlertTriangle, Clapperboard, Files, Images, MonitorPlay } from 'lucide-react'
 import { ApplyBar } from '@/components/ApplyBar'
 import { ArtworkPanel } from '@/components/ArtworkPanel'
 import { FileTable } from '@/components/FileTable'
@@ -12,6 +12,47 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { useArtworkPlan } from '@/lib/artwork'
 import { useDerived } from '@/lib/rows'
 import { useStore } from '@/lib/store'
+import { cn } from '@/lib/utils'
+import type { AppMode } from '@shared/types'
+
+const MODES: { mode: AppMode; label: string; icon: typeof Clapperboard; hint: string }[] = [
+    { mode: 'media', label: 'Filme & Serien', icon: Clapperboard, hint: 'Umbenennen nach TMDB, Vorschaubilder und Artwork' },
+    {
+        mode: 'youtube',
+        label: 'YouTube',
+        icon: MonitorPlay,
+        hint: 'JDownloader-Downloads: Namen bereinigen, Tonspur auf Deutsch, Beschreibung (.txt) und Bild (.jpg) gleichnamig mitkopieren'
+    }
+]
+
+/** Umschalter zwischen Filme & Serien und YouTube */
+function ModeSwitch() {
+    const mode = useStore((s) => s.settings?.mode)
+    const running = useStore((s) => s.run.running)
+    const updateSettings = useStore((s) => s.updateSettings)
+    if (!mode) return null
+
+    return (
+        <div className="flex items-center rounded-lg border bg-card/60 p-0.5">
+            {MODES.map(({ mode: value, label, icon: Icon, hint }) => (
+                <button
+                    key={value}
+                    type="button"
+                    title={hint}
+                    disabled={running}
+                    onClick={() => updateSettings({ mode: value })}
+                    className={cn(
+                        'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors disabled:opacity-50',
+                        mode === value ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                    )}
+                >
+                    <Icon className="size-3.5" />
+                    {label}
+                </button>
+            ))}
+        </div>
+    )
+}
 
 function FfmpegBadge() {
     const ffmpeg = useStore((s) => s.ffmpeg)
@@ -34,9 +75,12 @@ function FfmpegBadge() {
 
 export function App() {
     const ready = useStore((s) => s.settings !== null)
+    const youtube = useStore((s) => s.settings?.mode === 'youtube')
     const derived = useDerived()
     const artworkPlan = useArtworkPlan(derived.rows)
     const [tab, setTab] = useState('files')
+    // Im YouTube-Modus gibt es keinen Bilder-Tab
+    const activeTab = youtube ? 'files' : tab
 
     useEffect(() => {
         let cleanup: (() => void) | undefined
@@ -68,6 +112,7 @@ export function App() {
                         <Clapperboard className="size-5" />
                     </div>
                     <h1 className="text-lg font-semibold tracking-tight">Media Manager</h1>
+                    <ModeSwitch />
                     <div className="ml-auto flex items-center gap-3">
                         <FfmpegBadge />
                         <SettingsDialog />
@@ -78,20 +123,22 @@ export function App() {
                     <>
                         <FolderBar />
                         <PipelineOptions />
-                        <SeriesBar derived={derived} />
-                        <Tabs value={tab} onValueChange={setTab} className="min-h-0 flex-1">
+                        {!youtube && <SeriesBar derived={derived} />}
+                        <Tabs value={activeTab} onValueChange={setTab} className="min-h-0 flex-1">
                             <TabsList>
                                 <TabsTrigger value="files">
                                     <Files />
                                     Dateien
                                 </TabsTrigger>
-                                <TabsTrigger value="artwork">
-                                    <Images />
-                                    Bilder
-                                    {artworkPlan.jobs.length > 0 && (
-                                        <span className="text-xs text-muted-foreground">({artworkPlan.jobs.length})</span>
-                                    )}
-                                </TabsTrigger>
+                                {!youtube && (
+                                    <TabsTrigger value="artwork">
+                                        <Images />
+                                        Bilder
+                                        {artworkPlan.jobs.length > 0 && (
+                                            <span className="text-xs text-muted-foreground">({artworkPlan.jobs.length})</span>
+                                        )}
+                                    </TabsTrigger>
+                                )}
                             </TabsList>
                             <TabsContent value="files" className="flex min-h-0 flex-1 flex-col">
                                 <FileTable derived={derived} />
@@ -100,7 +147,7 @@ export function App() {
                                 <ArtworkPanel plan={artworkPlan} missingJobs={derived.missingJobs} />
                             </TabsContent>
                         </Tabs>
-                        <ApplyBar derived={derived} artworkJobs={artworkPlan.jobs} />
+                        <ApplyBar derived={derived} artworkJobs={youtube ? [] : artworkPlan.jobs} />
                     </>
                 )}
             </div>

@@ -2,7 +2,9 @@ import type { Dirent } from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { isSubtitleFile, matchSubtitlesToVideo, SUBS_FOLDER } from '../shared/external-subs'
-import type { ExternalSubtitleFile, MediaFile } from '../shared/types'
+import type { DescriptionFile, ExternalSubtitleFile, MediaFile } from '../shared/types'
+import { matchSidecars } from '../shared/youtube'
+import { allowLocalImage } from './local-images'
 
 const EXTENSIONS = ['.mkv', '.mp4', '.avi']
 
@@ -16,6 +18,18 @@ async function fileStat(filePath: string): Promise<{ size: number; modifiedMs: n
 }
 
 const fileSize = async (filePath: string) => (await fileStat(filePath)).size
+
+/** So viel der Beschreibung wird für die Vorschau mitgeschickt */
+const DESCRIPTION_PREVIEW = 1000
+
+async function readDescription(filePath: string): Promise<DescriptionFile | null> {
+    try {
+        const text = (await fs.readFile(filePath, 'utf8')).trim()
+        return { path: filePath, preview: text.length > DESCRIPTION_PREVIEW ? `${text.slice(0, DESCRIPTION_PREVIEW)} …` : text }
+    } catch {
+        return null
+    }
+}
 
 /** Untertiteldateien eines Ordners; eine .idx zählt nur, wenn die zugehörige .sub daneben liegt */
 function subtitleCandidates(items: Dirent[]): string[] {
@@ -63,10 +77,14 @@ export async function findMediaFiles(rootDir: string): Promise<MediaFile[]> {
             const subsFolderSubtitles = subsDir
                 ? subtitleCandidates(await fs.readdir(subsDir, { withFileTypes: true }).catch(() => []))
                 : []
+            const looseFiles = items.filter((item) => item.isFile()).map((item) => item.name)
 
             for (const item of videos) {
                 const fullPath = path.join(currentDir, item.name)
                 const name = path.basename(item.name, path.extname(item.name))
+                const sidecars = matchSidecars(name, looseFiles)
+                const image = sidecars.image ? path.join(currentDir, sidecars.image) : null
+                if (image) allowLocalImage(image)
                 const externalSubtitles = await Promise.all([
                     ...matchSubtitlesToVideo(name, videos.length, looseSubtitles, false).map((sub) => toExternal(currentDir, sub)),
                     ...matchSubtitlesToVideo(name, videos.length, subsFolderSubtitles, true).map((sub) => toExternal(subsDir!, sub))
@@ -80,7 +98,9 @@ export async function findMediaFiles(rootDir: string): Promise<MediaFile[]> {
                     dir: currentDir,
                     relativePath: path.relative(rootDir, fullPath),
                     ...(await fileStat(fullPath)),
-                    externalSubtitles: externalSubtitles.sort((a, b) => a.path.localeCompare(b.path))
+                    externalSubtitles: externalSubtitles.sort((a, b) => a.path.localeCompare(b.path)),
+                    description: sidecars.description ? await readDescription(path.join(currentDir, sidecars.description)) : null,
+                    image
                 })
             }
         }

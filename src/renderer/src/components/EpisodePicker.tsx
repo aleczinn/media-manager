@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { AlertTriangle, ChevronDown, ImageOff } from 'lucide-react'
+import { localImageUrl } from '@shared/local-image'
 import { episodeRefFromName, formatEpisodeRef, tmdbImageUrl } from '@shared/tmdb-match'
 import type { TmdbEpisode } from '@shared/types'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -101,6 +102,36 @@ export function EpisodeThumbnail({ row, disabled }: { row: Row; disabled: boolea
     )
 }
 
+const THUMBNAIL_BOX = 'h-[62px] w-[110px] shrink-0 overflow-hidden rounded-md bg-secondary/60'
+
+/** YouTube-Modus: das Bild neben dem Video (wird als `<Zielname>.jpg` kopiert), beim Überfahren groß */
+export function LocalThumbnail({ path }: { path: string | null }) {
+    if (!path) {
+        return (
+            <span
+                className={cn(THUMBNAIL_BOX, 'flex items-center justify-center border text-muted-foreground/60')}
+                title="Kein Bild (.jpg) gefunden"
+            >
+                <ImageOff className="size-4" />
+            </span>
+        )
+    }
+    const url = localImageUrl(path)
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <span className={cn(THUMBNAIL_BOX, 'border')}>
+                    <img src={url} alt="" className="size-full object-cover" />
+                </span>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="max-w-none p-1.5">
+                <img src={url} alt="" className="aspect-video w-[520px] rounded object-cover" />
+                <div className="max-w-[520px] truncate px-1 pt-1.5 text-xs">{path.split(/[\\/]/).pop()}</div>
+            </TooltipContent>
+        </Tooltip>
+    )
+}
+
 const VIGNETTE_URL = overlayUrl('overlay-vignette.png')
 
 /** Episodenbild; bei fehlenden Folgen schwarz-weiß mit Vignette, so wie es exportiert wird */
@@ -132,10 +163,7 @@ export function StillThumbnail({
     missing?: boolean
 }) {
     const [pickerOpen, setPickerOpen] = useState(false)
-    const box = cn(
-        'h-[62px] w-[110px] shrink-0 overflow-hidden rounded-md border bg-secondary/60',
-        stillManual ? 'border-2 border-warning/70' : 'border'
-    )
+    const box = cn(THUMBNAIL_BOX, stillManual ? 'border-2 border-warning/70' : 'border')
 
     if (!episode) {
         return (

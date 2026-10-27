@@ -5,9 +5,11 @@ import {
     CheckCircle2,
     ChevronRight,
     Clock,
+    FileText,
     FileVideo,
     FileX,
     FolderSearch,
+    Image as ImageIcon,
     Loader2,
     RotateCcw,
     SkipForward,
@@ -24,7 +26,7 @@ import type { Derived, MissingRow, Row } from '@/lib/rows'
 import { describePeak } from '@/lib/peak'
 import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
-import { EpisodePicker, EpisodeThumbnail, StillThumbnail } from './EpisodePicker'
+import { EpisodePicker, EpisodeThumbnail, LocalThumbnail, StillThumbnail } from './EpisodePicker'
 import { TrackDetails } from './TrackDetails'
 
 function WithTooltip({ text, children }: { text: string; children: ReactElement }) {
@@ -124,6 +126,22 @@ function ScanIndicator({ row }: { row: Row }) {
     return null
 }
 
+/** YouTube-Modus: wurden Beschreibung (.txt) und Bild (.jpg) zur Datei gefunden? */
+function SidecarIndicator({ row }: { row: Row }) {
+    const { description, image } = row.entry.file
+    const name = (filePath: string) => filePath.split(/[\\/]/).pop()
+    return (
+        <>
+            <WithTooltip text={description ? `Beschreibung: ${name(description.path)}` : 'Keine Beschreibung (.txt) gefunden'}>
+                <FileText className={cn('size-3.5', description ? 'text-primary' : 'text-muted-foreground/40')} />
+            </WithTooltip>
+            <WithTooltip text={image ? `Bild: ${name(image)}` : 'Kein Bild (.jpg) gefunden'}>
+                <ImageIcon className={cn('size-3.5', image ? 'text-primary' : 'text-muted-foreground/40')} />
+            </WithTooltip>
+        </>
+    )
+}
+
 function TrackSummary({ row }: { row: Row }) {
     const peak = useStore((s) => (row.peakKey ? s.peaks[row.peakKey] : undefined))
     const settings = useStore((s) => s.settings)
@@ -146,6 +164,7 @@ function TrackSummary({ row }: { row: Row }) {
             </span>
             <ScanIndicator row={row} />
             {row.peakKey && <NormalizeIndicator peakKey={row.peakKey} />}
+            {settings.mode === 'youtube' && <SidecarIndicator row={row} />}
         </span>
     )
 }
@@ -153,7 +172,9 @@ function TrackSummary({ row }: { row: Row }) {
 function FileRow({ row }: { row: Row }) {
     const expanded = useStore((s) => !!s.expanded[row.entry.file.id])
     const running = useStore((s) => s.run.running)
-    const hasShow = useStore((s) => s.tmdb.episodes.length > 0)
+    // Im YouTube-Modus zählt die TMDB-Zuordnung nicht, dafür steht dort das Bild neben dem Video
+    const youtube = useStore((s) => s.settings?.mode === 'youtube')
+    const hasShow = useStore((s) => s.tmdb.episodes.length > 0) && !youtube
     const { toggleExcluded, toggleExpanded, setOverride } = useStore.getState()
     const { file } = row.entry
     const done = row.result?.status === 'ok'
@@ -195,8 +216,14 @@ function FileRow({ row }: { row: Row }) {
                 </div>
 
                 {/* Rechts: Zielname, mit zugeordneter Serie davor das Episodenbild und darunter die TMDB-Episode */}
-                <div className={cn('flex min-w-0 items-center gap-3 self-stretch border-l pr-3 pl-3', hasShow ? 'py-2.5' : 'py-2')}>
+                <div
+                    className={cn(
+                        'flex min-w-0 items-center gap-3 self-stretch border-l pr-3 pl-3',
+                        hasShow || youtube ? 'py-2.5' : 'py-2'
+                    )}
+                >
                     {hasShow && <EpisodeThumbnail row={row} disabled={row.excluded || running || done} />}
+                    {youtube && <LocalThumbnail path={file.image} />}
                     <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
                         <div className="flex min-w-0 items-center gap-1.5">
                             <div
@@ -241,7 +268,8 @@ function FileRow({ row }: { row: Row }) {
 
             {expanded && row.analysis && row.plan && (
                 <TrackDetails
-                    fileId={file.id}
+                    file={file}
+                    stem={row.stem}
                     analysis={row.analysis}
                     plan={row.plan}
                     peakKey={row.peakKey}
@@ -356,7 +384,7 @@ export function FileTable({ derived }: { derived: Derived }) {
     const scanning = useStore((s) => s.scanning)
     const running = useStore((s) => s.run.running)
     const setAllExcluded = useStore((s) => s.setAllExcluded)
-    const hasShow = useStore((s) => s.tmdb.episodes.length > 0)
+    const hasShow = useStore((s) => s.tmdb.episodes.length > 0 && s.settings?.mode !== 'youtube')
     const { rows, missing, order, conflictCount, pendingAnalysis, scanProgress } = derived
 
     const selectedCount = rows.filter((row) => !row.excluded).length

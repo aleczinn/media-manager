@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { app, BrowserWindow, shell } from 'electron'
 import { registerIpc } from './ipc'
+import { handleLocalImages, registerLocalImageScheme } from './local-images'
 import type { Runner } from './runner'
 import type { ScanService } from './scan-service'
 import { loadSettings, saveSettings } from './settings-store'
@@ -9,6 +10,8 @@ import { loadSettings, saveSettings } from './settings-store'
 if (!app.commandLine.hasSwitch('user-data-dir')) {
     app.setPath('userData', path.join(app.getPath('appData'), '.media-manager'))
 }
+
+registerLocalImageScheme()
 
 let mainWindow: BrowserWindow | null = null
 let services: { runner: Runner; scans: ScanService } | null = null
@@ -49,6 +52,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+    handleLocalImages()
     services = registerIpc(() => mainWindow)
     createWindow()
 
