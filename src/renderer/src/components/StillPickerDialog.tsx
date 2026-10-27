@@ -34,7 +34,9 @@ export function StillPickerDialog({
                 result.data.map((image) => ({
                     id: image.path,
                     previewUrl: tmdbImageUrl(image.path, 'w780'),
-                    badges: [`${image.width}×${image.height}`]
+                    badges: [],
+                    width: image.width,
+                    height: image.height
                 }))
             )
         })

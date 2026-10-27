@@ -5,8 +5,8 @@ import { buildTargetStem } from '../src/shared/rename'
 import { movieQueryFromFile } from '../src/shared/tmdb-match'
 import type { ArtworkCandidate, ArtworkCandidates } from '../src/shared/types'
 
-const candidate = (url: string, lang: string | null, score = 0): ArtworkCandidate => ({
-    source: 'tmdb',
+const candidate = (url: string, lang: string | null, score = 0, source: ArtworkCandidate['source'] = 'tmdb'): ArtworkCandidate => ({
+    source,
     url,
     previewUrl: url,
     lang,
@@ -43,10 +43,16 @@ describe('Bilder-Export', () => {
         expect(artworkFileName(seasonSlot(0))).toBe('season-specials-poster.jpg')
     })
 
-    it('sortiert Deutsch vor Englisch, Backdrops ohne Text zuerst', () => {
-        const list = [candidate('en', 'en', 9), candidate('none', null, 5), candidate('de-low', 'de', 1), candidate('de-high', 'de', 3)]
-        expect(sortCandidates(list, 'poster').map((c) => c.url)).toEqual(['de-high', 'de-low', 'en', 'none'])
-        expect(sortCandidates(list, 'backdrop').map((c) => c.url)).toEqual(['none', 'de-high', 'de-low', 'en'])
+    it('sortiert TMDB vor Fanart.tv, dann Deutsch vor Englisch, Backdrops ohne Text zuerst', () => {
+        const list = [
+            candidate('fanart-de', 'de', 50, 'fanart'),
+            candidate('en', 'en', 9),
+            candidate('none', null, 5),
+            candidate('de-low', 'de', 1),
+            candidate('de-high', 'de', 3)
+        ]
+        expect(sortCandidates(list, 'poster').map((c) => c.url)).toEqual(['de-high', 'de-low', 'en', 'none', 'fanart-de'])
+        expect(sortCandidates(list, 'backdrop').map((c) => c.url)).toEqual(['none', 'de-high', 'de-low', 'en', 'fanart-de'])
     })
 
     it('baut Jobs aus Auswahl, Standardbildern und Overlays', () => {
@@ -55,21 +61,23 @@ describe('Bilder-Export', () => {
             logo: [candidate('logo-1', 'de')],
             backdrop: [],
             landscape: [candidate('landscape-1', 'en')],
-            seasons: { 1: [candidate('s1', 'de')], 2: [candidate('s2', 'de')] }
+            seasons: { 1: [candidate('s1', 'de')], 2: [candidate('s2', 'de')], 3: [candidate('s3', 'de')] }
         }
         const input: ArtworkPlanInput = {
             candidates,
             selection: { poster: 'poster-2' },
-            disabled: { landscape: true },
-            seasons: [2, 1],
+            enabled: { landscape: false, 'season:3': true },
+            seasons: [3, 2, 1],
+            fileSeasons: [2],
             coverOverlays: ['extended', 'upscale'],
-            seasonOverlays: { 2: ['4k'] }
+            seasonOverlays: { 3: ['4k'] }
         }
+        // Staffel 1 ist nicht in den Dateien und nicht angehakt, Staffel 3 manuell angehakt; Staffelposter ohne eigene Wahl ohne Overlays
         expect(buildArtworkJobs(input)).toEqual([
             { fileName: 'poster.jpg', url: 'poster-2', kind: 'poster', overlays: ['extended', 'upscale'] },
             { fileName: 'logo.png', url: 'logo-1', kind: 'logo', overlays: [] },
-            { fileName: 'season01-poster.jpg', url: 's1', kind: 'poster', overlays: ['extended', 'upscale'] },
-            { fileName: 'season02-poster.jpg', url: 's2', kind: 'poster', overlays: ['4k'] }
+            { fileName: 'season02-poster.jpg', url: 's2', kind: 'poster', overlays: [] },
+            { fileName: 'season03-poster.jpg', url: 's3', kind: 'poster', overlays: ['4k'] }
         ])
     })
 })

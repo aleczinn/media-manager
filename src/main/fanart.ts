@@ -52,8 +52,8 @@ function toCandidate(raw: RawFanart): ArtworkCandidate {
     return {
         source: 'fanart',
         url: raw.url,
-        // Fanart.tv liefert unter /preview/ eine verkleinerte Fassung desselben Bilds
-        previewUrl: raw.url.replace('/fanart/', '/preview/'),
+        // Die /preview/-Fassung von Fanart.tv ist nur 200 px breit und wirkt unscharf, daher das Original
+        previewUrl: raw.url,
         lang: !raw.lang || raw.lang === '00' ? null : raw.lang,
         score: Number(raw.likes) || 0
     }

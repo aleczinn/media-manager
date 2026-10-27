@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AlertTriangle, CheckCircle2, Download, ImageOff, Loader2, XCircle } from 'lucide-react'
 import {
     BASE_SLOTS,
+    isSlotEnabled,
     seasonLabel,
     seasonSlot,
     selectedUrl,
@@ -9,13 +10,14 @@ import {
     slotKind,
     slotOverlays,
     slotSeason,
+    sortSeasons,
     type ArtworkSlot
 } from '@shared/artwork'
 import { OVERLAYS, overlayFiles, sameOverlays, toggleOverlay, type OverlayId } from '@shared/overlays'
 import type { ArtworkCandidate } from '@shared/types'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { overlayUrl, type ArtworkPlan } from '@/lib/artwork'
+import { overlayUrl, useImageSize, type ArtworkPlan } from '@/lib/artwork'
 import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import { ImagePickerDialog, type PickerShape } from './ImagePickerDialog'
@@ -33,11 +35,20 @@ const shapeOf = (slot: ArtworkSlot): PickerShape => {
     return kind === 'poster' ? 'poster' : kind === 'logo' ? 'logo' : 'landscape'
 }
 
+/** Quelle und Sprache; die Größe kommt getrennt dazu, weil sie bei Fanart.tv erst nach dem Laden feststeht */
 function candidateBadges(candidate: ArtworkCandidate): string[] {
-    const badges = [SOURCE_LABEL[candidate.source], candidate.lang ? candidate.lang.toUpperCase() : 'ohne Text']
-    if (candidate.width && candidate.height) badges.push(`${candidate.width}×${candidate.height}`)
-    return badges
+    return [SOURCE_LABEL[candidate.source], candidate.lang ? candidate.lang.toUpperCase() : 'ohne Text']
 }
+
+const toPickerImage = (candidate: ArtworkCandidate) => ({
+    id: candidate.url,
+    previewUrl: candidate.previewUrl,
+    badges: candidateBadges(candidate),
+    width: candidate.width,
+    height: candidate.height,
+    // Fanart.tv liefert keine Größe; dort ist die Vorschau das Original und wird ausgemessen
+    measure: candidate.previewUrl === candidate.url
+})
 
 /** Die gewählten Overlays über einem Poster, so wie sie beim Export (gestreckt auf 600×900) darüberliegen */
 function OverlayStack({ overlays }: { overlays: OverlayId[] }) {
@@ -50,24 +61,23 @@ function OverlayChips({
     value,
     onChange,
     onReset,
-    manual,
+    resetHint,
     disabled
 }: {
     value: OverlayId[]
     onChange: (overlays: OverlayId[]) => void
     onReset: () => void
-    /** Weicht von der Vorgabe ab (orange markiert) */
-    manual: boolean
+    resetHint: string
     disabled: boolean
 }) {
     return (
         <div
-            className={cn('flex flex-wrap gap-1 rounded-md border border-transparent p-0.5', manual && 'border-warning/50')}
+            className="flex flex-wrap gap-1"
             onContextMenu={(event) => {
                 event.preventDefault()
                 if (!disabled) onReset()
             }}
-            title={manual ? 'Rechtsklick: zurück auf die Vorgabe' : undefined}
+            title={resetHint}
         >
             {OVERLAYS.map((overlay) => {
                 const active = value.includes(overlay.id)
@@ -95,7 +105,6 @@ function SlotCard({ slot, label, plan, className }: { slot: ArtworkSlot; label: 
     const candidates = useStore((s) => s.artwork.candidates)
     const loading = useStore((s) => s.artwork.loading)
     const manual = useStore((s) => slot in s.artworkSelection)
-    const enabled = useStore((s) => !s.artworkDisabled[slot])
     const running = useStore((s) => s.run.running)
     const hasFanartKey = useStore((s) => !!s.settings?.fanartApiKey.trim())
     const { setArtwork, setArtworkEnabled, setCoverOverlays, setSeasonOverlays } = useStore.getState()
@@ -108,10 +117,13 @@ function SlotCard({ slot, label, plan, className }: { slot: ArtworkSlot; label: 
     const season = slotSeason(slot)
     const overlays = slotOverlays(plan.input, slot)
     const isPoster = shape === 'poster'
+    const enabled = isSlotEnabled(plan.input, slot)
+    const size = useImageSize(current && current.previewUrl === current.url ? current.url : null, current?.width, current?.height)
 
+    // Das Cover ist aus den Dateinamen vorbelegt, Staffelposter haben standardmäßig keine Overlays
     const changeOverlays = (next: OverlayId[]) => {
         if (season === null) setCoverOverlays(sameOverlays(next, plan.autoOverlays) ? null : next)
-        else setSeasonOverlays(season, sameOverlays(next, plan.input.coverOverlays) ? null : next)
+        else setSeasonOverlays(season, next)
     }
 
     return (
@@ -123,10 +135,9 @@ function SlotCard({ slot, label, plan, className }: { slot: ArtworkSlot; label: 
                     onCheckedChange={(checked) => setArtworkEnabled(slot, checked === true)}
                     aria-label={`${label} exportieren`}
                 />
-                <span className="font-medium">{label}</span>
-                {manual && <span className="text-[10px] text-warning">manuell</span>}
-                <span className="ml-auto text-[11px] text-muted-foreground">
-                    {list.length > 0 && `${list.length} Vorschl${list.length === 1 ? 'ag' : 'äge'}`}
+                <span className="truncate font-medium">{label}</span>
+                <span className="ml-auto shrink-0 text-[11px] whitespace-nowrap text-muted-foreground">
+                    {list.length > 0 && `${list.length} ${list.length === 1 ? 'Bild' : 'Bilder'}`}
                 </span>
             </label>
 
@@ -173,7 +184,7 @@ function SlotCard({ slot, label, plan, className }: { slot: ArtworkSlot; label: 
 
             {current && (
                 <div className="flex flex-wrap gap-1">
-                    {candidateBadges(current).map((badge) => (
+                    {[...candidateBadges(current), ...(size ? [`${size.width}×${size.height}`] : [])].map((badge) => (
                         <span key={badge} className="rounded bg-secondary px-1.5 py-px text-[10px] text-muted-foreground">
                             {badge}
                         </span>
@@ -186,7 +197,9 @@ function SlotCard({ slot, label, plan, className }: { slot: ArtworkSlot; label: 
                     value={overlays}
                     onChange={changeOverlays}
                     onReset={() => (season === null ? setCoverOverlays(null) : setSeasonOverlays(season, null))}
-                    manual={season === null ? plan.coverOverlaysManual : season in plan.input.seasonOverlays}
+                    resetHint={
+                        season === null ? 'Rechtsklick: zurück auf die Vorbelegung aus den Dateinamen' : 'Rechtsklick: keine Overlays'
+                    }
                     disabled={running}
                 />
             )}
@@ -202,11 +215,7 @@ function SlotCard({ slot, label, plan, className }: { slot: ArtworkSlot; label: 
                           ? 'Das Logo wird unverändert als PNG gespeichert.'
                           : 'Größere Bilder werden auf höchstens 1920×1080 verkleinert.'
                 }
-                images={list.map((candidate) => ({
-                    id: candidate.url,
-                    previewUrl: candidate.previewUrl,
-                    badges: candidateBadges(candidate)
-                }))}
+                images={list.map(toPickerImage)}
                 selectedId={url}
                 onSelect={(id) => setArtwork(slot, id === list[0]?.url ? null : id)}
                 shape={shape}
@@ -257,7 +266,7 @@ export function ArtworkPanel({ plan }: { plan: ArtworkPlan }) {
         )
     }
 
-    const seasons = [...plan.input.seasons].sort((a, b) => (a || 999) - (b || 999))
+    const seasons = sortSeasons(plan.input.seasons)
 
     return (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border bg-card/40">

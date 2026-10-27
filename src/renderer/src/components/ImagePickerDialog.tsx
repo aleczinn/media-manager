@@ -1,14 +1,19 @@
 import type { ReactNode } from 'react'
 import { Check, ImageOff, Loader2 } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useImageSize } from '@/lib/artwork'
 import { cn } from '@/lib/utils'
 
 export interface PickerImage {
     /** Kennung, die bei Auswahl zurückgegeben wird (z. B. URL oder TMDB-Pfad) */
     id: string
     previewUrl: string
-    /** Kleine Hinweise auf dem Bild, z. B. Quelle, Sprache, Auflösung */
+    /** Kleine Hinweise unter dem Bild, z. B. Quelle und Sprache */
     badges: string[]
+    width?: number
+    height?: number
+    /** Größe unbekannt: nach dem Laden ausmessen (nur wenn `previewUrl` das Original ist) */
+    measure?: boolean
 }
 
 export type PickerShape = 'landscape' | 'poster' | 'logo'
@@ -18,6 +23,54 @@ const SHAPES: Record<PickerShape, { grid: string; image: string }> = {
     // Poster werden beim Export auf 600×900 gestreckt, die Vorschau zeigt das schon
     poster: { grid: 'grid-cols-5', image: 'aspect-[2/3] object-fill' },
     logo: { grid: 'grid-cols-3', image: 'aspect-[5/2] object-contain p-3' }
+}
+
+function PickerTile({
+    image,
+    selected,
+    shape,
+    overlay,
+    onClick
+}: {
+    image: PickerImage
+    selected: boolean
+    shape: PickerShape
+    overlay?: ReactNode
+    onClick: () => void
+}) {
+    const size = useImageSize(image.measure ? image.previewUrl : null, image.width, image.height)
+    const badges = size ? [...image.badges, `${size.width}×${size.height}`] : image.badges
+
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={cn(
+                'flex flex-col overflow-hidden rounded-lg border-2 bg-secondary/40 transition-colors',
+                selected ? 'border-primary' : 'border-transparent hover:border-primary/50'
+            )}
+        >
+            <span className={cn('relative block', shape === 'logo' && 'checkerboard')}>
+                <img src={image.previewUrl} alt="" loading="lazy" className={cn('block w-full', SHAPES[shape].image)} />
+                {overlay}
+                {selected && (
+                    <span className="absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                        <Check className="size-3.5" />
+                    </span>
+                )}
+            </span>
+            {/* Unter dem Bild, damit sie keine Overlays verdecken */}
+            {badges.length > 0 && (
+                <span className="flex flex-wrap gap-1 px-1.5 py-1">
+                    {badges.map((badge) => (
+                        <span key={badge} className="rounded bg-secondary px-1.5 py-px text-[10px] text-muted-foreground">
+                            {badge}
+                        </span>
+                    ))}
+                </span>
+            )}
+        </button>
+    )
 }
 
 /** Raster mit allen Vorschlägen; ein Klick übernimmt das Bild und schließt den Dialog */
@@ -48,7 +101,7 @@ export function ImagePickerDialog({
     /** Wird über jedes Bild gelegt (z. B. die gewählten Overlays) */
     overlay?: ReactNode
 }) {
-    const { grid, image: imageClass } = SHAPES[shape]
+    const { grid } = SHAPES[shape]
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -75,51 +128,19 @@ export function ImagePickerDialog({
                     {images && images.length > 0 && (
                         <>
                             <div className={cn('grid gap-3 pb-1', grid)}>
-                                {images.map((image) => {
-                                    const selected = image.id === selectedId
-                                    return (
-                                        <button
-                                            key={image.id}
-                                            type="button"
-                                            onClick={() => {
-                                                onSelect(image.id)
-                                                onOpenChange(false)
-                                            }}
-                                            className={cn(
-                                                'flex flex-col overflow-hidden rounded-lg border-2 bg-secondary/40 transition-colors',
-                                                selected ? 'border-primary' : 'border-transparent hover:border-primary/50'
-                                            )}
-                                        >
-                                            <span className={cn('relative block', shape === 'logo' && 'checkerboard')}>
-                                                <img
-                                                    src={image.previewUrl}
-                                                    alt=""
-                                                    loading="lazy"
-                                                    className={cn('block w-full', imageClass)}
-                                                />
-                                                {overlay}
-                                                {selected && (
-                                                    <span className="absolute top-1.5 right-1.5 flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                                                        <Check className="size-3.5" />
-                                                    </span>
-                                                )}
-                                            </span>
-                                            {/* Unter dem Bild, damit sie keine Overlays verdecken */}
-                                            {image.badges.length > 0 && (
-                                                <span className="flex flex-wrap gap-1 px-1.5 py-1">
-                                                    {image.badges.map((badge) => (
-                                                        <span
-                                                            key={badge}
-                                                            className="rounded bg-secondary px-1.5 py-px text-[10px] text-muted-foreground"
-                                                        >
-                                                            {badge}
-                                                        </span>
-                                                    ))}
-                                                </span>
-                                            )}
-                                        </button>
-                                    )
-                                })}
+                                {images.map((image) => (
+                                    <PickerTile
+                                        key={image.id}
+                                        image={image}
+                                        selected={image.id === selectedId}
+                                        shape={shape}
+                                        overlay={overlay}
+                                        onClick={() => {
+                                            onSelect(image.id)
+                                            onOpenChange(false)
+                                        }}
+                                    />
+                                ))}
                             </div>
                             {images.length === 1 && <p className="pt-2 text-xs text-muted-foreground">Es gibt nur dieses eine Bild.</p>}
                         </>

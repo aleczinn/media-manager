@@ -25,6 +25,9 @@ export function seasonLabel(season: number): string {
     return season === 0 ? 'Specials' : `Staffel ${season}`
 }
 
+/** Specials (Staffel 0) ans Ende */
+export const sortSeasons = (seasons: number[]): number[] => [...seasons].sort((a, b) => (a || 999) - (b || 999))
+
 /** Dateinamen, wie Jellyfin, Emby und Kodi sie im Serien- bzw. Filmordner erwarten */
 export function artworkFileName(slot: ArtworkSlot): string {
     const season = slotSeason(slot)
@@ -39,8 +42,8 @@ export function slotCandidates(candidates: ArtworkCandidates | null, slot: Artwo
 }
 
 /**
- * Reihenfolge der Vorschläge: Deutsch, Englisch, dann ohne Text, sonst andere Sprachen; jeweils die besten zuerst.
- * Backdrops ohne Text kommen nach vorn, Text stört dort meist.
+ * Reihenfolge der Vorschläge: TMDB vor Fanart.tv (dort stimmen die Bilder meist), dann Deutsch, Englisch,
+ * ohne Text und andere Sprachen; jeweils die besten zuerst. Backdrops ohne Text kommen nach vorn, Text stört dort meist.
  */
 export function sortCandidates(candidates: ArtworkCandidate[], kind: ArtworkKind): ArtworkCandidate[] {
     const order = kind === 'backdrop' ? [null, 'de', 'en'] : ['de', 'en', null]
@@ -48,25 +51,28 @@ export function sortCandidates(candidates: ArtworkCandidate[], kind: ArtworkKind
         const index = order.indexOf(candidate.lang)
         return index === -1 ? order.length : index
     }
-    return [...candidates].sort((a, b) => rank(a) - rank(b) || b.score - a.score)
+    const source = (candidate: ArtworkCandidate) => (candidate.source === 'tmdb' ? 0 : 1)
+    return [...candidates].sort((a, b) => source(a) - source(b) || rank(a) - rank(b) || b.score - a.score)
 }
 
 export interface ArtworkPlanInput {
     candidates: ArtworkCandidates | null
     /** Manuell gewählte Bilder (URL) je Platz */
     selection: Partial<Record<ArtworkSlot, string>>
-    /** Plätze, die nicht exportiert werden sollen */
-    disabled: Partial<Record<ArtworkSlot, boolean>>
-    /** Staffeln, die in den Dateien vorkommen */
+    /** Manuell an- oder abgehakte Plätze */
+    enabled: Partial<Record<ArtworkSlot, boolean>>
+    /** Alle Staffeln der Serie */
     seasons: number[]
+    /** Staffeln, die in den Dateien vorkommen; nur deren Poster sind vorab angehakt */
+    fileSeasons: number[]
     coverOverlays: OverlayId[]
-    /** Abweichende Overlays je Staffelposter */
+    /** Overlays je Staffelposter (ohne Eintrag keine) */
     seasonOverlays: Record<number, OverlayId[]>
 }
 
 export function slotOverlays(input: Pick<ArtworkPlanInput, 'coverOverlays' | 'seasonOverlays'>, slot: ArtworkSlot): OverlayId[] {
     const season = slotSeason(slot)
-    if (season !== null) return input.seasonOverlays[season] ?? input.coverOverlays
+    if (season !== null) return input.seasonOverlays[season] ?? []
     return slot === 'poster' ? input.coverOverlays : []
 }
 
@@ -75,15 +81,21 @@ export function selectedUrl(input: Pick<ArtworkPlanInput, 'candidates' | 'select
     return input.selection[slot] ?? slotCandidates(input.candidates, slot)[0]?.url ?? null
 }
 
+/** Ob ein Platz exportiert wird: manuelle Wahl, sonst Serienbilder immer und Staffelposter nur für vorhandene Staffeln */
+export function isSlotEnabled(input: Pick<ArtworkPlanInput, 'enabled' | 'fileSeasons'>, slot: ArtworkSlot): boolean {
+    const season = slotSeason(slot)
+    return input.enabled[slot] ?? (season === null || input.fileSeasons.includes(season))
+}
+
 export function planSlots(seasons: number[]): ArtworkSlot[] {
-    return [...BASE_SLOTS.map(({ slot }) => slot), ...[...seasons].sort((a, b) => (a || 999) - (b || 999)).map(seasonSlot)]
+    return [...BASE_SLOTS.map(({ slot }) => slot), ...sortSeasons(seasons).map(seasonSlot)]
 }
 
 /** Alle Bilder, die geschrieben werden: Plätze ohne Bild oder abgewählte fallen weg */
 export function buildArtworkJobs(input: ArtworkPlanInput): ArtworkJob[] {
     const jobs: ArtworkJob[] = []
     for (const slot of planSlots(input.seasons)) {
-        if (input.disabled[slot]) continue
+        if (!isSlotEnabled(input, slot)) continue
         const url = selectedUrl(input, slot)
         if (!url) continue
         const kind = slotKind(slot)

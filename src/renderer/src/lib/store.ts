@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { ArtworkSlot } from '@shared/artwork'
 import type { OverlayId } from '@shared/overlays'
 import type { PeakState, ScanStatus } from '@shared/peak'
-import { episodeRefFromName, type EpisodeRef } from '@shared/tmdb-match'
+import type { EpisodeRef } from '@shared/tmdb-match'
 import type {
     ApplyFileResult,
     ApplyJob,
@@ -57,7 +57,7 @@ const emptyMedia = {
     stillOverrides: {},
     artwork: emptyArtwork,
     artworkSelection: {},
-    artworkDisabled: {},
+    artworkEnabled: {},
     coverOverlays: null,
     seasonOverlays: {}
 }
@@ -112,11 +112,11 @@ interface State {
     artwork: ArtworkState
     /** Manuell gewähltes Bild (URL) je Bildplatz */
     artworkSelection: Partial<Record<ArtworkSlot, string>>
-    /** Bildplätze, die nicht exportiert werden */
-    artworkDisabled: Partial<Record<ArtworkSlot, boolean>>
+    /** Manuell an- oder abgehakte Bildplätze (sonst: Serienbilder an, Staffelposter nur für vorhandene Staffeln) */
+    artworkEnabled: Partial<Record<ArtworkSlot, boolean>>
     /** Overlays fürs Cover; `null` = automatisch aus den Dateinamen */
     coverOverlays: OverlayId[] | null
-    /** Vom Cover abweichende Overlays je Staffelposter */
+    /** Overlays je Staffelposter (standardmäßig keine) */
     seasonOverlays: Record<number, OverlayId[]>
     run: RunState
 
@@ -141,7 +141,7 @@ interface State {
     setArtworkEnabled(slot: ArtworkSlot, enabled: boolean): void
     /** `null` = zurück auf die Vorbelegung aus den Dateinamen */
     setCoverOverlays(overlays: OverlayId[] | null): void
-    /** `null` = wie beim Cover */
+    /** `null` = keine */
     setSeasonOverlays(season: number, overlays: OverlayId[] | null): void
     exportArtwork(jobs: ArtworkJob[]): Promise<void>
     /** `undefined` = zurück auf die automatische Zuordnung */
@@ -317,7 +317,6 @@ export const useStore = create<State>()((set, get) => ({
     async assignShow(show) {
         set({ ...emptyMedia, tmdb: { ...emptyTmdb, show, loading: true } })
         const isCurrent = () => get().tmdb.show?.id === show.id
-        void get().loadArtwork()
 
         const seasons = await window.api.tmdbSeasons(show.id)
         if (!isCurrent()) return
@@ -325,6 +324,9 @@ export const useStore = create<State>()((set, get) => ({
             set((state) => ({ tmdb: { ...state.tmdb, loading: false, error: seasons.error } }))
             return
         }
+        // Bilder schon laden, während die Episoden noch kommen; dafür werden die Staffeln gebraucht
+        set((state) => ({ tmdb: { ...state.tmdb, seasons: seasons.data } }))
+        void get().loadArtwork()
 
         // Alle Staffeln laden, damit jede Folge im Dropdown frei gewählt werden kann (Specials = Staffel 0 ans Ende)
         const results = await Promise.all(seasons.data.map((season) => window.api.tmdbSeason(show.id, season.season)))
@@ -361,14 +363,8 @@ export const useStore = create<State>()((set, get) => ({
         if (!target) return
         const isCurrent = () => (get().tmdb.show ?? get().tmdb.movie) === target
 
-        // Staffelposter nur für die Staffeln, die in den Dateien vorkommen
-        const seasons = [
-            ...new Set(
-                get()
-                    .files.map((entry) => episodeRefFromName(entry.file.name)?.season)
-                    .filter((season) => season !== undefined)
-            )
-        ]
+        // Staffelposter für alle Staffeln; angehakt sind später nur die aus den Dateien
+        const seasons = get().tmdb.seasons.map((season) => season.season)
         set((state) => ({ artwork: { ...state.artwork, loading: true, error: null, warnings: [] } }))
         const result = await window.api.artworkCandidates({ kind: show ? 'tv' : 'movie', tmdbId: target.id, seasons: show ? seasons : [] })
         if (!isCurrent()) return
@@ -389,7 +385,7 @@ export const useStore = create<State>()((set, get) => ({
     },
 
     setArtworkEnabled(slot, enabled) {
-        set((state) => ({ artworkDisabled: { ...state.artworkDisabled, [slot]: !enabled } }))
+        set((state) => ({ artworkEnabled: { ...state.artworkEnabled, [slot]: enabled } }))
     },
 
     setCoverOverlays(coverOverlays) {
@@ -399,7 +395,7 @@ export const useStore = create<State>()((set, get) => ({
     setSeasonOverlays(season, overlays) {
         set((state) => {
             const seasonOverlays = { ...state.seasonOverlays }
-            if (overlays === null) delete seasonOverlays[season]
+            if (overlays === null || overlays.length === 0) delete seasonOverlays[season]
             else seasonOverlays[season] = overlays
             return { seasonOverlays }
         })

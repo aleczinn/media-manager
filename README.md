@@ -55,11 +55,12 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
   - Viele Folgen haben bei TMDB mehrere Bilder: Klick aufs Episodenbild öffnet die Auswahl mit allen Bildern der Folge, Rechtsklick stellt das Standardbild wieder her; manuell gewählte Bilder sind orange umrandet
   - Optional wird das gewählte Episodenbild als `<Zielname>-thumb.jpg` neben der Datei gespeichert (wie es Jellyfin, Emby und Kodi erwarten), größere Bilder verkleinert auf höchstens 1920×1080
 - 🖼️ **Bilder**
-  - Eigener Tab für Cover, Logo, Backdrop, Landscape und die Staffelposter der vorhandenen Staffeln, mit Vorschlägen von TMDB und [Fanart.tv](https://fanart.tv) (Deutsch zuerst, dann Englisch, Backdrops ohne Text zuerst)
-  - Klick aufs Bild öffnet die Auswahl mit Quelle, Sprache und Auflösung, Rechtsklick stellt das Standardbild wieder her; manuelle Wahl ist orange markiert, jedes Bild lässt sich per Haken vom Export ausnehmen
+  - Eigener Tab für Cover, Logo, Backdrop, Landscape und die Poster aller Staffeln, mit Vorschlägen von TMDB und [Fanart.tv](https://fanart.tv); angehakt sind nur die Staffeln, die in den Dateien vorkommen
+  - Standardbild ist immer zuerst ein TMDB-Bild, danach Fanart.tv; jeweils Deutsch vor Englisch, Backdrops ohne Text zuerst
+  - Klick aufs Bild öffnet die Auswahl mit Quelle, Sprache und Auflösung (bei Fanart.tv nach dem Laden gemessen), Rechtsklick stellt das Standardbild wieder her; manuelle Wahl ist orange markiert, jedes Bild lässt sich per Haken vom Export ausnehmen
   - Cover und Staffelposter werden immer 600×900 groß, gestreckt statt beschnitten
   - Overlays fürs Cover: 4K, Upscale, Extended, Director's Cut, IMAX und Regrade, auch mehrere gleichzeitig (z. B. Extended + Upscale); vorbelegt aus den Dateinamen, Extended und Director's Cut schließen sich aus, IMAX und Regrade teilen sich die Ecke unten rechts
-  - Staffelposter übernehmen die Overlays des Covers, können aber eigene bekommen (Rechtsklick auf die Overlays: wieder wie beim Cover)
+  - Staffelposter haben standardmäßig keine Overlays, lassen sich aber einzeln setzen (Rechtsklick auf die Overlays entfernt sie wieder)
   - Backdrop und Landscape höchstens 1920×1080, Logos unverändert als PNG
   - Gespeichert wird beim Anwenden (Option **Bilder speichern**) oder über **Nur Bilder exportieren**, mit den Namen, die Jellyfin, Emby und Kodi im Serien- bzw. Filmordner erwarten: `poster.jpg`, `season01-poster.jpg`, `season-specials-poster.jpg`, `logo.png`, `backdrop.jpg`, `landscape.jpg`
 - 🎬 **Video & Metadaten**
