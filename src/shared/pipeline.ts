@@ -252,6 +252,24 @@ function planNormalize(audio: PlannedAudio[], settings: Settings): Pick<TrackPla
     }
 }
 
+/** Eingebettete Untertitel, deren Einträge noch nicht gezählt sind (die Zählung läuft im Hintergrund-Scan) */
+export function hasUncountedSubtitles(analysis: FileAnalysis): boolean {
+    return analysis.subtitle.some((track) => track.inputIndex === 0 && track.eventCount === null)
+}
+
+/** Trägt die Zählung aus dem Hintergrund-Scan (`counts[j]` für `0:s:j`) in eine Kopie der Analyse ein */
+export function withSubtitleCounts(analysis: FileAnalysis, counts: number[] | undefined | null): FileAnalysis {
+    if (!counts || !hasUncountedSubtitles(analysis)) return analysis
+    return {
+        ...analysis,
+        subtitle: analysis.subtitle.map((track) =>
+            track.inputIndex === 0 && track.eventCount === null && counts[track.index] !== undefined
+                ? { ...track, eventCount: counts[track.index] }
+                : track
+        )
+    }
+}
+
 /** Berechnet, welche Spuren in welcher Reihenfolge und mit welchen Titeln in der Ausgabe landen. */
 export function planTracks(analysis: FileAnalysis, settings: Settings): TrackPlan {
     const video = analysis.video.map((source) => ({ source, title: settings.pipeline.cleanMetadata ? '' : source.title }))

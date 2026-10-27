@@ -65,6 +65,8 @@ interface State {
     forceApply: boolean
     /** Peak-Analysen, Schlüssel aus `peakKey()` */
     peaks: Record<string, PeakState>
+    /** Einträge der eingebetteten Untertitel je Datei (`fileKey()`) aus dem Hintergrund-Scan; `null` = fehlgeschlagen */
+    subtitleCounts: Record<string, number[] | null>
     /** Zugeordnete TMDB-Serie (gilt für die laufende Sitzung) */
     tmdb: TmdbState
     /** Manuell gewählte Episode je Datei; `null` = bewusst keine Zuordnung */
@@ -108,6 +110,7 @@ export const useStore = create<State>()((set, get) => ({
     disk: null,
     forceApply: false,
     peaks: {},
+    subtitleCounts: {},
     tmdb: emptyTmdb,
     episodeOverrides: {},
     run: emptyRun,
@@ -138,7 +141,10 @@ export const useStore = create<State>()((set, get) => ({
                     }
                 })
             ),
-            window.api.onPeakUpdate(({ key, state: peak }) => set((state) => ({ peaks: { ...state.peaks, [key]: peak } })))
+            window.api.onPeakUpdate(({ key, state: peak }) => set((state) => ({ peaks: { ...state.peaks, [key]: peak } }))),
+            window.api.onSubtitleCounts(({ fileKey, counts }) =>
+                set((state) => ({ subtitleCounts: { ...state.subtitleCounts, [fileKey]: counts } }))
+            )
         ]
 
         // Bei Rückkehr ins Fenster Output-Ordner und freien Platz aktualisieren
@@ -189,7 +195,7 @@ export const useStore = create<State>()((set, get) => ({
         const dir = get().settings?.inputDir
         if (!dir || get().run.running) return
 
-        // Peak-Ergebnisse bleiben erhalten: Sie hängen an Pfad + Größe und gelten auch nach erneutem Einlesen
+        // Peak- und Zählergebnisse bleiben erhalten: Sie hängen an Pfad + Größe und gelten auch nach erneutem Einlesen
         const requestId = get().analyzeRequest + 1
         set({
             scanning: true,

@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
 import { findConflicts, type Conflict } from '@shared/conflicts'
 import { subtitleTrackId } from '@shared/external-subs'
-import { peakKey, type PeakRequest } from '@shared/peak'
-import { planTracks, type TrackPlan } from '@shared/pipeline'
+import { fileKey, peakKey, type ScanRequest } from '@shared/peak'
+import { hasUncountedSubtitles, planTracks, withSubtitleCounts, type TrackPlan } from '@shared/pipeline'
 import { buildTargetStem } from '@shared/rename'
 import { estimateRequiredBytes } from '@shared/space'
 import { episodeRefFromName, findEpisode, sanitizeTitle, tmdbImageUrl } from '@shared/tmdb-match'
@@ -11,8 +11,10 @@ import { useStore, type FileEntry } from './store'
 
 export interface Row {
     entry: FileEntry
-    /** Analyse inkl. manuell gewählter Untertiteltypen */
+    /** Analyse inkl. Untertitel-Zählung aus dem Hintergrund-Scan und manuell gewählter Untertiteltypen */
     analysis: FileAnalysis | null
+    /** Untertitel-Einträge werden im Hintergrund noch gezählt (Forced-Erkennung vorläufig) */
+    countsPending: boolean
     excluded: boolean
     autoStem: string
     stem: string
@@ -32,8 +34,8 @@ export interface Derived {
     rows: Row[]
     /** Dateien, die beim Anwenden verarbeitet werden */
     jobs: ApplyJob[]
-    /** Peak-Analysen, die schon vor dem Anwenden im Hintergrund laufen können */
-    peakRequests: PeakRequest[]
+    /** Hintergrund-Scans (Peak und/oder Untertitel-Zählung), die schon vor dem Anwenden laufen können */
+    scanRequests: ScanRequest[]
     activeCount: number
     pendingAnalysis: number
     conflictCount: number
@@ -49,12 +51,13 @@ export function useDerived(): Derived {
     const typeOverrides = useStore((s) => s.typeOverrides)
     const outputNames = useStore((s) => s.outputNames)
     const results = useStore((s) => s.run.results)
+    const subtitleCounts = useStore((s) => s.subtitleCounts)
     const tmdbEpisodes = useStore((s) => s.tmdb.episodes)
     const episodeOverrides = useStore((s) => s.episodeOverrides)
 
     return useMemo(() => {
         if (!settings) {
-            return { rows: [], jobs: [], peakRequests: [], activeCount: 0, pendingAnalysis: 0, conflictCount: 0, requiredBytes: 0 }
+            return { rows: [], jobs: [], scanRequests: [], activeCount: 0, pendingAnalysis: 0, conflictCount: 0, requiredBytes: 0 }
         }
 
         const base = files.map((entry) => {
@@ -64,11 +67,14 @@ export function useDerived(): Derived {
             const title = episode ? sanitizeTitle(episode.title) : ''
             const autoStem = settings.pipeline.renameFile ? buildTargetStem(entry.file, settings.defaultSource, title) : entry.file.name
             const override = overrides[entry.file.id]
-            const analysis = entry.analysis ? applyTypeOverrides(entry.analysis, typeOverrides[entry.file.id]) : null
+            const counts = subtitleCounts[fileKey({ inputPath: entry.file.fullPath, size: entry.file.size })]
+            const counted = entry.analysis ? withSubtitleCounts(entry.analysis, counts) : null
+            const analysis = counted ? applyTypeOverrides(counted, typeOverrides[entry.file.id]) : null
             const plan = analysis ? planTracks(analysis, settings) : null
             return {
                 entry,
                 analysis,
+                countsPending: !!analysis && counts === undefined && hasUncountedSubtitles(analysis),
                 excluded: !!excluded[entry.file.id],
                 autoStem,
                 stem: override ?? autoStem,
@@ -106,14 +112,16 @@ export function useDerived(): Derived {
                 analysis: row.analysis!,
                 thumbUrl: settings.pipeline.saveThumbnails && row.episode?.stillPath ? tmdbImageUrl(row.episode.stillPath) : undefined
             })),
-            // Auch Dateien mit Namenskonflikt vorab analysieren, der Konflikt wird meist noch behoben
-            peakRequests: rows
-                .filter((row) => !row.excluded && row.result?.status !== 'ok' && row.plan?.normalize)
+            // Auch Dateien mit Namenskonflikt vorab scannen, der Konflikt wird meist noch behoben.
+            // Peak und Zählung landen pro Datei in einem gemeinsamen Lesedurchgang; Bekanntes überspringt der Main-Prozess.
+            scanRequests: rows
+                .filter((row) => !row.excluded && row.result?.status !== 'ok' && row.analysis && (row.countsPending || row.plan?.normalize))
                 .map((row) => ({
                     inputPath: row.entry.file.fullPath,
                     size: row.entry.file.size,
-                    trackIndex: row.plan!.normalize!.source.index,
-                    durationSec: row.analysis!.durationSec
+                    durationSec: row.analysis!.durationSec,
+                    peakTrackIndex: row.plan?.normalize?.source.index ?? null,
+                    countSubtitles: row.countsPending
                 })),
             activeCount: active.length,
             pendingAnalysis: active.filter((row) => row.entry.status === 'pending').length,
@@ -126,7 +134,7 @@ export function useDerived(): Derived {
                 }))
             )
         }
-    }, [settings, files, excluded, overrides, typeOverrides, outputNames, results, tmdbEpisodes, episodeOverrides])
+    }, [settings, files, excluded, overrides, typeOverrides, subtitleCounts, outputNames, results, tmdbEpisodes, episodeOverrides])
 }
 
 /** Trägt die manuell gewählten Untertiteltypen in eine Kopie der Analyse ein */

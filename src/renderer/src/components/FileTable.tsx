@@ -110,6 +110,11 @@ function TrackSummary({ row }: { row: Row }) {
                 UT {embedded}
                 {external > 0 && <span className="text-primary">+{external}</span>}→{row.plan.subtitle.length}
             </span>
+            {row.countsPending && (
+                <span title="Untertitel-Einträge werden im Hintergrund gezählt (Forced-Erkennung noch vorläufig)">
+                    <Loader2 className="size-3.5 animate-spin" />
+                </span>
+            )}
             {row.peakKey && <NormalizeIndicator peakKey={row.peakKey} />}
         </span>
     )
@@ -197,7 +202,13 @@ function FileRow({ row }: { row: Row }) {
             </div>
 
             {expanded && row.analysis && row.plan && (
-                <TrackDetails fileId={file.id} analysis={row.analysis} plan={row.plan} peakKey={row.peakKey} />
+                <TrackDetails
+                    fileId={file.id}
+                    analysis={row.analysis}
+                    plan={row.plan}
+                    peakKey={row.peakKey}
+                    countsPending={row.countsPending}
+                />
             )}
         </div>
     )

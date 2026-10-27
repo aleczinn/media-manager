@@ -1,4 +1,4 @@
-import type { PeakRequest, PeakUpdate } from './peak'
+import type { PeakUpdate, ScanRequest, SubtitleCountsUpdate } from './peak'
 
 export interface MediaFile {
     id: string
@@ -218,7 +218,7 @@ export interface MediaManagerApi {
     checkFfmpeg(): Promise<FfmpegStatus>
     scan(dir: string): Promise<MediaFile[]>
     analyze(requestId: number, files: MediaFile[]): Promise<void>
-    prefetchPeaks(requests: PeakRequest[]): Promise<void>
+    prefetchScans(requests: ScanRequest[]): Promise<void>
     tmdbSearch(query: string, year: number | null): Promise<TmdbResult<TmdbShow[]>>
     tmdbSeasons(showId: number): Promise<TmdbResult<TmdbSeasonSummary[]>>
     tmdbSeason(showId: number, season: number): Promise<TmdbResult<TmdbEpisode[]>>
@@ -233,4 +233,5 @@ export interface MediaManagerApi {
     onApplyProgress(listener: (progress: ApplyProgress) => void): () => void
     onApplyFileDone(listener: (result: ApplyFileResult) => void): () => void
     onPeakUpdate(listener: (update: PeakUpdate) => void): () => void
+    onSubtitleCounts(listener: (update: SubtitleCountsUpdate) => void): () => void
 }

@@ -15,7 +15,7 @@ const api: MediaManagerApi = {
     checkFfmpeg: () => ipcRenderer.invoke('ffmpeg:check'),
     scan: (dir) => ipcRenderer.invoke('files:scan', dir),
     analyze: (requestId, files) => ipcRenderer.invoke('files:analyze', requestId, files),
-    prefetchPeaks: (requests) => ipcRenderer.invoke('peaks:prefetch', requests),
+    prefetchScans: (requests) => ipcRenderer.invoke('scan:prefetch', requests),
     tmdbSearch: (query, year) => ipcRenderer.invoke('tmdb:search', query, year),
     tmdbSeasons: (showId) => ipcRenderer.invoke('tmdb:seasons', showId),
     tmdbSeason: (showId, season) => ipcRenderer.invoke('tmdb:season', showId, season),
@@ -29,7 +29,8 @@ const api: MediaManagerApi = {
     onAnalysis: (listener) => subscribe('analysis:result', listener),
     onApplyProgress: (listener) => subscribe('apply:progress', listener),
     onApplyFileDone: (listener) => subscribe('apply:fileDone', listener),
-    onPeakUpdate: (listener) => subscribe('peak:update', listener)
+    onPeakUpdate: (listener) => subscribe('peak:update', listener),
+    onSubtitleCounts: (listener) => subscribe('scan:counts', listener)
 }
 
 contextBridge.exposeInMainWorld('api', api)

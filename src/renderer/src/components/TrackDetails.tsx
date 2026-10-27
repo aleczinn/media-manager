@@ -90,13 +90,15 @@ function SourceSubtitleLine({
     track,
     analysis,
     plan,
-    language
+    language,
+    countsPending
 }: {
     fileId: string
     track: SubtitleTrackInfo
     analysis: FileAnalysis
     plan: TrackPlan
     language: string
+    countsPending: boolean
 }) {
     const setTypeOverride = useStore((s) => s.setTypeOverride)
     const settings = useStore((s) => s.settings)
@@ -108,6 +110,8 @@ function SourceSubtitleLine({
     const manual = track.typeOverride !== undefined
     const removed = state === 'removed'
     const perMinute = track.eventCount !== null && durationSec > 0 ? track.eventCount / (durationSec / 60) : null
+    // Eingebettete Spur, deren Einträge der Hintergrund-Scan noch zählt
+    const counting = countsPending && track.inputIndex === 0 && track.eventCount === null
 
     // Linksklick vor (+1), Rechtsklick zurück (-1); landet man wieder beim automatischen Zustand, wird die manuelle Wahl entfernt
     const cycle = (step: 1 | -1) => {
@@ -124,6 +128,7 @@ function SourceSubtitleLine({
               ? REMOVAL_HINTS[removalReason]
               : typeHint(track, resolved),
         perMinute !== null && `${track.eventCount} Einträge (${perMinute.toFixed(1).replace('.', ',')} pro Minute)`,
+        counting && 'Einträge werden noch gezählt, die Forced-Erkennung ist vorläufig',
         'Linksklick: weiter (Entfernt → Normal → Forced → SDH → CC)',
         'Rechtsklick: zurück'
     ]
@@ -137,7 +142,10 @@ function SourceSubtitleLine({
                 {track.title || 'ohne Titel'}
             </span>
             <span className={cn('shrink-0 text-xs text-muted-foreground', removed && 'opacity-60')}>
-                {[getSubtitleFormat(track).toUpperCase(), track.eventCount !== null && `${track.eventCount} Einträge`]
+                {[
+                    getSubtitleFormat(track).toUpperCase(),
+                    track.eventCount !== null ? `${track.eventCount} Einträge` : counting && 'zählt …'
+                ]
                     .filter(Boolean)
                     .join(' · ')}
             </span>
@@ -181,12 +189,14 @@ export function TrackDetails({
     fileId,
     analysis,
     plan,
-    peakKey
+    peakKey,
+    countsPending
 }: {
     fileId: string
     analysis: FileAnalysis
     plan: TrackPlan
     peakKey: string | null
+    countsPending: boolean
 }) {
     const unknownLanguage = useStore((s) => s.settings?.unknownLanguage ?? 'und')
     const settings = useStore((s) => s.settings)
@@ -227,6 +237,7 @@ export function TrackDetails({
                             analysis={analysis}
                             plan={plan}
                             language={normalizeLanguage(track.language, unknownLanguage)}
+                            countsPending={countsPending}
                         />
                     ))}
                 </Section>
