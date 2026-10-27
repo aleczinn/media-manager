@@ -4,6 +4,7 @@ import {
     Ban,
     CheckCircle2,
     ChevronRight,
+    Clock,
     FileVideo,
     FolderSearch,
     Loader2,
@@ -20,6 +21,7 @@ import type { Derived, Row } from '@/lib/rows'
 import { describePeak } from '@/lib/peak'
 import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
+import { EpisodePicker } from './EpisodePicker'
 import { TrackDetails } from './TrackDetails'
 
 function WithTooltip({ text, children }: { text: string; children: ReactElement }) {
@@ -81,16 +83,42 @@ function NormalizeIndicator({ peakKey }: { peakKey: string }) {
     return (
         <WithTooltip text={`Normalisierung: ${info.text}`}>
             <span className="flex">
-                {info.tone === 'pending' && peak?.status === 'running' ? (
-                    <Loader2 className="size-3.5 animate-spin text-primary" />
-                ) : info.tone === 'error' ? (
+                {info.tone === 'error' ? (
                     <AlertTriangle className="size-3.5 text-warning" />
                 ) : (
-                    <Sparkles className={cn('size-3.5', info.tone === 'none' ? 'text-muted-foreground' : 'text-primary')} />
+                    // Solange der Peak fehlt, nur blass: Wartet bzw. läuft zeigt das Scan-Symbol daneben
+                    <Sparkles
+                        className={cn(
+                            'size-3.5',
+                            info.tone === 'pending' ? 'text-primary/35' : info.tone === 'none' ? 'text-muted-foreground' : 'text-primary'
+                        )}
+                    />
                 )}
             </span>
         </WithTooltip>
     )
+}
+
+/** Hintergrund-Scan der Datei (Peak und/oder Untertitel-Zählung): Uhr = wartet, Spinner = läuft */
+function ScanIndicator({ row }: { row: Row }) {
+    const what = row.countsPending ? 'Peak-Analyse und Untertitel-Zählung' : 'Peak-Analyse'
+    const hint = row.countsPending ? '\nBis dahin ist die Forced-Erkennung der eingebetteten Untertitel vorläufig.' : ''
+
+    if (row.scanStatus === 'running') {
+        return (
+            <WithTooltip text={`Hintergrund-Scan läuft (${what})${hint}`}>
+                <Loader2 className="size-3.5 animate-spin text-primary" />
+            </WithTooltip>
+        )
+    }
+    if (row.scanStatus === 'queued' || (row.countsPending && row.scanStatus !== 'error')) {
+        return (
+            <WithTooltip text={`Wartet auf den Hintergrund-Scan (${what})${hint}`}>
+                <Clock className="size-3.5" />
+            </WithTooltip>
+        )
+    }
+    return null
 }
 
 function TrackSummary({ row }: { row: Row }) {
@@ -109,6 +137,7 @@ function TrackSummary({ row }: { row: Row }) {
                 UT {embedded}
                 {external > 0 && <span className="text-primary">+{external}</span>}→{row.plan.subtitle.length}
             </span>
+            <ScanIndicator row={row} />
             {row.peakKey && <NormalizeIndicator peakKey={row.peakKey} />}
         </span>
     )
@@ -117,6 +146,7 @@ function TrackSummary({ row }: { row: Row }) {
 function FileRow({ row }: { row: Row }) {
     const expanded = useStore((s) => !!s.expanded[row.entry.file.id])
     const running = useStore((s) => s.run.running)
+    const hasShow = useStore((s) => s.tmdb.episodes.length > 0)
     const { toggleExcluded, toggleExpanded, setOverride } = useStore.getState()
     const { file } = row.entry
     const done = row.result?.status === 'ok'
@@ -157,42 +187,51 @@ function FileRow({ row }: { row: Row }) {
                     </span>
                 </div>
 
-                {/* Rechts: Zielname */}
-                <div className="flex min-w-0 items-center gap-1.5 border-l py-2 pr-3 pl-3">
-                    <div
-                        className={cn(
-                            'flex h-8 min-w-0 flex-1 items-center rounded-md border border-transparent bg-black/20 pr-2 transition-colors focus-within:border-ring',
-                            row.conflict && !row.excluded && 'border-destructive/70 bg-destructive/10',
-                            done && 'border-success/40 bg-success/5'
-                        )}
-                    >
-                        <input
-                            value={row.stem}
-                            disabled={row.excluded || running || done}
-                            onChange={(event) => setOverride(file.id, event.target.value)}
-                            spellCheck={false}
-                            className="h-full min-w-0 flex-1 bg-transparent px-2.5 text-sm outline-none disabled:cursor-not-allowed"
-                        />
-                        <span className="shrink-0 text-sm text-muted-foreground">.mkv</span>
+                {/* Rechts: Zielname, darunter die TMDB-Episode */}
+                <div className="flex min-w-0 flex-col justify-center gap-1 self-stretch border-l py-2 pr-3 pl-3">
+                    <div className="flex min-w-0 items-center gap-1.5">
+                        <div
+                            className={cn(
+                                'flex h-8 min-w-0 flex-1 items-center rounded-md border border-transparent bg-black/20 pr-2 transition-colors focus-within:border-ring',
+                                row.conflict && !row.excluded && 'border-destructive/70 bg-destructive/10',
+                                done && 'border-success/40 bg-success/5'
+                            )}
+                        >
+                            <input
+                                value={row.stem}
+                                disabled={row.excluded || running || done}
+                                onChange={(event) => setOverride(file.id, event.target.value)}
+                                spellCheck={false}
+                                className="h-full min-w-0 flex-1 bg-transparent px-2.5 text-sm outline-none disabled:cursor-not-allowed"
+                            />
+                            <span className="shrink-0 text-sm text-muted-foreground">.mkv</span>
+                        </div>
+                        <span className="flex w-7 shrink-0 justify-center">
+                            {row.conflict && !row.excluded ? (
+                                <WithTooltip text={row.conflict.message}>
+                                    <AlertTriangle className="size-4 text-destructive" />
+                                </WithTooltip>
+                            ) : row.overridden && !done ? (
+                                <WithTooltip text="Auf Vorschlag zurücksetzen">
+                                    <Button variant="ghost" size="icon-sm" onClick={() => setOverride(file.id, null)} disabled={running}>
+                                        <RotateCcw className="size-3.5" />
+                                    </Button>
+                                </WithTooltip>
+                            ) : null}
+                        </span>
                     </div>
-                    <span className="flex w-7 shrink-0 justify-center">
-                        {row.conflict && !row.excluded ? (
-                            <WithTooltip text={row.conflict.message}>
-                                <AlertTriangle className="size-4 text-destructive" />
-                            </WithTooltip>
-                        ) : row.overridden && !done ? (
-                            <WithTooltip text="Auf Vorschlag zurücksetzen">
-                                <Button variant="ghost" size="icon-sm" onClick={() => setOverride(file.id, null)} disabled={running}>
-                                    <RotateCcw className="size-3.5" />
-                                </Button>
-                            </WithTooltip>
-                        ) : null}
-                    </span>
+                    {hasShow && <EpisodePicker row={row} disabled={row.excluded || running || done} />}
                 </div>
             </div>
 
             {expanded && row.analysis && row.plan && (
-                <TrackDetails fileId={file.id} analysis={row.analysis} plan={row.plan} peakKey={row.peakKey} />
+                <TrackDetails
+                    fileId={file.id}
+                    analysis={row.analysis}
+                    plan={row.plan}
+                    peakKey={row.peakKey}
+                    countsPending={row.countsPending}
+                />
             )}
         </div>
     )
@@ -203,7 +242,7 @@ export function FileTable({ derived }: { derived: Derived }) {
     const scanning = useStore((s) => s.scanning)
     const running = useStore((s) => s.run.running)
     const setAllExcluded = useStore((s) => s.setAllExcluded)
-    const { rows, conflictCount, pendingAnalysis } = derived
+    const { rows, conflictCount, pendingAnalysis, scanProgress } = derived
 
     const selectedCount = rows.filter((row) => !row.excluded).length
     const allIncluded = rows.length > 0 && rows.every((row) => !row.excluded)
@@ -223,6 +262,19 @@ export function FileTable({ derived }: { derived: Derived }) {
                     <span className="normal-case">
                         ({selectedCount}/{rows.length} ausgewählt{pendingAnalysis > 0 && `, ${pendingAnalysis} in Analyse`})
                     </span>
+                    {scanProgress.done < scanProgress.total && (
+                        <WithTooltip
+                            text={
+                                'Peak-Analyse und Untertitel-Zählung lesen jede Datei einmal komplett.\n' +
+                                'Anwenden ist schon jetzt möglich; noch fehlende Scans werden dabei vorgezogen.'
+                            }
+                        >
+                            <span className="ml-auto flex items-center gap-1.5 normal-case">
+                                <Loader2 className="size-3.5 animate-spin text-primary" />
+                                Hintergrund-Scan {scanProgress.done}/{scanProgress.total}
+                            </span>
+                        </WithTooltip>
+                    )}
                 </div>
                 <div className="flex items-center gap-2 border-l px-3 py-2.5">
                     <span>Zielname</span>

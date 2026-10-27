@@ -4,6 +4,7 @@ import { ApplyBar } from '@/components/ApplyBar'
 import { FileTable } from '@/components/FileTable'
 import { FolderBar } from '@/components/FolderBar'
 import { PipelineOptions } from '@/components/PipelineOptions'
+import { SeriesBar } from '@/components/SeriesBar'
 import { SettingsDialog } from '@/components/SettingsDialog'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useDerived } from '@/lib/rows'
@@ -48,11 +49,11 @@ export function App() {
         }
     }, [])
 
-    // Peak-Analysen schon während der Durchsicht im Hintergrund starten (der Main-Prozess ignoriert bekannte)
-    const { peakRequests } = derived
+    // Peak-Analyse und Untertitel-Zählung schon während der Durchsicht im Hintergrund starten (der Main-Prozess ignoriert bekannte)
+    const { scanRequests } = derived
     useEffect(() => {
-        if (peakRequests.length > 0) void window.api.prefetchPeaks(peakRequests)
-    }, [peakRequests])
+        if (scanRequests.length > 0) void window.api.prefetchScans(scanRequests)
+    }, [scanRequests])
 
     return (
         <TooltipProvider delayDuration={300}>
@@ -72,6 +73,7 @@ export function App() {
                     <>
                         <FolderBar />
                         <PipelineOptions />
+                        <SeriesBar derived={derived} />
                         <FileTable derived={derived} />
                         <ApplyBar derived={derived} />
                     </>

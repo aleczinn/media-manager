@@ -45,17 +45,6 @@ function taggedEventCount(stream: FfprobeStream): number | null {
     return Number.isFinite(count) ? count : null
 }
 
-/** Zählt die Einträge aller Untertitelspuren; liest dafür die Datei einmal komplett (ca. 1 s für 5 GB) */
-async function countSubtitleEvents(ffprobe: string, file: string): Promise<Map<number, number>> {
-    const probe = await runFfprobe(ffprobe, file, ['-select_streams', 's', '-count_packets'])
-    const counts = new Map<number, number>()
-    for (const stream of probe.streams ?? []) {
-        const count = parseInt(stream.nb_read_packets ?? '', 10)
-        if (Number.isFinite(count)) counts.set(stream.index, count)
-    }
-    return counts
-}
-
 /** Liest eine externe Untertiteldatei; Sprache aus der Datei (z. B. .idx), sonst aus dem Dateinamen */
 async function analyzeExternalSubtitle(
     ffprobe: string,
@@ -197,18 +186,8 @@ export async function analyzeFile(file: MediaFile, ffprobe: string): Promise<Fil
         }
     }
 
-    // Einträge zählen, wo keine Statistik-Tags vorhanden sind (für die Forced-Erkennung)
-    if (analysis.subtitle.some((track) => track.eventCount === null)) {
-        const subtitleStreams = (probe.streams ?? []).filter((stream) => stream.codec_type === 'subtitle')
-        try {
-            const counts = await countSubtitleEvents(ffprobe, file.fullPath)
-            analysis.subtitle.forEach((track, i) => {
-                track.eventCount ??= counts.get(subtitleStreams[i]?.index ?? -1) ?? null
-            })
-        } catch (error) {
-            console.warn(`Untertitel-Einträge konnten nicht gezählt werden (${file.fullPath}):`, error)
-        }
-    }
+    // Eingebettete Spuren ohne Statistik-Tag behalten `eventCount: null`: Zählen heißt die ganze Datei lesen,
+    // das übernimmt der Hintergrund-Scan zusammen mit der Peak-Analyse (scan-service.ts)
 
     // Externe Untertitel als weitere ffmpeg-Eingaben (1…n)
     const external = await Promise.all(

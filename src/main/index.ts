@@ -1,8 +1,8 @@
 import path from 'node:path'
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, shell } from 'electron'
 import { registerIpc } from './ipc'
-import type { PeakService } from './peak-service'
 import type { Runner } from './runner'
+import type { ScanService } from './scan-service'
 import { loadSettings, saveSettings } from './settings-store'
 
 // Fester Settings-Ordner, damit Dev-Start und gepackte .exe (anderer App-Name) dieselben Einstellungen nutzen
@@ -11,7 +11,7 @@ if (!app.commandLine.hasSwitch('user-data-dir')) {
 }
 
 let mainWindow: BrowserWindow | null = null
-let services: { runner: Runner; peaks: PeakService } | null = null
+let services: { runner: Runner; scans: ScanService } | null = null
 
 function createWindow(): void {
     mainWindow = new BrowserWindow({
@@ -35,6 +35,11 @@ function createWindow(): void {
     mainWindow.on('closed', () => {
         mainWindow = null
     })
+    // Links nie in einem neuen App-Fenster öffnen, sondern (nur https) im Standardbrowser
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+        if (/^https:\/\//i.test(url)) void shell.openExternal(url)
+        return { action: 'deny' }
+    })
 
     if (!app.isPackaged && process.env['ELECTRON_RENDERER_URL']) {
         mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
@@ -55,7 +60,7 @@ app.whenReady().then(() => {
 app.on('before-quit', () => {
     // Laufende ffmpeg-Prozesse beenden, die halben .partial-Dateien räumt der Runner weg
     if (services?.runner.isRunning) services.runner.cancel()
-    services?.peaks.killAll()
+    services?.scans.killAll()
 
     // Einstellungen werden bei jeder Änderung gespeichert; hier nur zur Sicherheit noch einmal
     try {

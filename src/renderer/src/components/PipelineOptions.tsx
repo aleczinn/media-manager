@@ -33,7 +33,12 @@ const OPTIONS: { key: keyof Options; label: string; hint: string }[] = [
         label: 'Metadaten bereinigen',
         hint: 'Container- und Videotitel leeren, Beschreibung aus gleichnamiger .txt übernehmen'
     },
-    { key: 'encodeVideo', label: 'Video encodieren', hint: 'Video neu encodieren statt kopieren (langsam, Codec in den Einstellungen)' }
+    { key: 'encodeVideo', label: 'Video encodieren', hint: 'Video neu encodieren statt kopieren (langsam, Codec in den Einstellungen)' },
+    {
+        key: 'saveThumbnails',
+        label: 'Vorschaubild speichern',
+        hint: 'Episodenbild von TMDB als <Zielname>-thumb.jpg neben der Datei speichern (nur mit zugeordneter Serie)'
+    }
 ]
 
 export function PipelineOptions() {

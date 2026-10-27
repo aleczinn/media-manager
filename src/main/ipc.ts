@@ -1,25 +1,32 @@
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
-import type { PeakRequest } from '../shared/peak'
+import type { ScanRequest } from '../shared/peak'
 import type { ApplyJob, MediaFile, Settings } from '../shared/types'
 import { getDiskSpace } from './disk-space'
 import { checkFfmpeg, resolveBinaries } from './ffmpeg'
 import { analyzeFile } from './metadata'
-import { PeakService } from './peak-service'
+import { ScanService } from './scan-service'
 import { Runner } from './runner'
 import { findMediaFiles, listOutputNames } from './scanner'
 import { loadSettings, saveSettings } from './settings-store'
+import { getSeason, getSeasons, searchTv, testKey } from './tmdb'
 
-const ANALYZE_CONCURRENCY = 2
+// Die Analyse liest nur Kopfdaten (das komplette Lesen passiert im Hintergrund-Scan), daher mehr gleichzeitig
+const ANALYZE_CONCURRENCY = 4
 
-/** Registriert alle IPC-Handler und gibt Runner und Peak-Dienst zurück (zum Aufräumen beim Beenden). */
-export function registerIpc(getWindow: () => BrowserWindow | null): { runner: Runner; peaks: PeakService } {
+/** Registriert alle IPC-Handler und gibt Runner und Scan-Dienst zurück (zum Aufräumen beim Beenden). */
+export function registerIpc(getWindow: () => BrowserWindow | null): { runner: Runner; scans: ScanService } {
     const send = (channel: string, payload: unknown) => {
         const window = getWindow()
         if (window && !window.isDestroyed()) window.webContents.send(channel, payload)
     }
 
-    const peaks = new PeakService(loadSettings, (update) => send('peak:update', update))
-    const runner = new Runner(peaks)
+    const scans = new ScanService(
+        loadSettings,
+        (update) => send('peak:update', update),
+        (update) => send('scan:counts', update),
+        (update) => send('scan:status', update)
+    )
+    const runner = new Runner(scans)
     let latestAnalyzeRequest = 0
 
     ipcMain.handle('dialog:selectFolder', async (_event, defaultPath?: string) => {
@@ -71,7 +78,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): { runner: Ru
         await Promise.all(Array.from({ length: ANALYZE_CONCURRENCY }, worker))
     })
 
-    ipcMain.handle('peaks:prefetch', (_event, requests: PeakRequest[]) => peaks.prefetch(requests))
+    ipcMain.handle('scan:prefetch', (_event, requests: ScanRequest[]) => scans.prefetch(requests))
 
     ipcMain.handle('output:list', (_event, dir: string) => listOutputNames(dir))
     ipcMain.handle('disk:space', (_event, dir: string) => getDiskSpace(dir))
@@ -87,6 +94,15 @@ export function registerIpc(getWindow: () => BrowserWindow | null): { runner: Ru
     ipcMain.handle('shell:openPath', async (_event, target: string) => {
         await shell.openPath(target)
     })
+    ipcMain.handle('shell:openExternal', async (_event, url: string) => {
+        // Nur Webadressen im Standardbrowser öffnen
+        if (/^https:\/\//i.test(url)) await shell.openExternal(url)
+    })
 
-    return { runner, peaks }
+    ipcMain.handle('tmdb:search', (_event, query: string, year: number | null) => searchTv(loadSettings().tmdbApiKey, query, year))
+    ipcMain.handle('tmdb:seasons', (_event, showId: number) => getSeasons(loadSettings().tmdbApiKey, showId))
+    ipcMain.handle('tmdb:season', (_event, showId: number, season: number) => getSeason(loadSettings().tmdbApiKey, showId, season))
+    ipcMain.handle('tmdb:test', (_event, apiKey: string) => testKey(apiKey))
+
+    return { runner, scans }
 }
