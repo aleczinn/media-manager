@@ -155,6 +155,14 @@ export function getSeasons(apiKey: string, showId: number): Promise<TmdbResult<T
     })
 }
 
+/** Genres einer Serie bzw. eines Films auf Deutsch (bei Serien aus derselben, gecachten Abfrage wie die Staffeln) */
+export function getGenres(apiKey: string, kind: 'tv' | 'movie', id: number): Promise<TmdbResult<string[]>> {
+    return wrap(async () => {
+        const details = await request<{ genres?: { name: string }[] }>(apiKey, `/${kind}/${id}`, { language: LANGUAGE })
+        return (details.genres ?? []).map((genre) => genre.name).filter(Boolean)
+    })
+}
+
 /** Episoden einer Staffel auf Deutsch; fehlende Übersetzungen werden mit den englischen Titeln ergänzt */
 export function getSeason(apiKey: string, showId: number, season: number): Promise<TmdbResult<TmdbEpisode[]>> {
     return wrap(async () => {

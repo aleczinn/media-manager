@@ -304,6 +304,7 @@ export interface MediaManagerApi {
     tmdbSeasons(showId: number): Promise<TmdbResult<TmdbSeasonSummary[]>>
     tmdbSeason(showId: number, season: number): Promise<TmdbResult<TmdbEpisode[]>>
     tmdbEpisodeImages(showId: number, season: number, episode: number): Promise<TmdbResult<TmdbImage[]>>
+    tmdbGenres(kind: 'tv' | 'movie', id: number): Promise<TmdbResult<string[]>>
     tmdbTest(apiKey: string): Promise<TmdbResult<true>>
     fanartTest(apiKey: string): Promise<TmdbResult<true>>
     artworkCandidates(request: ArtworkRequest): Promise<TmdbResult<ArtworkLoadResult>>
