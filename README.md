@@ -11,7 +11,7 @@
 
 Eine Desktop-App für Windows, die Serien- und Filmdateien für die eigene Mediathek aufbereitet. Sie liest einen Input-Ordner ein, schlägt für jede Datei einen einheitlichen Namen vor und baut daraus eine neue MKV im Output-Ordner: mit sortierten und sauber benannten Ton- und Untertitelspuren, einer lautstärke-normalisierten Tonspur und eingebundenen externen Untertiteln. Die Quelldateien bleiben dabei unverändert.
 
-![Media Manager](docs/1.0.1.jpg)
+![Media Manager](docs/1.0.3.jpg)
 
 Links stehen die gefundenen Dateien, rechts die Zielnamen. Jede Datei lässt sich ausschließen, jeder Name bearbeiten, und pro Datei zeigt eine aufklappbare Übersicht, welche Spuren vorher da sind und welche in der fertigen Datei landen. Ein Klick auf **Anwenden** verarbeitet alles.
 
@@ -54,6 +54,12 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
   - Links neben dem Zielnamen steht das Episodenbild, beim Überfahren groß (520 px)
   - Viele Folgen haben bei TMDB mehrere Bilder: Klick aufs Episodenbild öffnet die Auswahl mit allen Bildern der Folge, Rechtsklick stellt das Standardbild wieder her; manuell gewählte Bilder sind orange umrandet
   - Optional wird das gewählte Episodenbild als `<Zielname>-thumb.jpg` neben der Datei gespeichert (wie es Jellyfin, Emby und Kodi erwarten), größere Bilder verkleinert auf höchstens 1920×1080
+- 🧩 **Fehlende Folgen**
+  - Die Episodenliste von TMDB wird mit den Dateien abgeglichen, nur für die Staffeln, die in den Dateien vorkommen; im Kopf der Liste steht z. B. „2 Folgen fehlen“ (die Folgen im Tooltip)
+  - Doppelte Zuordnungen fallen auf: „S02E03 doppelt“ im Kopf und ein Warnsymbol an den betroffenen Dateien (abgewählte Dateien zählen dabei nicht)
+  - Fehlende Folgen erscheinen wie Dateizeilen an ihrer Stelle in der Liste, mit dem Hinweis „Folge nicht im Eingabeordner gefunden“ (bei noch nicht ausgestrahlten mit Termin); abschaltbar über **Fehlende Folgen anzeigen**
+  - Angehakt (standardmäßig aus) wird ihr Episodenbild schwarz-weiß mit Vignette als `<Zielname>-thumb.jpg` exportiert, praktisch z. B. bei Animes mit noch nicht verfügbaren Folgen; Edition und Quelle im Namen kommen von der Nachbardatei
+  - Geschrieben beim Anwenden (mit **Vorschaubild speichern**) oder über **Nur Bilder exportieren**; das Bild lässt sich wie bei Dateien per Klick ändern
 - 🖼️ **Bilder**
   - Eigener Tab für Cover, Logo, Backdrop, Landscape und die Poster aller Staffeln, mit Vorschlägen von TMDB und [Fanart.tv](https://fanart.tv); angehakt sind nur die Staffeln, die in den Dateien vorkommen
   - Standardbild ist immer zuerst ein TMDB-Bild, danach Fanart.tv; jeweils Deutsch vor Englisch, Backdrops ohne Text zuerst
@@ -136,7 +142,7 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 
 ### Struktur
 
-- `src/shared/`: reine Logik ohne Electron (Spurplanung, Renaming, externe Untertitel, TMDB-Zuordnung, Bilder und Overlays, ffmpeg-Argumente, Platzschätzung), getestet in `tests/`
+- `src/shared/`: reine Logik ohne Electron (Spurplanung, Renaming, externe Untertitel, TMDB-Zuordnung, fehlende Folgen, Bilder und Overlays, ffmpeg-Argumente, Platzschätzung), getestet in `tests/`
 - `src/main/`: Electron-Main-Prozess (Ordner-Scan, ffprobe und MediaInfo, Hintergrund-Scan für Peak und Untertitel-Zählung, TMDB- und Fanart.tv-Abfragen, Bilder rendern, Ausführung, Einstellungen)
 - `src/preload/`: typisierte Brücke `window.api` zwischen Oberfläche und Main-Prozess
 - `src/renderer/`: React-Oberfläche mit Tailwind CSS und shadcn/ui-Komponenten
@@ -144,6 +150,14 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 - `scripts/corruption-checker.ts`: der Corruption-Checker
 
 ## Changelog
+
+1.0.3 | Fehlende Folgen
+
+- Abgleich mit TMDB: fehlende Folgen der erkannten Staffeln werden angezeigt, doppelt zugeordnete Folgen markiert
+- Fehlende Folgen erscheinen an ihrer Stelle in der Dateiliste (abschaltbar über „Fehlende Folgen anzeigen“)
+- Angehakte fehlende Folgen bekommen ihr Vorschaubild schwarz-weiß mit Vignette exportiert, z. B. für noch nicht verfügbare Anime-Folgen
+
+![Fehlende Folgen](docs/1.0.3.jpg)
 
 1.0.2 | Artwork
 

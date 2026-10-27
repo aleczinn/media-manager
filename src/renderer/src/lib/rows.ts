@@ -1,12 +1,13 @@
 import { useMemo } from 'react'
 import { findConflicts, type Conflict } from '@shared/conflicts'
 import { subtitleTrackId } from '@shared/external-subs'
+import { anchorFile, episodeKey, findEpisodeGaps, interleaveMissing, missingEpisodeStem, type TableEntry } from '@shared/missing'
 import { fileKey, peakKey, type ScanRequest, type ScanStatus } from '@shared/peak'
 import { hasUncountedSubtitles, planTracks, withSubtitleCounts, type TrackPlan } from '@shared/pipeline'
 import { buildTargetStem, parseEpisode } from '@shared/rename'
 import { estimateRequiredBytes } from '@shared/space'
-import { episodeRefFromName, findEpisode, sanitizeTitle, tmdbImageUrl } from '@shared/tmdb-match'
-import type { ApplyFileResult, ApplyJob, FileAnalysis, SubtitleOverride, TmdbEpisode } from '@shared/types'
+import { episodeRefFromName, findEpisode, sanitizeTitle, tmdbImageUrl, type EpisodeRef } from '@shared/tmdb-match'
+import type { ApplyFileResult, ApplyJob, ArtworkJob, FileAnalysis, SubtitleOverride, TmdbEpisode } from '@shared/types'
 import { useStore, type FileEntry } from './store'
 
 export interface Row {
@@ -33,12 +34,35 @@ export interface Row {
     stillManual: boolean
     /** Hauptdatei des zugeordneten Films (bekommt den Filmnamen) */
     movieMain: boolean
+    /** Mehrere angehakte Dateien sind derselben Folge zugeordnet */
+    duplicate: boolean
     conflict: Conflict | null
     result: ApplyFileResult | undefined
 }
 
+/** Folge einer erkannten Staffel, zu der es keine Datei gibt */
+export interface MissingRow {
+    /** `episodeKey` der Folge */
+    key: string
+    episode: TmdbEpisode
+    /** Zielname wie bei den Dateien, mit Edition und Quelle der Nachbardatei */
+    stem: string
+    stillPath: string | null
+    stillManual: boolean
+    /** Angehakt: das s/w-Bild wird exportiert */
+    selected: boolean
+}
+
 export interface Derived {
     rows: Row[]
+    /** Fehlende Folgen (auch wenn sie ausgeblendet sind) */
+    missing: MissingRow[]
+    /** Mehrfach zugeordnete Folgen */
+    duplicates: EpisodeRef[]
+    /** Anzeigereihenfolge der Tabelle: Dateien und, falls eingeblendet, fehlende Folgen an ihrer Stelle */
+    order: TableEntry[]
+    /** s/w-Bilder der angehakten fehlenden Folgen */
+    missingJobs: ArtworkJob[]
     /** Dateien, die beim Anwenden verarbeitet werden */
     jobs: ApplyJob[]
     /** Hintergrund-Scans (Peak und/oder Untertitel-Zählung), die schon vor dem Anwenden laufen können */
@@ -65,12 +89,18 @@ export function useDerived(): Derived {
     const tmdbEpisodes = useStore((s) => s.tmdb.episodes)
     const episodeOverrides = useStore((s) => s.episodeOverrides)
     const stillOverrides = useStore((s) => s.stillOverrides)
+    const missingSelected = useStore((s) => s.missingSelected)
+    const missingStills = useStore((s) => s.missingStills)
     const movie = useStore((s) => s.tmdb.movie)
 
     return useMemo(() => {
         if (!settings) {
             return {
                 rows: [],
+                missing: [],
+                duplicates: [],
+                order: [],
+                missingJobs: [],
                 jobs: [],
                 scanRequests: [],
                 scanProgress: { done: 0, total: 0 },
@@ -133,7 +163,37 @@ export function useDerived(): Derived {
             outputNames
         )
 
-        const rows: Row[] = base.map((row) => ({ ...row, conflict: conflicts.get(row.entry.file.id) ?? null }))
+        // Abgleich mit TMDB, nur für die Staffeln, die in den Dateien vorkommen
+        const fileRefs = base.map((row) => (row.episode ? { season: row.episode.season, episode: row.episode.episode } : null))
+        const gaps = findEpisodeGaps(
+            tmdbEpisodes,
+            base.map((row, index) => ({ ref: fileRefs[index], excluded: row.excluded }))
+        )
+        const duplicateKeys = new Set(gaps.duplicates.map(episodeKey))
+        const missing: MissingRow[] = gaps.missing.map((episode) => {
+            const key = episodeKey(episode)
+            const anchor = anchorFile(fileRefs, episode)
+            return {
+                key,
+                episode,
+                stem: missingEpisodeStem(
+                    episode,
+                    sanitizeTitle(episode.title),
+                    anchor ? base[anchor.index].entry.file : null,
+                    settings.defaultSource
+                ),
+                stillPath: missingStills[key] ?? episode.stillPath,
+                stillManual: key in missingStills,
+                selected: !!missingSelected[key]
+            }
+        })
+        const showMissing = settings.showMissingEpisodes
+
+        const rows: Row[] = base.map((row, index) => ({
+            ...row,
+            duplicate: !row.excluded && !!fileRefs[index] && duplicateKeys.has(episodeKey(fileRefs[index])),
+            conflict: conflicts.get(row.entry.file.id) ?? null
+        }))
         const runnable = rows.filter(
             (row) => !row.excluded && row.result?.status !== 'ok' && !row.conflict && row.entry.status === 'done' && row.analysis
         )
@@ -142,6 +202,24 @@ export function useDerived(): Derived {
 
         return {
             rows,
+            missing,
+            duplicates: gaps.duplicates,
+            order: showMissing
+                ? interleaveMissing(
+                      fileRefs,
+                      missing.map((row) => row.episode)
+                  )
+                : rows.map((_, index) => ({ type: 'file', index })),
+            missingJobs: showMissing
+                ? missing
+                      .filter((row) => row.selected && row.stillPath)
+                      .map((row) => ({
+                          fileName: `${row.stem}-thumb.jpg`,
+                          url: tmdbImageUrl(row.stillPath!),
+                          kind: 'missing',
+                          overlays: []
+                      }))
+                : [],
             jobs: runnable.map((row) => ({
                 fileId: row.entry.file.id,
                 inputPath: row.entry.file.fullPath,
@@ -189,6 +267,8 @@ export function useDerived(): Derived {
         tmdbEpisodes,
         episodeOverrides,
         stillOverrides,
+        missingSelected,
+        missingStills,
         movie
     ])
 }

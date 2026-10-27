@@ -39,6 +39,7 @@ interface RawEpisode {
     episode_number: number
     name?: string
     still_path?: string | null
+    air_date?: string | null
 }
 
 const cache = new Map<string, Promise<unknown>>()
@@ -172,7 +173,8 @@ export function getSeason(apiKey: string, showId: number, season: number): Promi
                 season: episode.season_number,
                 episode: episode.episode_number,
                 title,
-                stillPath: episode.still_path ?? english?.still_path ?? null
+                stillPath: episode.still_path ?? english?.still_path ?? null,
+                airDate: episode.air_date || null
             }
         })
     })

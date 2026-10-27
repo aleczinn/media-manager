@@ -97,7 +97,7 @@ export function App() {
                                 <FileTable derived={derived} />
                             </TabsContent>
                             <TabsContent value="artwork" className="flex min-h-0 flex-1 flex-col">
-                                <ArtworkPanel plan={artworkPlan} />
+                                <ArtworkPanel plan={artworkPlan} missingJobs={derived.missingJobs} />
                             </TabsContent>
                         </Tabs>
                         <ApplyBar derived={derived} artworkJobs={artworkPlan.jobs} />

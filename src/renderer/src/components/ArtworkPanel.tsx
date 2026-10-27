@@ -14,7 +14,7 @@ import {
     type ArtworkSlot
 } from '@shared/artwork'
 import { OVERLAYS, overlayFiles, sameOverlays, toggleOverlay, type OverlayId } from '@shared/overlays'
-import type { ArtworkCandidate } from '@shared/types'
+import type { ArtworkCandidate, ArtworkJob } from '@shared/types'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { overlayUrl, useImageSize, type ArtworkPlan } from '@/lib/artwork'
@@ -252,13 +252,15 @@ function ExportResults() {
 }
 
 /** Bilder-Tab: Cover, Logo, Backdrop, Landscape und Staffelposter wählen und exportieren */
-export function ArtworkPanel({ plan }: { plan: ArtworkPlan }) {
+export function ArtworkPanel({ plan, missingJobs }: { plan: ArtworkPlan; missingJobs: ArtworkJob[] }) {
     const tmdb = useStore((s) => s.tmdb)
     const artwork = useStore((s) => s.artwork)
     const hasFanartKey = useStore((s) => !!s.settings?.fanartApiKey.trim())
     const outputDir = useStore((s) => s.settings?.outputDir)
     const running = useStore((s) => s.run.running)
     const exportArtwork = useStore((s) => s.exportArtwork)
+    // Dazu die s/w-Bilder der angehakten fehlenden Folgen aus der Dateiliste
+    const exportJobs = [...plan.jobs, ...missingJobs]
     const target = tmdb.show ?? tmdb.movie
 
     if (!target) {
@@ -302,12 +304,19 @@ export function ArtworkPanel({ plan }: { plan: ArtworkPlan }) {
                     <Button
                         variant="secondary"
                         size="sm"
-                        onClick={() => exportArtwork(plan.jobs)}
-                        disabled={!outputDir || running || artwork.exporting || plan.jobs.length === 0}
-                        title={outputDir ? `Nach ${outputDir}` : 'Kein Output-Ordner gewählt'}
+                        onClick={() => exportArtwork(exportJobs)}
+                        disabled={!outputDir || running || artwork.exporting || exportJobs.length === 0}
+                        title={
+                            outputDir
+                                ? `Nach ${outputDir}` +
+                                  (missingJobs.length > 0
+                                      ? `\ninklusive ${missingJobs.length} Bild(er) fehlender Folgen (schwarz-weiß)`
+                                      : '')
+                                : 'Kein Output-Ordner gewählt'
+                        }
                     >
                         {artwork.exporting ? <Loader2 className="animate-spin" /> : <Download />}
-                        Nur Bilder exportieren{plan.jobs.length > 0 && ` (${plan.jobs.length})`}
+                        Nur Bilder exportieren{exportJobs.length > 0 && ` (${exportJobs.length})`}
                     </Button>
                 </div>
             </div>

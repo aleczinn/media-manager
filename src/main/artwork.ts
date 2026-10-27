@@ -21,6 +21,8 @@ import { downloadImage, getTmdbArtwork, getTmdbSeasonPosters, getTvdbId, TmdbErr
 
 const POSTER_SIZE = { width: 600, height: 900 }
 const MAX_LANDSCAPE = { width: 1920, height: 1080 }
+/** Vignette für die Bilder fehlender Folgen */
+const VIGNETTE = 'overlay-vignette.png'
 
 /** Ordner mit den Overlay-PNGs: im Build neben der App, beim Entwickeln im Repo */
 function overlayDir(): string {
@@ -77,24 +79,29 @@ export function loadArtworkCandidates(settings: Settings, request: ArtworkReques
 }
 
 /** ffmpeg-Filter je Bildart: Poster gestreckt auf 600×900 plus Overlays, Querformate höchstens 1920×1080 */
-function filterFor(kind: ArtworkKind, overlayCount: number): string {
+function filterFor(kind: ArtworkKind | 'missing', overlayCount: number): string {
     if (kind === 'poster') {
         let filter = `[0:v]scale=${POSTER_SIZE.width}:${POSTER_SIZE.height}:flags=lanczos,format=rgba[base0]`
         for (let index = 1; index <= overlayCount; index++) filter += `;[base${index - 1}][${index}:v]overlay=0:0[base${index}]`
         return `${filter};[base${overlayCount}]format=yuvj420p[out]`
     }
     const { width, height } = MAX_LANDSCAPE
-    return (
-        `[0:v]scale='min(${width},iw)':'min(${height},ih)':force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos,` +
-        'format=yuvj420p[out]'
-    )
+    const scale = `[0:v]scale='min(${width},iw)':'min(${height},ih)':force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos`
+    if (kind === 'missing') {
+        // Graustufen, darüber die Vignette (schwarz mit Transparenz) in Bildgröße
+        return (
+            `${scale},format=gray,format=rgba[base];[1:v][base]scale2ref=flags=lanczos[vignette][ref];` +
+            '[ref][vignette]overlay=0:0,format=yuvj420p[out]'
+        )
+    }
+    return `${scale},format=yuvj420p[out]`
 }
 
 /** Lädt ein Bild und schreibt es aufbereitet als JPG (bzw. Logo unverändert als PNG), erst als .partial */
 export async function renderImage(
     settings: Settings,
     url: string,
-    kind: ArtworkKind | 'thumb',
+    kind: ArtworkKind | 'thumb' | 'missing',
     targetPath: string,
     overlays: string[] = []
 ): Promise<void> {
@@ -108,7 +115,12 @@ export async function renderImage(
             const inputPath = path.join(workDir, 'source')
             await fsp.writeFile(inputPath, source)
             const { ffmpeg } = resolveBinaries(settings)
-            const overlayPaths = kind === 'poster' ? overlays.map((file) => path.join(overlayDir(), file)) : []
+            const overlayPaths =
+                kind === 'poster'
+                    ? overlays.map((file) => path.join(overlayDir(), file))
+                    : kind === 'missing'
+                      ? [path.join(overlayDir(), VIGNETTE)]
+                      : []
             const args = [
                 '-v',
                 'error',
