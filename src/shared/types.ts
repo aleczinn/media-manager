@@ -138,6 +138,8 @@ export interface Settings {
     tmdbApiKey: string
     /** Persönlicher Fanart.tv-API-Key; leer = nur TMDB als Bildquelle */
     fanartApiKey: string
+    /** Fehlende Folgen der erkannten Staffeln in der Dateiliste zeigen (und deren s/w-Bild exportieren können) */
+    showMissingEpisodes: boolean
     pipeline: PipelineOptions
 }
 
@@ -158,6 +160,8 @@ export interface TmdbEpisode {
     episode: number
     title: string
     stillPath: string | null
+    /** Erstausstrahlung laut TMDB (YYYY-MM-DD) */
+    airDate: string | null
 }
 
 export interface TmdbSeasonSummary {
@@ -218,7 +222,8 @@ export interface ArtworkLoadResult {
 export interface ArtworkJob {
     fileName: string
     url: string
-    kind: ArtworkKind
+    /** `missing`: Episodenbild einer fehlenden Folge, schwarz-weiß mit Vignette */
+    kind: ArtworkKind | 'missing'
     /** Nur bei Postern: Overlays, die darübergelegt werden */
     overlays: OverlayId[]
 }

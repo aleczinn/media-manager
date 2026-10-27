@@ -114,12 +114,17 @@ export function buildTargetStem(
     const edition = detectEdition(file.name)
     const source = detectSource(file.name, file.fullPath, defaultSource, sourceFolders(file))
 
-    let stem = parsed
-        ? `S${pad(parsed.season ?? 1)}e${pad(parsed.episode)} - ${title.trim() || UNKNOWN_TITLE}`
-        : `${movie!.title.trim() || UNKNOWN_TITLE}${movie!.year ? ` (${movie!.year})` : ''}`
-    if (edition) stem += ` {edition-${edition}}`
-    stem += ` {source-${source}}`
-    return stem
+    if (parsed) return episodeStem({ season: parsed.season ?? 1, episode: parsed.episode }, title, edition, source)
+    return withTags(`${movie!.title.trim() || UNKNOWN_TITLE}${movie!.year ? ` (${movie!.year})` : ''}`, edition, source)
+}
+
+/** Zielname einer Folge ohne Endung, z. B. `S01e02 - Titel {edition-Extended} {source-Web}` */
+export function episodeStem(ref: { season: number; episode: number }, title: string, edition: string | null, source: string): string {
+    return withTags(`S${pad(ref.season)}e${pad(ref.episode)} - ${title.trim() || UNKNOWN_TITLE}`, edition, source)
+}
+
+function withTags(stem: string, edition: string | null, source: string): string {
+    return `${stem}${edition ? ` {edition-${edition}}` : ''} {source-${source}}`
 }
 
 /** Prüft einen vom Nutzer eingegebenen Dateinamen (ohne Endung). Gibt eine Fehlermeldung oder `null` zurück. */

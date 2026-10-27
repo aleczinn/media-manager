@@ -45,8 +45,8 @@ describe('seriesQueryFromFile', () => {
 
 describe('Episoden-Zuordnung', () => {
     const episodes: TmdbEpisode[] = [
-        { season: 1, episode: 1, title: 'Kassa', stillPath: '/a.jpg' },
-        { season: 1, episode: 2, title: 'Das wird regnen', stillPath: null }
+        { season: 1, episode: 1, title: 'Kassa', stillPath: '/a.jpg', airDate: null },
+        { season: 1, episode: 2, title: 'Das wird regnen', stillPath: null, airDate: null }
     ]
 
     it('findet die Episode per SxxEyy, ohne Staffel gilt Staffel 1', () => {

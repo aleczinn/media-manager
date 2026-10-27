@@ -55,6 +55,8 @@ const emptyMedia = {
     tmdb: emptyTmdb,
     episodeOverrides: {},
     stillOverrides: {},
+    missingSelected: {},
+    missingStills: {},
     artwork: emptyArtwork,
     artworkSelection: {},
     artworkEnabled: {},
@@ -109,6 +111,10 @@ interface State {
     episodeOverrides: Record<string, EpisodeRef | null>
     /** Manuell gewähltes Episodenbild (TMDB-Pfad) je Datei */
     stillOverrides: Record<string, string>
+    /** Angehakte fehlende Folgen (`episodeKey`), deren s/w-Bild exportiert wird; standardmäßig keine */
+    missingSelected: Record<string, boolean>
+    /** Manuell gewähltes Bild je fehlender Folge (`episodeKey`) */
+    missingStills: Record<string, string>
     artwork: ArtworkState
     /** Manuell gewähltes Bild (URL) je Bildplatz */
     artworkSelection: Partial<Record<ArtworkSlot, string>>
@@ -148,6 +154,9 @@ interface State {
     setEpisode(fileId: string, ref: EpisodeRef | null | undefined): void
     /** `null` = zurück auf das Standardbild der Episode */
     setStill(fileId: string, path: string | null): void
+    toggleMissing(key: string): void
+    /** `null` = zurück auf das Standardbild der Episode */
+    setMissingStill(key: string, path: string | null): void
     toggleExpanded(id: string): void
     setForceApply(force: boolean): void
     apply(jobs: ApplyJob[], artwork: ArtworkJob[]): Promise<void>
@@ -435,6 +444,19 @@ export const useStore = create<State>()((set, get) => ({
             if (path === null) delete stillOverrides[fileId]
             else stillOverrides[fileId] = path
             return { stillOverrides }
+        })
+    },
+
+    toggleMissing(key) {
+        set((state) => ({ missingSelected: { ...state.missingSelected, [key]: !state.missingSelected[key] } }))
+    },
+
+    setMissingStill(key, path) {
+        set((state) => {
+            const missingStills = { ...state.missingStills }
+            if (path === null) delete missingStills[key]
+            else missingStills[key] = path
+            return { missingStills }
         })
     },
 

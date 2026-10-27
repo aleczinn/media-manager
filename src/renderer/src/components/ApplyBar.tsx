@@ -107,6 +107,11 @@ export function ApplyBar({ derived, artworkJobs }: { derived: Derived; artworkJo
     const forceApply = useStore((s) => s.forceApply)
     const { apply, cancel } = useStore.getState()
     const { jobs, requiredBytes, pendingAnalysis } = derived
+    // Bilder fehlender Folgen sind Vorschaubilder, sie hängen daher an „Vorschaubild speichern“
+    const imageJobs = [
+        ...(settings?.pipeline.saveArtwork ? artworkJobs : []),
+        ...(settings?.pipeline.saveThumbnails ? derived.missingJobs : [])
+    ]
 
     const insufficient = !!disk && requiredBytes > disk.free
     const ffmpegMissing = !!ffmpeg && (!ffmpeg.ffmpeg || !ffmpeg.ffprobe)
@@ -170,7 +175,7 @@ export function ApplyBar({ derived, artworkJobs }: { derived: Derived; artworkJo
                         Abbrechen
                     </Button>
                 ) : (
-                    <Button size="lg" onClick={() => apply(jobs, settings?.pipeline.saveArtwork ? artworkJobs : [])} disabled={!!blocker}>
+                    <Button size="lg" onClick={() => apply(jobs, imageJobs)} disabled={!!blocker}>
                         <Play className="fill-current" />
                         Anwenden{jobs.length > 0 && ` (${jobs.length})`}
                     </Button>

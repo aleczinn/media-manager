@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { ChevronDown, ImageOff } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ImageOff } from 'lucide-react'
 import { episodeRefFromName, formatEpisodeRef, tmdbImageUrl } from '@shared/tmdb-match'
 import type { TmdbEpisode } from '@shared/types'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { overlayUrl } from '@/lib/artwork'
 import type { Row } from '@/lib/rows'
 import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
@@ -70,6 +71,14 @@ export function EpisodePicker({ row, disabled }: { row: Row; disabled: boolean }
                 <ChevronDown className="pointer-events-none absolute top-1/2 right-1.5 size-3 -translate-y-1/2 text-muted-foreground" />
             </div>
             {row.episodeManual && <span className="shrink-0 text-[10px] text-warning">manuell</span>}
+            {row.duplicate && (
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <AlertTriangle className="size-3.5 shrink-0 text-warning" />
+                    </TooltipTrigger>
+                    <TooltipContent>Mehrere Dateien sind dieser Folge zugeordnet</TooltipContent>
+                </Tooltip>
+            )}
         </div>
     )
 }
@@ -80,9 +89,49 @@ export function EpisodePicker({ row, disabled }: { row: Row; disabled: boolean }
  */
 export function EpisodeThumbnail({ row, disabled }: { row: Row; disabled: boolean }) {
     const setStill = useStore((s) => s.setStill)
-    const [pickerOpen, setPickerOpen] = useState(false)
-    const { episode, stillPath, stillManual } = row
     const fileId = row.entry.file.id
+    return (
+        <StillThumbnail
+            episode={row.episode}
+            stillPath={row.stillPath}
+            stillManual={row.stillManual}
+            disabled={disabled}
+            onChange={(path) => setStill(fileId, path)}
+        />
+    )
+}
+
+const VIGNETTE_URL = overlayUrl('overlay-vignette.png')
+
+/** Episodenbild; bei fehlenden Folgen schwarz-weiß mit Vignette, so wie es exportiert wird */
+function StillImage({ src, missing, className }: { src: string; missing: boolean; className: string }) {
+    if (!missing) return <img src={src} alt="" className={className} />
+    return (
+        <span className={cn('relative block overflow-hidden', className)}>
+            <img src={src} alt="" className="size-full object-cover grayscale" />
+            {VIGNETTE_URL && <img src={VIGNETTE_URL} alt="" className="absolute inset-0 size-full" />}
+        </span>
+    )
+}
+
+/** Vorschaubild einer Episode mit Bildauswahl; `onChange(null)` = zurück auf das Standardbild */
+export function StillThumbnail({
+    episode,
+    stillPath,
+    stillManual,
+    disabled,
+    onChange,
+    missing = false
+}: {
+    episode: TmdbEpisode | null
+    stillPath: string | null
+    stillManual: boolean
+    disabled: boolean
+    onChange: (path: string | null) => void
+    /** Fehlende Folge: Vorschau schwarz-weiß mit Vignette */
+    missing?: boolean
+}) {
+    const [pickerOpen, setPickerOpen] = useState(false)
     const box = cn(
         'h-[62px] w-[110px] shrink-0 overflow-hidden rounded-md border bg-secondary/60',
         stillManual ? 'border-2 border-warning/70' : 'border'
@@ -103,7 +152,7 @@ export function EpisodeThumbnail({ row, disabled }: { row: Row; disabled: boolea
             onClick={() => setPickerOpen(true)}
             onContextMenu={(event) => {
                 event.preventDefault()
-                if (!disabled) setStill(fileId, null)
+                if (!disabled) onChange(null)
             }}
             className={cn(
                 box,
@@ -113,7 +162,7 @@ export function EpisodeThumbnail({ row, disabled }: { row: Row; disabled: boolea
             aria-label="Anderes Bild wählen"
         >
             {stillPath ? (
-                <img src={tmdbImageUrl(stillPath, 'w300')} alt="" className="size-full object-cover" />
+                <StillImage src={tmdbImageUrl(stillPath, 'w300')} missing={missing} className="size-full object-cover" />
             ) : (
                 <ImageOff className="size-4 text-muted-foreground/60" />
             )}
@@ -126,7 +175,11 @@ export function EpisodeThumbnail({ row, disabled }: { row: Row; disabled: boolea
                 <Tooltip>
                     <TooltipTrigger asChild>{thumbnail}</TooltipTrigger>
                     <TooltipContent side="left" className="max-w-none p-1.5">
-                        <img src={tmdbImageUrl(stillPath, 'w1280')} alt="" className="aspect-video w-[520px] rounded object-cover" />
+                        <StillImage
+                            src={tmdbImageUrl(stillPath, 'w1280')}
+                            missing={missing}
+                            className="aspect-video w-[520px] rounded object-cover"
+                        />
                         <div className="flex items-center justify-between gap-4 px-1 pt-1.5 text-xs">
                             <span>
                                 {formatEpisodeRef(episode)} · {episode.title}
@@ -144,7 +197,7 @@ export function EpisodeThumbnail({ row, disabled }: { row: Row; disabled: boolea
                 onOpenChange={setPickerOpen}
                 episode={episode}
                 selectedPath={stillPath}
-                onSelect={(path) => setStill(fileId, path === episode.stillPath ? null : path)}
+                onSelect={(path) => onChange(path === episode.stillPath ? null : path)}
             />
         </>
     )

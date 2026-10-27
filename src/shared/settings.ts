@@ -22,6 +22,7 @@ export const DEFAULT_SETTINGS: Settings = {
     concurrency: 2,
     tmdbApiKey: '',
     fanartApiKey: '',
+    showMissingEpisodes: true,
     pipeline: {
         filterLanguages: true,
         sortTracks: true,
