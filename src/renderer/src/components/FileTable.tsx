@@ -26,7 +26,7 @@ import type { Derived, MissingRow, Row } from '@/lib/rows'
 import { describePeak } from '@/lib/peak'
 import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
-import { EpisodePicker, EpisodeThumbnail, StillThumbnail } from './EpisodePicker'
+import { EpisodePicker, EpisodeThumbnail, LocalThumbnail, StillThumbnail } from './EpisodePicker'
 import { TrackDetails } from './TrackDetails'
 
 function WithTooltip({ text, children }: { text: string; children: ReactElement }) {
@@ -172,7 +172,9 @@ function TrackSummary({ row }: { row: Row }) {
 function FileRow({ row }: { row: Row }) {
     const expanded = useStore((s) => !!s.expanded[row.entry.file.id])
     const running = useStore((s) => s.run.running)
-    const hasShow = useStore((s) => s.tmdb.episodes.length > 0)
+    // Im YouTube-Modus zählt die TMDB-Zuordnung nicht, dafür steht dort das Bild neben dem Video
+    const youtube = useStore((s) => s.settings?.mode === 'youtube')
+    const hasShow = useStore((s) => s.tmdb.episodes.length > 0) && !youtube
     const { toggleExcluded, toggleExpanded, setOverride } = useStore.getState()
     const { file } = row.entry
     const done = row.result?.status === 'ok'
@@ -214,8 +216,14 @@ function FileRow({ row }: { row: Row }) {
                 </div>
 
                 {/* Rechts: Zielname, mit zugeordneter Serie davor das Episodenbild und darunter die TMDB-Episode */}
-                <div className={cn('flex min-w-0 items-center gap-3 self-stretch border-l pr-3 pl-3', hasShow ? 'py-2.5' : 'py-2')}>
+                <div
+                    className={cn(
+                        'flex min-w-0 items-center gap-3 self-stretch border-l pr-3 pl-3',
+                        hasShow || youtube ? 'py-2.5' : 'py-2'
+                    )}
+                >
                     {hasShow && <EpisodeThumbnail row={row} disabled={row.excluded || running || done} />}
+                    {youtube && <LocalThumbnail path={file.image} />}
                     <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
                         <div className="flex min-w-0 items-center gap-1.5">
                             <div
@@ -376,7 +384,7 @@ export function FileTable({ derived }: { derived: Derived }) {
     const scanning = useStore((s) => s.scanning)
     const running = useStore((s) => s.run.running)
     const setAllExcluded = useStore((s) => s.setAllExcluded)
-    const hasShow = useStore((s) => s.tmdb.episodes.length > 0)
+    const hasShow = useStore((s) => s.tmdb.episodes.length > 0 && s.settings?.mode !== 'youtube')
     const { rows, missing, order, conflictCount, pendingAnalysis, scanProgress } = derived
 
     const selectedCount = rows.filter((row) => !row.excluded).length

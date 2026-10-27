@@ -75,6 +75,7 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
   - Umschalter **Filme & Serien | YouTube** oben neben dem Titel, für Videos, die mit JDownloader heruntergeladen wurden (Video, `… (Beschreibung).txt` und `… (BQ).jpg`)
   - Der Zielname ist der Videotitel ohne Qualitätsangabe wie `(2160p_60fps_AV1-128kbit_AAC)`; Emojis und Sonderzeichen bleiben
   - Beschreibung und Bild werden über den bereinigten Namen zugeordnet; Symbole in der Zeile und der Abschnitt **Begleitdateien** in der Spurübersicht zeigen, ob sie gefunden wurden (die Beschreibung im Tooltip)
+  - Das Bild steht links neben dem Zielnamen, beim Überfahren groß (520 px)
   - Jede Tonspur wird auf Deutsch gesetzt, egal mit welcher Sprache sie getaggt ist, und wie gewohnt normalisiert
   - Im Output landen `<Name>.mkv`, `<Name>.txt` und `<Name>.jpg`; die Beschreibung steht zusätzlich in den Metadaten. TMDB-Leiste und Bilder-Tab sind ausgeblendet
 - 🎬 **Video & Metadaten**
@@ -163,6 +164,7 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 - Umschalter „Filme & Serien | YouTube“ für Videos von JDownloader
 - Zielname ohne Qualitätsangaben wie „(2160p_60fps_AV1-128kbit_AAC)“, „(Beschreibung)“ und „(BQ)“
 - Beschreibung (.txt) und Bild (.jpg) werden erkannt, in der Dateiliste und der Spurübersicht angezeigt und gleichnamig neben die MKV kopiert
+- Das Bild steht wie die Episodenbilder links neben dem Zielnamen, mit großer Vorschau beim Überfahren
 - Jede Tonspur wird auf Deutsch gesetzt, egal mit welcher Sprache sie getaggt ist, und wie gewohnt normalisiert
 - Auch im normalen Modus wird eine „… (Beschreibung).txt“ als Beschreibung übernommen
 
