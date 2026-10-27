@@ -6,6 +6,7 @@ import {
     type PeakState,
     type PeakUpdate,
     type ScanRequest,
+    type ScanStatusUpdate,
     type SubtitleCountsUpdate
 } from '../shared/peak'
 import type { Settings } from '../shared/types'
@@ -76,7 +77,8 @@ export class ScanService {
     constructor(
         private getSettings: () => Settings,
         private onPeakUpdate: (update: PeakUpdate) => void,
-        private onCounts: (update: SubtitleCountsUpdate) => void
+        private onCounts: (update: SubtitleCountsUpdate) => void,
+        private onStatus: (update: ScanStatusUpdate) => void
     ) {}
 
     /** Stellt Scans in die Warteschlange; bereits bekannte oder laufende werden nicht wiederholt. */
@@ -120,6 +122,7 @@ export class ScanService {
         if (!job) {
             job = { ...request, peakTrackIndex: null, started: false, listeners: new Set() }
             this.queue.push(job)
+            this.onStatus({ fileKey: key, status: 'queued' })
         }
         if (needPeak) {
             job.peakTrackIndex = request.peakTrackIndex
@@ -157,6 +160,8 @@ export class ScanService {
     private async start(job: Job): Promise<void> {
         job.started = true
         this.running++
+        const key = fileKey(job)
+        this.onStatus({ fileKey: key, status: 'running' })
         if (job.peak) this.updatePeak(job.peak, { status: 'running', percent: 0 })
 
         try {
@@ -185,6 +190,7 @@ export class ScanService {
                 this.onCounts({ fileKey: job.count.key, counts })
                 job.count.result.resolve(counts)
             }
+            this.onStatus({ fileKey: key, status: 'done' })
         } catch (error) {
             const failure = error instanceof Error ? error : new Error(String(error))
             // Fehlgeschlagene Scans nicht merken, damit ein späterer Versuch neu startet
@@ -198,6 +204,7 @@ export class ScanService {
                 this.onCounts({ fileKey: job.count.key, counts: null })
                 job.count.result.reject(failure)
             }
+            this.onStatus({ fileKey: key, status: 'error' })
         } finally {
             this.running--
             this.pump()

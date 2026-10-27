@@ -1,4 +1,4 @@
-import type { PeakUpdate, ScanRequest, SubtitleCountsUpdate } from './peak'
+import type { PeakUpdate, ScanRequest, ScanStatusUpdate, SubtitleCountsUpdate } from './peak'
 
 export interface MediaFile {
     id: string
@@ -234,4 +234,5 @@ export interface MediaManagerApi {
     onApplyFileDone(listener: (result: ApplyFileResult) => void): () => void
     onPeakUpdate(listener: (update: PeakUpdate) => void): () => void
     onSubtitleCounts(listener: (update: SubtitleCountsUpdate) => void): () => void
+    onScanStatus(listener: (update: ScanStatusUpdate) => void): () => void
 }

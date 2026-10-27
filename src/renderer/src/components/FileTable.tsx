@@ -4,6 +4,7 @@ import {
     Ban,
     CheckCircle2,
     ChevronRight,
+    Clock,
     FileVideo,
     FolderSearch,
     Loader2,
@@ -82,16 +83,42 @@ function NormalizeIndicator({ peakKey }: { peakKey: string }) {
     return (
         <WithTooltip text={`Normalisierung: ${info.text}`}>
             <span className="flex">
-                {info.tone === 'pending' && peak?.status === 'running' ? (
-                    <Loader2 className="size-3.5 animate-spin text-primary" />
-                ) : info.tone === 'error' ? (
+                {info.tone === 'error' ? (
                     <AlertTriangle className="size-3.5 text-warning" />
                 ) : (
-                    <Sparkles className={cn('size-3.5', info.tone === 'none' ? 'text-muted-foreground' : 'text-primary')} />
+                    // Solange der Peak fehlt, nur blass: Wartet bzw. läuft zeigt das Scan-Symbol daneben
+                    <Sparkles
+                        className={cn(
+                            'size-3.5',
+                            info.tone === 'pending' ? 'text-primary/35' : info.tone === 'none' ? 'text-muted-foreground' : 'text-primary'
+                        )}
+                    />
                 )}
             </span>
         </WithTooltip>
     )
+}
+
+/** Hintergrund-Scan der Datei (Peak und/oder Untertitel-Zählung): Uhr = wartet, Spinner = läuft */
+function ScanIndicator({ row }: { row: Row }) {
+    const what = row.countsPending ? 'Peak-Analyse und Untertitel-Zählung' : 'Peak-Analyse'
+    const hint = row.countsPending ? '\nBis dahin ist die Forced-Erkennung der eingebetteten Untertitel vorläufig.' : ''
+
+    if (row.scanStatus === 'running') {
+        return (
+            <WithTooltip text={`Hintergrund-Scan läuft (${what})${hint}`}>
+                <Loader2 className="size-3.5 animate-spin text-primary" />
+            </WithTooltip>
+        )
+    }
+    if (row.scanStatus === 'queued' || (row.countsPending && row.scanStatus !== 'error')) {
+        return (
+            <WithTooltip text={`Wartet auf den Hintergrund-Scan (${what})${hint}`}>
+                <Clock className="size-3.5" />
+            </WithTooltip>
+        )
+    }
+    return null
 }
 
 function TrackSummary({ row }: { row: Row }) {
@@ -110,11 +137,7 @@ function TrackSummary({ row }: { row: Row }) {
                 UT {embedded}
                 {external > 0 && <span className="text-primary">+{external}</span>}→{row.plan.subtitle.length}
             </span>
-            {row.countsPending && (
-                <span title="Untertitel-Einträge werden im Hintergrund gezählt (Forced-Erkennung noch vorläufig)">
-                    <Loader2 className="size-3.5 animate-spin" />
-                </span>
-            )}
+            <ScanIndicator row={row} />
             {row.peakKey && <NormalizeIndicator peakKey={row.peakKey} />}
         </span>
     )
@@ -219,7 +242,7 @@ export function FileTable({ derived }: { derived: Derived }) {
     const scanning = useStore((s) => s.scanning)
     const running = useStore((s) => s.run.running)
     const setAllExcluded = useStore((s) => s.setAllExcluded)
-    const { rows, conflictCount, pendingAnalysis } = derived
+    const { rows, conflictCount, pendingAnalysis, scanProgress } = derived
 
     const selectedCount = rows.filter((row) => !row.excluded).length
     const allIncluded = rows.length > 0 && rows.every((row) => !row.excluded)
@@ -239,6 +262,19 @@ export function FileTable({ derived }: { derived: Derived }) {
                     <span className="normal-case">
                         ({selectedCount}/{rows.length} ausgewählt{pendingAnalysis > 0 && `, ${pendingAnalysis} in Analyse`})
                     </span>
+                    {scanProgress.done < scanProgress.total && (
+                        <WithTooltip
+                            text={
+                                'Peak-Analyse und Untertitel-Zählung lesen jede Datei einmal komplett.\n' +
+                                'Anwenden ist schon jetzt möglich; noch fehlende Scans werden dabei vorgezogen.'
+                            }
+                        >
+                            <span className="ml-auto flex items-center gap-1.5 normal-case">
+                                <Loader2 className="size-3.5 animate-spin text-primary" />
+                                Hintergrund-Scan {scanProgress.done}/{scanProgress.total}
+                            </span>
+                        </WithTooltip>
+                    )}
                 </div>
                 <div className="flex items-center gap-2 border-l px-3 py-2.5">
                     <span>Zielname</span>

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { PeakState } from '@shared/peak'
+import type { PeakState, ScanStatus } from '@shared/peak'
 import type { EpisodeRef } from '@shared/tmdb-match'
 import type {
     ApplyFileResult,
@@ -67,6 +67,8 @@ interface State {
     peaks: Record<string, PeakState>
     /** Einträge der eingebetteten Untertitel je Datei (`fileKey()`) aus dem Hintergrund-Scan; `null` = fehlgeschlagen */
     subtitleCounts: Record<string, number[] | null>
+    /** Zustand des Hintergrund-Scans je Datei (`fileKey()`) */
+    scanStatus: Record<string, ScanStatus>
     /** Zugeordnete TMDB-Serie (gilt für die laufende Sitzung) */
     tmdb: TmdbState
     /** Manuell gewählte Episode je Datei; `null` = bewusst keine Zuordnung */
@@ -111,6 +113,7 @@ export const useStore = create<State>()((set, get) => ({
     forceApply: false,
     peaks: {},
     subtitleCounts: {},
+    scanStatus: {},
     tmdb: emptyTmdb,
     episodeOverrides: {},
     run: emptyRun,
@@ -144,7 +147,8 @@ export const useStore = create<State>()((set, get) => ({
             window.api.onPeakUpdate(({ key, state: peak }) => set((state) => ({ peaks: { ...state.peaks, [key]: peak } }))),
             window.api.onSubtitleCounts(({ fileKey, counts }) =>
                 set((state) => ({ subtitleCounts: { ...state.subtitleCounts, [fileKey]: counts } }))
-            )
+            ),
+            window.api.onScanStatus(({ fileKey, status }) => set((state) => ({ scanStatus: { ...state.scanStatus, [fileKey]: status } })))
         ]
 
         // Bei Rückkehr ins Fenster Output-Ordner und freien Platz aktualisieren

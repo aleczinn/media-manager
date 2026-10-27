@@ -47,6 +47,14 @@ export interface SubtitleCountsUpdate {
     counts: number[] | null
 }
 
+/** Zustand des Hintergrund-Scans einer Datei */
+export type ScanStatus = 'queued' | 'running' | 'done' | 'error'
+
+export interface ScanStatusUpdate {
+    fileKey: string
+    status: ScanStatus
+}
+
 export function fileKey({ inputPath, size }: { inputPath: string; size: number }): string {
     return `${inputPath}|${size}`
 }

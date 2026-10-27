@@ -30,7 +30,8 @@ const api: MediaManagerApi = {
     onApplyProgress: (listener) => subscribe('apply:progress', listener),
     onApplyFileDone: (listener) => subscribe('apply:fileDone', listener),
     onPeakUpdate: (listener) => subscribe('peak:update', listener),
-    onSubtitleCounts: (listener) => subscribe('scan:counts', listener)
+    onSubtitleCounts: (listener) => subscribe('scan:counts', listener),
+    onScanStatus: (listener) => subscribe('scan:status', listener)
 }
 
 contextBridge.exposeInMainWorld('api', api)

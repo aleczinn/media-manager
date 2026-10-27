@@ -23,7 +23,8 @@ export function registerIpc(getWindow: () => BrowserWindow | null): { runner: Ru
     const scans = new ScanService(
         loadSettings,
         (update) => send('peak:update', update),
-        (update) => send('scan:counts', update)
+        (update) => send('scan:counts', update),
+        (update) => send('scan:status', update)
     )
     const runner = new Runner(scans)
     let latestAnalyzeRequest = 0
