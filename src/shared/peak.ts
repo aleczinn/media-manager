@@ -1,3 +1,5 @@
+import type { MediaFile } from './types'
+
 export interface PeakResult {
     maxVolume: number
     /** Benötigte Verstärkung bis 0 dBFS */
@@ -57,6 +59,12 @@ export interface ScanStatusUpdate {
 
 export function fileKey({ inputPath, size }: { inputPath: string; size: number }): string {
     return `${inputPath}|${size}`
+}
+
+/** Kennung für die Spuranalyse einer Datei: ändert sich, sobald Video oder externe Untertitel neu gelesen werden müssen */
+export function analysisKey(file: Pick<MediaFile, 'fullPath' | 'size' | 'modifiedMs' | 'externalSubtitles'>): string {
+    const subtitles = file.externalSubtitles.map((sub) => `${sub.path}:${sub.size}`).join(',')
+    return `${file.fullPath}|${file.size}|${file.modifiedMs}|${subtitles}`
 }
 
 /** Entscheidet wie im alten Projekt: erst ab Mindest-Gain normalisieren, Gain auf Maximum begrenzen. */

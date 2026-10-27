@@ -4,7 +4,7 @@ import type { ApplyJob, ArtworkJob, ArtworkRequest, MediaFile, Settings } from '
 import { exportArtwork, loadArtworkCandidates } from './artwork'
 import { getDiskSpace } from './disk-space'
 import { checkFfmpeg, resolveBinaries } from './ffmpeg'
-import { analyzeFile } from './metadata'
+import { analyzeFileCached } from './metadata'
 import { ScanService } from './scan-service'
 import { Runner } from './runner'
 import { findMediaFiles, listOutputNames } from './scanner'
@@ -70,7 +70,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): { runner: Ru
         const worker = async () => {
             for (let file = queue.shift(); file && latestAnalyzeRequest === requestId; file = queue.shift()) {
                 try {
-                    const analysis = await analyzeFile(file, ffprobe)
+                    const analysis = await analyzeFileCached(file, ffprobe)
                     send('analysis:result', { requestId, fileId: file.id, analysis })
                 } catch (error) {
                     send('analysis:result', { requestId, fileId: file.id, error: error instanceof Error ? error.message : String(error) })

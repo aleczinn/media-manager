@@ -6,13 +6,16 @@ import type { ExternalSubtitleFile, MediaFile } from '../shared/types'
 
 const EXTENSIONS = ['.mkv', '.mp4', '.avi']
 
-async function fileSize(filePath: string): Promise<number> {
+async function fileStat(filePath: string): Promise<{ size: number; modifiedMs: number }> {
     try {
-        return (await fs.stat(filePath)).size
+        const stat = await fs.stat(filePath)
+        return { size: stat.size, modifiedMs: stat.mtimeMs }
     } catch {
-        return 0
+        return { size: 0, modifiedMs: 0 }
     }
 }
+
+const fileSize = async (filePath: string) => (await fileStat(filePath)).size
 
 /** Untertiteldateien eines Ordners; eine .idx zählt nur, wenn die zugehörige .sub daneben liegt */
 function subtitleCandidates(items: Dirent[]): string[] {
@@ -76,7 +79,7 @@ export async function findMediaFiles(rootDir: string): Promise<MediaFile[]> {
                     fullPath,
                     dir: currentDir,
                     relativePath: path.relative(rootDir, fullPath),
-                    size: await fileSize(fullPath),
+                    ...(await fileStat(fullPath)),
                     externalSubtitles: externalSubtitles.sort((a, b) => a.path.localeCompare(b.path))
                 })
             }

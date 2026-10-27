@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildScanArgs, parseScanLine, subtitleOutputIndex, type ScanOutcome } from '../src/main/scan'
+import { analysisKey } from '../src/shared/peak'
 import { hasUncountedSubtitles, withSubtitleCounts } from '../src/shared/pipeline'
 import type { FileAnalysis, SubtitleTrackInfo } from '../src/shared/types'
 
@@ -81,5 +82,19 @@ describe('withSubtitleCounts', () => {
     it('lässt die Analyse ohne Zählung unverändert', () => {
         expect(withSubtitleCounts(analysis, undefined)).toBe(analysis)
         expect(withSubtitleCounts(analysis, null)).toBe(analysis)
+    })
+})
+
+describe('analysisKey', () => {
+    const file = { fullPath: 'C:\in\a.mkv', size: 100, modifiedMs: 1, externalSubtitles: [{ path: 'C:\in\a.de.srt', size: 5 }] }
+
+    it('bleibt für eine unveränderte Datei gleich', () => {
+        expect(analysisKey({ ...file })).toBe(analysisKey(file))
+    })
+
+    it('ändert sich mit Größe, Änderungszeit oder externen Untertiteln', () => {
+        expect(analysisKey({ ...file, size: 101 })).not.toBe(analysisKey(file))
+        expect(analysisKey({ ...file, modifiedMs: 2 })).not.toBe(analysisKey(file))
+        expect(analysisKey({ ...file, externalSubtitles: [] })).not.toBe(analysisKey(file))
     })
 })

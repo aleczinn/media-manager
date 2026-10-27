@@ -1,6 +1,6 @@
 # Media Manager
 
-[![Version](https://img.shields.io/badge/Media_Manager-1.0.3-8B7CFF?style=flat-square)](package.json)
+[![Version](https://img.shields.io/badge/Media_Manager-1.0.4-8B7CFF?style=flat-square)](package.json)
 [![Electron](https://img.shields.io/badge/Electron-45-47848F?style=flat-square&logo=electron)](https://www.electronjs.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
@@ -24,6 +24,7 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
   - Dateien per Checkbox ausschließen, einzeln oder alle auf einmal
   - Aufklappbare Spurübersicht vorher → nachher, inklusive Peak-Wert der Tonspur und Anzahl der Untertitel-Einträge
   - Die Liste steht nach wenigen Sekunden, auch bei einer ganzen Staffel: Beim Einlesen werden nur die Kopfdaten gelesen
+  - **Aktualisieren** liest den Input-Ordner neu ein und behält Abwahl, eigene Namen, Untertitel-Wahl und die TMDB-Zuordnung; bekannte Dateien stehen sofort da, analysiert werden nur neue oder geänderte (die Analysen bleiben bis zum Beenden im Speicher). Ein anderer Input-Ordner beginnt von vorn
   - Was die ganze Datei braucht (Peak-Analyse und Untertitel-Zählung), läuft danach im Hintergrund in einem gemeinsamen Durchgang pro Datei; Uhr = wartet, Spinner = läuft, der Fortschritt steht in der Kopfzeile der Tabelle. Anwenden geht schon vorher, fehlende Scans werden dann vorgezogen
 - ✏️ **Renaming**
   - Schema `S01e02 - Titel {edition-…} {source-…}.mkv`, Staffel und Folge zweistellig; ohne Titel steht `Unknown`
@@ -150,6 +151,11 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 - `scripts/corruption-checker.ts`: der Corruption-Checker
 
 ## Changelog
+
+1.0.4 | Aktualisieren ohne Datenverlust
+
+- Aktualisieren behält Abwahl, eigene Namen, Untertitel-Wahl und die TMDB-Zuordnung
+- Bereits analysierte Dateien werden nicht erneut gescannt, nur neue oder geänderte (Cache bis zum Beenden der App)
 
 1.0.3 | Fehlende Folgen
 
