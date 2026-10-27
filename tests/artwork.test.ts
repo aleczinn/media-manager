@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { artworkFileName, buildArtworkJobs, seasonSlot, sortCandidates, type ArtworkPlanInput } from '../src/shared/artwork'
+import {
+    artworkFileName,
+    buildArtworkJobs,
+    landscapeCandidates,
+    seasonSlot,
+    sortCandidates,
+    type ArtworkPlanInput
+} from '../src/shared/artwork'
 import { overlayFiles, overlaysFromNames, toggleOverlay } from '../src/shared/overlays'
 import { buildTargetStem } from '../src/shared/rename'
 import { movieQueryFromFile } from '../src/shared/tmdb-match'
@@ -36,7 +43,7 @@ describe('Overlays', () => {
 
 describe('Bilder-Export', () => {
     it('benennt die Dateien wie Jellyfin und Kodi', () => {
-        expect(artworkFileName('poster')).toBe('poster.jpg')
+        expect(artworkFileName('poster')).toBe('cover.jpg')
         expect(artworkFileName('logo')).toBe('logo.png')
         expect(artworkFileName('landscape')).toBe('landscape.jpg')
         expect(artworkFileName(seasonSlot(2))).toBe('season02-poster.jpg')
@@ -53,6 +60,14 @@ describe('Bilder-Export', () => {
         ]
         expect(sortCandidates(list, 'poster').map((c) => c.url)).toEqual(['de-high', 'de-low', 'en', 'none', 'fanart-de'])
         expect(sortCandidates(list, 'backdrop').map((c) => c.url)).toEqual(['none', 'de-high', 'de-low', 'en', 'fanart-de'])
+    })
+
+    it('hängt bei Landscape die Backdrops an, die mit Text zuerst', () => {
+        const landscape = [candidate('thumb', 'en', 1, 'fanart')]
+        const backdrops = [candidate('bd-none', null, 9), candidate('bd-fanart', null, 9, 'fanart'), candidate('bd-en', 'en', 1)]
+        const result = landscapeCandidates(landscape, backdrops)
+        expect(result.map((c) => c.url)).toEqual(['thumb', 'bd-en', 'bd-none', 'bd-fanart'])
+        expect(result.map((c) => !!c.fromBackdrop)).toEqual([false, true, true, true])
     })
 
     it('baut Jobs aus Auswahl, Standardbildern und Overlays', () => {
@@ -74,7 +89,7 @@ describe('Bilder-Export', () => {
         }
         // Staffel 1 ist nicht in den Dateien und nicht angehakt, Staffel 3 manuell angehakt; Staffelposter ohne eigene Wahl ohne Overlays
         expect(buildArtworkJobs(input)).toEqual([
-            { fileName: 'poster.jpg', url: 'poster-2', kind: 'poster', overlays: ['extended', 'upscale'] },
+            { fileName: 'cover.jpg', url: 'poster-2', kind: 'poster', overlays: ['extended', 'upscale'] },
             { fileName: 'logo.png', url: 'logo-1', kind: 'logo', overlays: [] },
             { fileName: 'season02-poster.jpg', url: 's2', kind: 'poster', overlays: [] },
             { fileName: 'season03-poster.jpg', url: 's3', kind: 'poster', overlays: ['4k'] }

@@ -28,10 +28,11 @@ export function seasonLabel(season: number): string {
 /** Specials (Staffel 0) ans Ende */
 export const sortSeasons = (seasons: number[]): number[] => [...seasons].sort((a, b) => (a || 999) - (b || 999))
 
-/** Dateinamen, wie Jellyfin, Emby und Kodi sie im Serien- bzw. Filmordner erwarten */
+/** Dateinamen, wie Jellyfin und Emby sie im Serien- bzw. Filmordner erwarten; das Cover heißt cover.jpg */
 export function artworkFileName(slot: ArtworkSlot): string {
     const season = slotSeason(slot)
     if (season !== null) return season === 0 ? 'season-specials-poster.jpg' : `season${String(season).padStart(2, '0')}-poster.jpg`
+    if (slot === 'poster') return 'cover.jpg'
     return slot === 'logo' ? 'logo.png' : `${slot}.jpg`
 }
 
@@ -53,6 +54,17 @@ export function sortCandidates(candidates: ArtworkCandidate[], kind: ArtworkKind
     }
     const source = (candidate: ArtworkCandidate) => (candidate.source === 'tmdb' ? 0 : 1)
     return [...candidates].sort((a, b) => source(a) - source(b) || rank(a) - rank(b) || b.score - a.score)
+}
+
+/**
+ * Landscape-Vorschläge: zuerst die echten Landscape-Bilder (Fanart.tv), am Ende alle Backdrops.
+ * Backdrops mit Titel kommen dabei vor die ohne Text, weil sie als Landscape meist besser passen.
+ */
+export function landscapeCandidates(landscape: ArtworkCandidate[], backdrops: ArtworkCandidate[]): ArtworkCandidate[] {
+    return [
+        ...sortCandidates(landscape, 'landscape'),
+        ...sortCandidates(backdrops, 'landscape').map((candidate) => ({ ...candidate, fromBackdrop: true }))
+    ]
 }
 
 export interface ArtworkPlanInput {

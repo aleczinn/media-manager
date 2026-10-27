@@ -2,7 +2,7 @@ import fsp from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { app } from 'electron'
-import { sortCandidates } from '../shared/artwork'
+import { landscapeCandidates, sortCandidates } from '../shared/artwork'
 import { overlayFiles } from '../shared/overlays'
 import type {
     ArtworkCandidate,
@@ -67,7 +67,7 @@ export function loadArtworkCandidates(settings: Settings, request: ArtworkReques
             poster: merge('poster', base.poster, extra?.poster),
             logo: merge('logo', base.logo, extra?.logo),
             backdrop: merge('backdrop', base.backdrop, extra?.backdrop),
-            landscape: merge('landscape', extra?.landscape),
+            landscape: landscapeCandidates(extra?.landscape ?? [], [...base.backdrop, ...(extra?.backdrop ?? [])]),
             seasons: Object.fromEntries(
                 seasonPosters.map(([season, posters]) => [season, merge('poster', posters, extra?.seasons[season])])
             )

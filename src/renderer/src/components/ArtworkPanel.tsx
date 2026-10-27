@@ -37,7 +37,8 @@ const shapeOf = (slot: ArtworkSlot): PickerShape => {
 
 /** Quelle und Sprache; die Größe kommt getrennt dazu, weil sie bei Fanart.tv erst nach dem Laden feststeht */
 function candidateBadges(candidate: ArtworkCandidate): string[] {
-    return [SOURCE_LABEL[candidate.source], candidate.lang ? candidate.lang.toUpperCase() : 'ohne Text']
+    const badges = [SOURCE_LABEL[candidate.source], candidate.lang ? candidate.lang.toUpperCase() : 'ohne Text']
+    return candidate.fromBackdrop ? [...badges, 'Backdrop'] : badges
 }
 
 const toPickerImage = (candidate: ArtworkCandidate) => ({
@@ -213,7 +214,9 @@ function SlotCard({ slot, label, plan, className }: { slot: ArtworkSlot; label: 
                         ? 'Das Bild wird auf 600×900 gestreckt und mit den gewählten Overlays gespeichert.'
                         : shape === 'logo'
                           ? 'Das Logo wird unverändert als PNG gespeichert.'
-                          : 'Größere Bilder werden auf höchstens 1920×1080 verkleinert.'
+                          : slot === 'landscape'
+                            ? 'Zuerst die Landscape-Bilder von Fanart.tv, danach die Backdrops (mit Text zuerst). Größere Bilder werden auf höchstens 1920×1080 verkleinert.'
+                            : 'Größere Bilder werden auf höchstens 1920×1080 verkleinert.'
                 }
                 images={list.map(toPickerImage)}
                 selectedId={url}

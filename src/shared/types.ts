@@ -188,6 +188,8 @@ export interface ArtworkCandidate {
     height?: number
     /** Bewertung (TMDB) bzw. Likes (Fanart.tv) */
     score: number
+    /** Backdrop, das zusätzlich als Landscape angeboten wird */
+    fromBackdrop?: boolean
 }
 
 export interface ArtworkCandidates {
