@@ -89,3 +89,19 @@
         background-color: oklch(1 0 0 / 20%);
     }
 }
+
+/* Karomuster hinter transparenten Logos */
+@utility checkerboard {
+    background-color: oklch(0.3 0.01 270);
+    background-image:
+        linear-gradient(45deg, oklch(0.24 0.01 270) 25%, transparent 25%),
+        linear-gradient(-45deg, oklch(0.24 0.01 270) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, oklch(0.24 0.01 270) 75%),
+        linear-gradient(-45deg, transparent 75%, oklch(0.24 0.01 270) 75%);
+    background-size: 16px 16px;
+    background-position:
+        0 0,
+        0 8px,
+        8px -8px,
+        -8px 0;
+}

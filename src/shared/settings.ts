@@ -21,6 +21,7 @@ export const DEFAULT_SETTINGS: Settings = {
     spaceWarningGb: 10,
     concurrency: 2,
     tmdbApiKey: '',
+    fanartApiKey: '',
     pipeline: {
         filterLanguages: true,
         sortTracks: true,
@@ -31,7 +32,8 @@ export const DEFAULT_SETTINGS: Settings = {
         renameFile: true,
         cleanMetadata: true,
         encodeVideo: false,
-        saveThumbnails: true
+        saveThumbnails: true,
+        saveArtwork: true
     }
 }
 

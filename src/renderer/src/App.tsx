@@ -1,12 +1,15 @@
-import { useEffect } from 'react'
-import { AlertTriangle, Clapperboard } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { AlertTriangle, Clapperboard, Files, Images } from 'lucide-react'
 import { ApplyBar } from '@/components/ApplyBar'
+import { ArtworkPanel } from '@/components/ArtworkPanel'
 import { FileTable } from '@/components/FileTable'
 import { FolderBar } from '@/components/FolderBar'
 import { PipelineOptions } from '@/components/PipelineOptions'
 import { SeriesBar } from '@/components/SeriesBar'
 import { SettingsDialog } from '@/components/SettingsDialog'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { useArtworkPlan } from '@/lib/artwork'
 import { useDerived } from '@/lib/rows'
 import { useStore } from '@/lib/store'
 
@@ -32,6 +35,8 @@ function FfmpegBadge() {
 export function App() {
     const ready = useStore((s) => s.settings !== null)
     const derived = useDerived()
+    const artworkPlan = useArtworkPlan(derived.rows)
+    const [tab, setTab] = useState('files')
 
     useEffect(() => {
         let cleanup: (() => void) | undefined
@@ -74,8 +79,28 @@ export function App() {
                         <FolderBar />
                         <PipelineOptions />
                         <SeriesBar derived={derived} />
-                        <FileTable derived={derived} />
-                        <ApplyBar derived={derived} />
+                        <Tabs value={tab} onValueChange={setTab} className="min-h-0 flex-1">
+                            <TabsList>
+                                <TabsTrigger value="files">
+                                    <Files />
+                                    Dateien
+                                </TabsTrigger>
+                                <TabsTrigger value="artwork">
+                                    <Images />
+                                    Bilder
+                                    {artworkPlan.jobs.length > 0 && (
+                                        <span className="text-xs text-muted-foreground">({artworkPlan.jobs.length})</span>
+                                    )}
+                                </TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="files" className="flex min-h-0 flex-1 flex-col">
+                                <FileTable derived={derived} />
+                            </TabsContent>
+                            <TabsContent value="artwork" className="flex min-h-0 flex-1 flex-col">
+                                <ArtworkPanel plan={artworkPlan} />
+                            </TabsContent>
+                        </Tabs>
+                        <ApplyBar derived={derived} artworkJobs={artworkPlan.jobs} />
                     </>
                 )}
             </div>

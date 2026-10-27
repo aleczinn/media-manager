@@ -97,22 +97,26 @@ export const UNKNOWN_TITLE = 'Unknown'
 
 /**
  * Erzeugt den Zielnamen ohne Endung, z. B. `S01e02 - Titel {edition-Extended} {source-Web}`.
- * Ohne Titel wird `Unknown` eingesetzt. Nicht erkannte Dateien behalten ihren Namen.
+ * Ohne Titel wird `Unknown` eingesetzt. Mit zugeordnetem Film wird eine Datei ohne Episodenangabe
+ * zu `Titel (Jahr) {edition-…} {source-…}`. Sonst nicht erkannte Dateien behalten ihren Namen.
  */
 export function buildTargetStem(
     file: { name: string; fullPath: string; relativePath?: string },
     defaultSource: string,
-    title = ''
+    title = '',
+    movie: { title: string; year: number | null } | null = null
 ): string {
     if (isAlreadyFormatted(file.name)) return file.name
 
     const parsed = parseEpisode(file.name)
-    if (!parsed) return file.name
+    if (!parsed && !movie) return file.name
 
     const edition = detectEdition(file.name)
     const source = detectSource(file.name, file.fullPath, defaultSource, sourceFolders(file))
 
-    let stem = `S${pad(parsed.season ?? 1)}e${pad(parsed.episode)} - ${title.trim() || UNKNOWN_TITLE}`
+    let stem = parsed
+        ? `S${pad(parsed.season ?? 1)}e${pad(parsed.episode)} - ${title.trim() || UNKNOWN_TITLE}`
+        : `${movie!.title.trim() || UNKNOWN_TITLE}${movie!.year ? ` (${movie!.year})` : ''}`
     if (edition) stem += ` {edition-${edition}}`
     stem += ` {source-${source}}`
     return stem

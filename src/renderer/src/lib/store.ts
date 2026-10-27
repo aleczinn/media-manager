@@ -1,11 +1,16 @@
 import { create } from 'zustand'
+import type { ArtworkSlot } from '@shared/artwork'
+import type { OverlayId } from '@shared/overlays'
 import type { PeakState, ScanStatus } from '@shared/peak'
-import type { EpisodeRef } from '@shared/tmdb-match'
+import { episodeRefFromName, type EpisodeRef } from '@shared/tmdb-match'
 import type {
     ApplyFileResult,
     ApplyJob,
     ApplyProgress,
     ApplySummary,
+    ArtworkCandidates,
+    ArtworkJob,
+    ArtworkResult,
     DiskSpace,
     FfmpegStatus,
     FileAnalysis,
@@ -13,12 +18,15 @@ import type {
     Settings,
     SubtitleOverride,
     TmdbEpisode,
+    TmdbMovie,
     TmdbSeasonSummary,
     TmdbShow
 } from '@shared/types'
 
 interface TmdbState {
     show: TmdbShow | null
+    /** Zugeordneter Film (statt einer Serie, ein Film pro Lauf) */
+    movie: TmdbMovie | null
     seasons: TmdbSeasonSummary[]
     /** Alle Episoden der Serie, nach Staffel und Folge sortiert */
     episodes: TmdbEpisode[]
@@ -26,7 +34,33 @@ interface TmdbState {
     error: string | null
 }
 
-const emptyTmdb: TmdbState = { show: null, seasons: [], episodes: [], loading: false, error: null }
+const emptyTmdb: TmdbState = { show: null, movie: null, seasons: [], episodes: [], loading: false, error: null }
+
+interface ArtworkState {
+    /** Vorschläge von TMDB und Fanart.tv, `null` solange nichts geladen ist */
+    candidates: ArtworkCandidates | null
+    loading: boolean
+    error: string | null
+    /** Probleme einer einzelnen Quelle (z. B. Fanart.tv nicht erreichbar) */
+    warnings: string[]
+    /** Laufender bzw. letzter Export über „Nur Bilder exportieren“ */
+    exporting: boolean
+    results: ArtworkResult[] | null
+}
+
+const emptyArtwork: ArtworkState = { candidates: null, loading: false, error: null, warnings: [], exporting: false, results: null }
+
+/** Alles, was an der zugeordneten Serie bzw. dem Film hängt */
+const emptyMedia = {
+    tmdb: emptyTmdb,
+    episodeOverrides: {},
+    stillOverrides: {},
+    artwork: emptyArtwork,
+    artworkSelection: {},
+    artworkDisabled: {},
+    coverOverlays: null,
+    seasonOverlays: {}
+}
 
 export interface FileEntry {
     file: MediaFile
@@ -75,6 +109,15 @@ interface State {
     episodeOverrides: Record<string, EpisodeRef | null>
     /** Manuell gewähltes Episodenbild (TMDB-Pfad) je Datei */
     stillOverrides: Record<string, string>
+    artwork: ArtworkState
+    /** Manuell gewähltes Bild (URL) je Bildplatz */
+    artworkSelection: Partial<Record<ArtworkSlot, string>>
+    /** Bildplätze, die nicht exportiert werden */
+    artworkDisabled: Partial<Record<ArtworkSlot, boolean>>
+    /** Overlays fürs Cover; `null` = automatisch aus den Dateinamen */
+    coverOverlays: OverlayId[] | null
+    /** Vom Cover abweichende Overlays je Staffelposter */
+    seasonOverlays: Record<number, OverlayId[]>
     run: RunState
 
     init(): Promise<() => void>
@@ -89,14 +132,25 @@ interface State {
     setOverride(id: string, stem: string | null): void
     setTypeOverride(fileId: string, trackId: string, type: SubtitleOverride | null): void
     assignShow(show: TmdbShow): Promise<void>
+    assignMovie(movie: TmdbMovie): void
+    /** Entfernt Serie bzw. Film */
     clearShow(): void
+    loadArtwork(): Promise<void>
+    /** `null` = zurück auf den ersten Vorschlag */
+    setArtwork(slot: ArtworkSlot, url: string | null): void
+    setArtworkEnabled(slot: ArtworkSlot, enabled: boolean): void
+    /** `null` = zurück auf die Vorbelegung aus den Dateinamen */
+    setCoverOverlays(overlays: OverlayId[] | null): void
+    /** `null` = wie beim Cover */
+    setSeasonOverlays(season: number, overlays: OverlayId[] | null): void
+    exportArtwork(jobs: ArtworkJob[]): Promise<void>
     /** `undefined` = zurück auf die automatische Zuordnung */
     setEpisode(fileId: string, ref: EpisodeRef | null | undefined): void
     /** `null` = zurück auf das Standardbild der Episode */
     setStill(fileId: string, path: string | null): void
     toggleExpanded(id: string): void
     setForceApply(force: boolean): void
-    apply(jobs: ApplyJob[]): Promise<void>
+    apply(jobs: ApplyJob[], artwork: ArtworkJob[]): Promise<void>
     cancel(): Promise<void>
 }
 
@@ -118,9 +172,7 @@ export const useStore = create<State>()((set, get) => ({
     peaks: {},
     subtitleCounts: {},
     scanStatus: {},
-    tmdb: emptyTmdb,
-    episodeOverrides: {},
-    stillOverrides: {},
+    ...emptyMedia,
     run: emptyRun,
 
     async init() {
@@ -214,9 +266,7 @@ export const useStore = create<State>()((set, get) => ({
             overrides: {},
             typeOverrides: {},
             expanded: {},
-            tmdb: emptyTmdb,
-            episodeOverrides: {},
-            stillOverrides: {},
+            ...emptyMedia,
             run: emptyRun
         })
         try {
@@ -265,8 +315,9 @@ export const useStore = create<State>()((set, get) => ({
     },
 
     async assignShow(show) {
-        set({ tmdb: { ...emptyTmdb, show, loading: true }, episodeOverrides: {}, stillOverrides: {} })
+        set({ ...emptyMedia, tmdb: { ...emptyTmdb, show, loading: true } })
         const isCurrent = () => get().tmdb.show?.id === show.id
+        void get().loadArtwork()
 
         const seasons = await window.api.tmdbSeasons(show.id)
         if (!isCurrent()) return
@@ -286,6 +337,7 @@ export const useStore = create<State>()((set, get) => ({
         set({
             tmdb: {
                 show,
+                movie: null,
                 seasons: seasons.data,
                 episodes,
                 loading: false,
@@ -294,8 +346,76 @@ export const useStore = create<State>()((set, get) => ({
         })
     },
 
+    assignMovie(movie) {
+        set({ ...emptyMedia, tmdb: { ...emptyTmdb, movie } })
+        void get().loadArtwork()
+    },
+
     clearShow() {
-        set({ tmdb: emptyTmdb, episodeOverrides: {}, stillOverrides: {} })
+        set(emptyMedia)
+    },
+
+    async loadArtwork() {
+        const { show, movie } = get().tmdb
+        const target = show ?? movie
+        if (!target) return
+        const isCurrent = () => (get().tmdb.show ?? get().tmdb.movie) === target
+
+        // Staffelposter nur für die Staffeln, die in den Dateien vorkommen
+        const seasons = [
+            ...new Set(
+                get()
+                    .files.map((entry) => episodeRefFromName(entry.file.name)?.season)
+                    .filter((season) => season !== undefined)
+            )
+        ]
+        set((state) => ({ artwork: { ...state.artwork, loading: true, error: null, warnings: [] } }))
+        const result = await window.api.artworkCandidates({ kind: show ? 'tv' : 'movie', tmdbId: target.id, seasons: show ? seasons : [] })
+        if (!isCurrent()) return
+        set((state) => ({
+            artwork: result.ok
+                ? { ...state.artwork, loading: false, candidates: result.data.candidates, warnings: result.data.warnings }
+                : { ...state.artwork, loading: false, error: result.error }
+        }))
+    },
+
+    setArtwork(slot, url) {
+        set((state) => {
+            const artworkSelection = { ...state.artworkSelection }
+            if (url === null) delete artworkSelection[slot]
+            else artworkSelection[slot] = url
+            return { artworkSelection }
+        })
+    },
+
+    setArtworkEnabled(slot, enabled) {
+        set((state) => ({ artworkDisabled: { ...state.artworkDisabled, [slot]: !enabled } }))
+    },
+
+    setCoverOverlays(coverOverlays) {
+        set({ coverOverlays })
+    },
+
+    setSeasonOverlays(season, overlays) {
+        set((state) => {
+            const seasonOverlays = { ...state.seasonOverlays }
+            if (overlays === null) delete seasonOverlays[season]
+            else seasonOverlays[season] = overlays
+            return { seasonOverlays }
+        })
+    },
+
+    async exportArtwork(jobs) {
+        const outputDir = get().settings?.outputDir
+        if (!outputDir || jobs.length === 0 || get().artwork.exporting) return
+        set((state) => ({ artwork: { ...state.artwork, exporting: true, results: null } }))
+        try {
+            const results = await window.api.exportArtwork(jobs, outputDir)
+            set((state) => ({ artwork: { ...state.artwork, results } }))
+        } finally {
+            set((state) => ({ artwork: { ...state.artwork, exporting: false } }))
+            await get().refreshOutput()
+        }
     },
 
     setEpisode(fileId, ref) {
@@ -330,7 +450,7 @@ export const useStore = create<State>()((set, get) => ({
         set({ forceApply })
     },
 
-    async apply(jobs) {
+    async apply(jobs, artwork) {
         const outputDir = get().settings?.outputDir
         if (!outputDir || jobs.length === 0 || get().run.running) return
 
@@ -338,7 +458,7 @@ export const useStore = create<State>()((set, get) => ({
             run: { ...emptyRun, running: true, total: jobs.length, startedAt: Date.now(), results: state.run.results }
         }))
         try {
-            const summary = await window.api.apply(jobs, outputDir)
+            const summary = await window.api.apply(jobs, outputDir, artwork)
             set((state) => ({ run: { ...state.run, summary } }))
         } finally {
             set((state) => ({ forceApply: false, run: { ...state.run, running: false, cancelling: false, active: {} } }))
