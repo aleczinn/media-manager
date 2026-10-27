@@ -1,10 +1,12 @@
-import { ChevronDown, Image, ImageOff } from 'lucide-react'
+import { useState } from 'react'
+import { ChevronDown, ImageOff } from 'lucide-react'
 import { episodeRefFromName, formatEpisodeRef, tmdbImageUrl } from '@shared/tmdb-match'
 import type { TmdbEpisode } from '@shared/types'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { Row } from '@/lib/rows'
 import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
+import { StillPickerDialog } from './StillPickerDialog'
 
 const refKey = (episode: { season: number; episode: number }) => `${episode.season}:${episode.episode}`
 
@@ -29,11 +31,16 @@ export function EpisodePicker({ row, disabled }: { row: Row; disabled: boolean }
     }
 
     return (
-        <div className="flex min-w-0 items-center gap-1.5 pl-1">
+        <div className="flex min-w-0 items-center gap-1.5">
             <div className="relative min-w-0">
                 <select
                     value={row.episode ? refKey(row.episode) : ''}
                     onChange={(event) => onChange(event.target.value)}
+                    onContextMenu={(event) => {
+                        // Rechtsklick: zurück auf die per Staffel und Folge erkannte Episode
+                        event.preventDefault()
+                        if (!disabled) setEpisode(fileId, undefined)
+                    }}
                     disabled={disabled}
                     className={cn(
                         'h-6 max-w-full appearance-none truncate rounded border bg-transparent pr-6 pl-2 text-xs outline-none disabled:opacity-50 [&>optgroup]:bg-popover [&>option]:bg-popover',
@@ -43,7 +50,11 @@ export function EpisodePicker({ row, disabled }: { row: Row; disabled: boolean }
                               ? 'border-input text-muted-foreground'
                               : 'border-dashed border-input text-muted-foreground/70'
                     )}
-                    title={row.episodeManual ? 'Manuell gewählte Episode' : 'Automatisch per Staffel und Folge zugeordnet'}
+                    title={
+                        row.episodeManual
+                            ? 'Manuell gewählte Episode\nRechtsklick: zurück auf die erkannte Folge'
+                            : 'Automatisch per Staffel und Folge zugeordnet'
+                    }
                 >
                     <option value="">Keine TMDB-Episode</option>
                     {[...bySeason.entries()].map(([season, list]) => (
@@ -59,23 +70,82 @@ export function EpisodePicker({ row, disabled }: { row: Row; disabled: boolean }
                 <ChevronDown className="pointer-events-none absolute top-1/2 right-1.5 size-3 -translate-y-1/2 text-muted-foreground" />
             </div>
             {row.episodeManual && <span className="shrink-0 text-[10px] text-warning">manuell</span>}
-            {row.episode &&
-                (row.episode.stillPath ? (
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <span className="shrink-0 text-muted-foreground">
-                                <Image className="size-3.5" />
-                            </span>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-none p-1">
-                            <img src={tmdbImageUrl(row.episode.stillPath, 'w300')} alt="" className="w-[300px] rounded" />
-                        </TooltipContent>
-                    </Tooltip>
-                ) : (
-                    <span className="shrink-0 text-muted-foreground/60" title="Bei TMDB gibt es zu dieser Folge kein Vorschaubild">
-                        <ImageOff className="size-3.5" />
-                    </span>
-                ))}
         </div>
+    )
+}
+
+/**
+ * Vorschaubild der zugeordneten Episode links neben Zielname und Dropdown.
+ * Überfahren: große Vorschau · Klick: anderes Bild wählen · Rechtsklick: Standardbild der Episode
+ */
+export function EpisodeThumbnail({ row, disabled }: { row: Row; disabled: boolean }) {
+    const setStill = useStore((s) => s.setStill)
+    const [pickerOpen, setPickerOpen] = useState(false)
+    const { episode, stillPath, stillManual } = row
+    const fileId = row.entry.file.id
+    const box = cn(
+        'h-[62px] w-[110px] shrink-0 overflow-hidden rounded-md border bg-secondary/60',
+        stillManual ? 'border-2 border-warning/70' : 'border'
+    )
+
+    if (!episode) {
+        return (
+            <span className={cn(box, 'flex items-center justify-center text-muted-foreground/60')} title="Keine TMDB-Episode zugeordnet">
+                <ImageOff className="size-4" />
+            </span>
+        )
+    }
+
+    const thumbnail = (
+        <button
+            type="button"
+            disabled={disabled}
+            onClick={() => setPickerOpen(true)}
+            onContextMenu={(event) => {
+                event.preventDefault()
+                if (!disabled) setStill(fileId, null)
+            }}
+            className={cn(
+                box,
+                'cursor-pointer transition-opacity hover:opacity-85 disabled:cursor-default',
+                !stillPath && 'flex items-center justify-center'
+            )}
+            aria-label="Anderes Bild wählen"
+        >
+            {stillPath ? (
+                <img src={tmdbImageUrl(stillPath, 'w300')} alt="" className="size-full object-cover" />
+            ) : (
+                <ImageOff className="size-4 text-muted-foreground/60" />
+            )}
+        </button>
+    )
+
+    return (
+        <>
+            {stillPath ? (
+                <Tooltip>
+                    <TooltipTrigger asChild>{thumbnail}</TooltipTrigger>
+                    <TooltipContent side="left" className="max-w-none p-1.5">
+                        <img src={tmdbImageUrl(stillPath, 'w1280')} alt="" className="aspect-video w-[520px] rounded object-cover" />
+                        <div className="flex items-center justify-between gap-4 px-1 pt-1.5 text-xs">
+                            <span>
+                                {formatEpisodeRef(episode)} · {episode.title}
+                                {stillManual && <span className="text-warning"> · manuell gewählt</span>}
+                            </span>
+                            <span className="text-muted-foreground">Klick: anderes Bild · Rechtsklick: Standardbild</span>
+                        </div>
+                    </TooltipContent>
+                </Tooltip>
+            ) : (
+                <span title="Bei TMDB gibt es zu dieser Folge kein Standardbild. Klick: Bilder der Folge anzeigen">{thumbnail}</span>
+            )}
+            <StillPickerDialog
+                open={pickerOpen}
+                onOpenChange={setPickerOpen}
+                episode={episode}
+                selectedPath={stillPath}
+                onSelect={(path) => setStill(fileId, path === episode.stillPath ? null : path)}
+            />
+        </>
     )
 }

@@ -73,6 +73,8 @@ interface State {
     tmdb: TmdbState
     /** Manuell gewählte Episode je Datei; `null` = bewusst keine Zuordnung */
     episodeOverrides: Record<string, EpisodeRef | null>
+    /** Manuell gewähltes Episodenbild (TMDB-Pfad) je Datei */
+    stillOverrides: Record<string, string>
     run: RunState
 
     init(): Promise<() => void>
@@ -90,6 +92,8 @@ interface State {
     clearShow(): void
     /** `undefined` = zurück auf die automatische Zuordnung */
     setEpisode(fileId: string, ref: EpisodeRef | null | undefined): void
+    /** `null` = zurück auf das Standardbild der Episode */
+    setStill(fileId: string, path: string | null): void
     toggleExpanded(id: string): void
     setForceApply(force: boolean): void
     apply(jobs: ApplyJob[]): Promise<void>
@@ -116,6 +120,7 @@ export const useStore = create<State>()((set, get) => ({
     scanStatus: {},
     tmdb: emptyTmdb,
     episodeOverrides: {},
+    stillOverrides: {},
     run: emptyRun,
 
     async init() {
@@ -211,6 +216,7 @@ export const useStore = create<State>()((set, get) => ({
             expanded: {},
             tmdb: emptyTmdb,
             episodeOverrides: {},
+            stillOverrides: {},
             run: emptyRun
         })
         try {
@@ -259,7 +265,7 @@ export const useStore = create<State>()((set, get) => ({
     },
 
     async assignShow(show) {
-        set({ tmdb: { ...emptyTmdb, show, loading: true }, episodeOverrides: {} })
+        set({ tmdb: { ...emptyTmdb, show, loading: true }, episodeOverrides: {}, stillOverrides: {} })
         const isCurrent = () => get().tmdb.show?.id === show.id
 
         const seasons = await window.api.tmdbSeasons(show.id)
@@ -289,7 +295,7 @@ export const useStore = create<State>()((set, get) => ({
     },
 
     clearShow() {
-        set({ tmdb: emptyTmdb, episodeOverrides: {} })
+        set({ tmdb: emptyTmdb, episodeOverrides: {}, stillOverrides: {} })
     },
 
     setEpisode(fileId, ref) {
@@ -300,7 +306,19 @@ export const useStore = create<State>()((set, get) => ({
             // Ein bewusst gewählter Titel soll im Namen ankommen, daher die Namensbearbeitung zurücksetzen
             const overrides = { ...state.overrides }
             delete overrides[fileId]
-            return { episodeOverrides, overrides }
+            // Eine andere Episode hat andere Bilder, also wieder ihr Standardbild
+            const stillOverrides = { ...state.stillOverrides }
+            delete stillOverrides[fileId]
+            return { episodeOverrides, overrides, stillOverrides }
+        })
+    },
+
+    setStill(fileId, path) {
+        set((state) => {
+            const stillOverrides = { ...state.stillOverrides }
+            if (path === null) delete stillOverrides[fileId]
+            else stillOverrides[fileId] = path
+            return { stillOverrides }
         })
     },
 

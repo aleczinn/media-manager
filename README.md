@@ -11,7 +11,7 @@
 
 Eine Desktop-App für Windows, die Serien- und Filmdateien für die eigene Mediathek aufbereitet. Sie liest einen Input-Ordner ein, schlägt für jede Datei einen einheitlichen Namen vor und baut daraus eine neue MKV im Output-Ordner: mit sortierten und sauber benannten Ton- und Untertitelspuren, einer lautstärke-normalisierten Tonspur und eingebundenen externen Untertiteln. Die Quelldateien bleiben dabei unverändert.
 
-![Media Manager mit zwei Serienfolgen; bei der aufgeklappten Folge stehen links die Spuren der Quelle und rechts die der fertigen Datei](docs/screenshot.jpg)
+![Media Manager mit zwei Serienfolgen; bei der aufgeklappten Folge stehen links die Spuren der Quelle und rechts die der fertigen Datei](docs/1.0.1.jpg)
 
 Links stehen die gefundenen Dateien, rechts die Zielnamen. Jede Datei lässt sich ausschließen, jeder Name bearbeiten, und pro Datei zeigt eine aufklappbare Übersicht, welche Spuren vorher da sind und welche in der fertigen Datei landen. Ein Klick auf **Anwenden** verarbeitet alles.
 
@@ -23,6 +23,8 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
   - Rekursiver Scan nach `.mkv`, `.mp4` und `.avi`; Dateien mit `sample` im Namen werden ignoriert
   - Dateien per Checkbox ausschließen, einzeln oder alle auf einmal
   - Aufklappbare Spurübersicht vorher → nachher, inklusive Peak-Wert der Tonspur und Anzahl der Untertitel-Einträge
+  - Die Liste steht nach wenigen Sekunden, auch bei einer ganzen Staffel: Beim Einlesen werden nur die Kopfdaten gelesen
+  - Was die ganze Datei braucht (Peak-Analyse und Untertitel-Zählung), läuft danach im Hintergrund in einem gemeinsamen Durchgang pro Datei; Uhr = wartet, Spinner = läuft, der Fortschritt steht in der Kopfzeile der Tabelle. Anwenden geht schon vorher, fehlende Scans werden dann vorgezogen
 - ✏️ **Renaming**
   - Schema `S01e02 - Titel {edition-…} {source-…}.mkv`, Staffel und Folge zweistellig; ohne Titel steht `Unknown`
   - Erkennt `S01E02`, `1x02` und alleinstehende `E01`
@@ -35,11 +37,11 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
   - Einheitliche Titel wie „Dolby Digital Plus 5.1“; Atmos, DTS:X, DTS-HD MA und DTS-HD HR werden über MediaInfo erkannt
   - Peak-Normalisierung: Die erste Tonspur wird gemessen (`volumedetect`) und als zusätzliche AC3-Spur (Stereo 384k, 5.1 640k) vorne eingefügt, mit einstellbarem Branding im Titel, z. B. „Dolby Digital 5.1 [Sky Mix]“
   - Mindest- und Maximal-Gain einstellbar, unterstützte Formate und Kanalzahlen per Checkbox
-  - Die Peak-Analyse läuft schon im Hintergrund, während man die Liste durchsieht; beim Anwenden muss dann nur noch geschrieben werden
+  - Der Peak wird im Hintergrund gemessen, während man die Liste durchsieht; beim Anwenden muss dann nur noch geschrieben werden
 - 💬 **Untertitel**
   - Externe Untertitel aus einem `Subs`-Ordner oder gleichnamige Dateien neben dem Video: `.idx/.sub` (VobSub), `.srt`, `.ass`, `.ssa`, `.sup` (PGS)
   - Sprache aus der Datei selbst oder aus dem Dateinamen (`-eng`, `.de`, `german` …), Forced und SDH ebenfalls aus dem Dateinamen
-  - Nicht markierte Forced-Spuren werden an ihren wenigen Einträgen erkannt (unter 1,5 pro Minute)
+  - Nicht markierte Forced-Spuren werden an ihren wenigen Einträgen erkannt (unter 1,5 pro Minute); bis die Einträge im Hintergrund gezählt sind, ist der Typ vorläufig
   - Pro Spur ein Chip mit dem Typ: Entfernt, Normal, Forced, SDH oder CC. Blau = von der App erkannt, grau = laut Datei, orange = manuell überschrieben; Linksklick schaltet weiter, Rechtsklick zurück
   - Manuell gewählte Spuren kommen immer in die Datei, auch wenn ihre Sprache nicht in der Liste steht
   - Pro Sprache und Typ bleibt nur die bevorzugte Spur, nach einstellbarer Format-Reihenfolge
@@ -47,8 +49,10 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
 - 🎞️ **TMDB**
   - Serie einmal bei [TMDB](https://www.themoviedb.org) suchen und zuordnen; der Suchbegriff wird aus Ordner- und Dateiname vorbelegt
   - Jede Folge bekommt per Staffel und Folge ihren Titel, auf Deutsch und ohne Übersetzung auf Englisch
-  - Pro Datei lässt sich die Episode per Dropdown umstellen, z. B. wenn TMDB eine Doppelfolge als eine Episode führt
-  - Optional wird das Episodenbild als `<Zielname>-thumb.jpg` neben der Datei gespeichert (wie es Jellyfin, Emby und Kodi erwarten)
+  - Pro Datei lässt sich die Episode per Dropdown umstellen, z. B. wenn TMDB eine Doppelfolge als eine Episode führt; Rechtsklick aufs Dropdown setzt wieder die erkannte Folge
+  - Links neben dem Zielnamen steht das Episodenbild, beim Überfahren groß (520 px)
+  - Viele Folgen haben bei TMDB mehrere Bilder: Klick aufs Episodenbild öffnet die Auswahl mit allen Bildern der Folge, Rechtsklick stellt das Standardbild wieder her; manuell gewählte Bilder sind orange umrandet
+  - Optional wird das gewählte Episodenbild in Originalgröße als `<Zielname>-thumb.jpg` neben der Datei gespeichert (wie es Jellyfin, Emby und Kodi erwarten)
 - 🎬 **Video & Metadaten**
   - Video wird verlustfrei kopiert oder optional neu encodiert (H.264, H.265, NVIDIA, Intel QSV, AV1) mit eigenen Encoder-Argumenten
   - Container- und Videotitel werden geleert, eine gleichnamige `.txt` neben der Datei wird als Beschreibung übernommen
@@ -69,7 +73,7 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
 1. **Input** und **Output** wählen. Beide Ordner werden gespeichert und beim nächsten Start wieder geöffnet.
 2. Unter **Verarbeitung** die gewünschten Schritte an- oder abschalten.
 3. Links Dateien ausschließen, die nicht verarbeitet werden sollen. Über den Pfeil vor einer Datei öffnet sich die Spurübersicht; dort lassen sich Untertitel per Klick auf den Chip übernehmen, entfernen oder umtypisieren.
-4. Bei Serien über **Serie zuordnen** die Serie bei TMDB auswählen. Die Folgentitel landen automatisch in den Zielnamen; unter jedem Namen lässt sich die Episode bei Bedarf umstellen.
+4. Bei Serien über **Serie zuordnen** die Serie bei TMDB auswählen. Die Folgentitel landen automatisch in den Zielnamen; unter jedem Namen lässt sich die Episode bei Bedarf umstellen und per Klick aufs Episodenbild ein anderes Bild wählen.
 5. Rechts die Zielnamen prüfen und bei Bedarf von Hand anpassen.
 6. **Anwenden** klicken. Fertige Dateien werden grün markiert, übersprungene und fehlerhafte zeigen ihren Grund im Tooltip.
 
@@ -116,11 +120,25 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 
 ### Struktur
 
-- `src/shared/`: reine Logik ohne Electron (Spurplanung, Renaming, externe Untertitel, ffmpeg-Argumente, Platzschätzung), getestet in `tests/`
-- `src/main/`: Electron-Main-Prozess (Scan, ffprobe und MediaInfo, Peak-Analyse, Ausführung, Einstellungen)
+- `src/shared/`: reine Logik ohne Electron (Spurplanung, Renaming, externe Untertitel, TMDB-Zuordnung, ffmpeg-Argumente, Platzschätzung), getestet in `tests/`
+- `src/main/`: Electron-Main-Prozess (Ordner-Scan, ffprobe und MediaInfo, Hintergrund-Scan für Peak und Untertitel-Zählung, TMDB-Abfragen, Ausführung, Einstellungen)
 - `src/preload/`: typisierte Brücke `window.api` zwischen Oberfläche und Main-Prozess
 - `src/renderer/`: React-Oberfläche mit Tailwind CSS und shadcn/ui-Komponenten
 - `scripts/corruption-checker.ts`: der Corruption-Checker
+
+## Changelog
+
+1.0.1 | TheMovieDatabase Integration
+
+- Exportieren von Thumbnails
+- Thumbnail Auswahl
+- Folgentitel können von TMDB zugewiesen werden, um sich das anschließende korrigieren zu sparen
+
+![Basis](docs/1.0.1.jpg)
+
+1.0.0 | Basis
+
+![Basis](docs/1.0.0.jpg)
 
 ## Verwendete Bibliotheken
 
