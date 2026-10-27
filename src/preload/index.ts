@@ -19,6 +19,7 @@ const api: MediaManagerApi = {
     tmdbSearch: (query, year) => ipcRenderer.invoke('tmdb:search', query, year),
     tmdbSeasons: (showId) => ipcRenderer.invoke('tmdb:seasons', showId),
     tmdbSeason: (showId, season) => ipcRenderer.invoke('tmdb:season', showId, season),
+    tmdbEpisodeImages: (showId, season, episode) => ipcRenderer.invoke('tmdb:episodeImages', showId, season, episode),
     tmdbTest: (apiKey) => ipcRenderer.invoke('tmdb:test', apiKey),
     listOutput: (dir) => ipcRenderer.invoke('output:list', dir),
     diskSpace: (dir) => ipcRenderer.invoke('disk:space', dir),

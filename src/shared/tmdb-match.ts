@@ -14,7 +14,7 @@ export interface EpisodeRef {
 
 const YEAR = /\b(19\d{2}|20\d{2})\b/g
 
-export function tmdbImageUrl(path: string, size: 'w92' | 'w185' | 'w300' | 'original' = 'original'): string {
+export function tmdbImageUrl(path: string, size: 'w92' | 'w185' | 'w300' | 'w780' | 'original' = 'original'): string {
     return `https://image.tmdb.org/t/p/${size}${path}`
 }
 

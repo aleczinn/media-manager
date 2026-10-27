@@ -28,6 +28,9 @@ export interface Row {
     episode: TmdbEpisode | null
     /** Episode wurde manuell gewählt (auch „keine Zuordnung“) */
     episodeManual: boolean
+    /** Episodenbild für Anzeige und -thumb.jpg (manuell gewählt oder Standardbild der Episode) */
+    stillPath: string | null
+    stillManual: boolean
     conflict: Conflict | null
     result: ApplyFileResult | undefined
 }
@@ -59,6 +62,7 @@ export function useDerived(): Derived {
     const scanStatus = useStore((s) => s.scanStatus)
     const tmdbEpisodes = useStore((s) => s.tmdb.episodes)
     const episodeOverrides = useStore((s) => s.episodeOverrides)
+    const stillOverrides = useStore((s) => s.stillOverrides)
 
     return useMemo(() => {
         if (!settings) {
@@ -101,6 +105,8 @@ export function useDerived(): Derived {
                     : null,
                 episode,
                 episodeManual,
+                stillPath: episode ? (stillOverrides[entry.file.id] ?? episode.stillPath) : null,
+                stillManual: !!episode && entry.file.id in stillOverrides,
                 result: results[entry.file.id]
             }
         })
@@ -126,7 +132,7 @@ export function useDerived(): Derived {
                 size: row.entry.file.size,
                 targetName: `${row.stem}.mkv`,
                 analysis: row.analysis!,
-                thumbUrl: settings.pipeline.saveThumbnails && row.episode?.stillPath ? tmdbImageUrl(row.episode.stillPath) : undefined
+                thumbUrl: settings.pipeline.saveThumbnails && row.stillPath ? tmdbImageUrl(row.stillPath) : undefined
             })),
             // Auch Dateien mit Namenskonflikt vorab scannen, der Konflikt wird meist noch behoben.
             // Peak und Zählung landen pro Datei in einem gemeinsamen Lesedurchgang; Bekanntes überspringt der Main-Prozess.
@@ -165,7 +171,8 @@ export function useDerived(): Derived {
         outputNames,
         results,
         tmdbEpisodes,
-        episodeOverrides
+        episodeOverrides,
+        stillOverrides
     ])
 }
 

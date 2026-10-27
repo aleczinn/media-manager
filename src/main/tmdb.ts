@@ -1,5 +1,5 @@
 import { isPlaceholderTitle } from '../shared/tmdb-match'
-import type { TmdbEpisode, TmdbResult, TmdbSeasonSummary, TmdbShow } from '../shared/types'
+import type { TmdbEpisode, TmdbImage, TmdbResult, TmdbSeasonSummary, TmdbShow } from '../shared/types'
 
 const API = 'https://api.themoviedb.org/3'
 const LANGUAGE = 'de-DE'
@@ -133,6 +133,19 @@ export function getSeason(apiKey: string, showId: number, season: number): Promi
                 stillPath: episode.still_path ?? english?.still_path ?? null
             }
         })
+    })
+}
+
+/** Alle Bilder (Stills) einer Episode, die am besten bewerteten zuerst */
+export function getEpisodeImages(apiKey: string, showId: number, season: number, episode: number): Promise<TmdbResult<TmdbImage[]>> {
+    return wrap(async () => {
+        const images = await request<{ stills?: { file_path: string; width: number; height: number; vote_average?: number }[] }>(
+            apiKey,
+            `/tv/${showId}/season/${season}/episode/${episode}/images`
+        )
+        return (images.stills ?? [])
+            .sort((a, b) => (b.vote_average ?? 0) - (a.vote_average ?? 0))
+            .map((still) => ({ path: still.file_path, width: still.width, height: still.height }))
     })
 }
 

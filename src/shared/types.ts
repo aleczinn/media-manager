@@ -158,6 +158,13 @@ export interface TmdbSeasonSummary {
     episodeCount: number
 }
 
+/** Ein Bild (Still) einer Episode bei TMDB */
+export interface TmdbImage {
+    path: string
+    width: number
+    height: number
+}
+
 /** Antwort der TMDB-Aufrufe: Daten oder eine verständliche Fehlermeldung */
 export type TmdbResult<T> = { ok: true; data: T } | { ok: false; error: string }
 
@@ -222,6 +229,7 @@ export interface MediaManagerApi {
     tmdbSearch(query: string, year: number | null): Promise<TmdbResult<TmdbShow[]>>
     tmdbSeasons(showId: number): Promise<TmdbResult<TmdbSeasonSummary[]>>
     tmdbSeason(showId: number, season: number): Promise<TmdbResult<TmdbEpisode[]>>
+    tmdbEpisodeImages(showId: number, season: number, episode: number): Promise<TmdbResult<TmdbImage[]>>
     tmdbTest(apiKey: string): Promise<TmdbResult<true>>
     listOutput(dir: string): Promise<string[]>
     diskSpace(dir: string): Promise<DiskSpace | null>
