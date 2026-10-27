@@ -45,6 +45,7 @@ const toDraft = (s: Settings): Draft => ({
     ffprobePath: s.ffprobePath,
     concurrency: s.concurrency,
     tmdbApiKey: s.tmdbApiKey,
+    fanartApiKey: s.fanartApiKey,
     spaceWarningGb: String(s.spaceWarningGb),
     normalizeMinGain: String(s.normalizeMinGain),
     normalizeMaxGain: String(s.normalizeMaxGain)
@@ -62,6 +63,7 @@ const fromDraft = (d: Draft): Partial<Settings> => ({
     ffmpegPath: d.ffmpegPath.trim(),
     ffprobePath: d.ffprobePath.trim(),
     tmdbApiKey: d.tmdbApiKey.trim(),
+    fanartApiKey: d.fanartApiKey.trim(),
     spaceWarningGb: Math.max(0, number(d.spaceWarningGb, DEFAULT_SETTINGS.spaceWarningGb)),
     normalizeMinGain: number(d.normalizeMinGain, DEFAULT_SETTINGS.normalizeMinGain),
     normalizeMaxGain: number(d.normalizeMaxGain, DEFAULT_SETTINGS.normalizeMaxGain)
@@ -129,6 +131,7 @@ export function SettingsDialog() {
     const onOpenChange = (next: boolean) => {
         if (next && settings) setDraft(toDraft(settings))
         if (next) setTmdbStatus(null)
+        if (next) setFanartStatus(null)
         setOpen(next)
     }
 
@@ -141,7 +144,14 @@ export function SettingsDialog() {
         setTmdbStatus(result.ok ? { ok: true, text: 'Verbindung erfolgreich' } : { ok: false, text: result.error })
     }
 
-    const bind = (key: NumberKey | 'audioBranding' | 'videoEncodeArgs' | 'ffmpegPath' | 'ffprobePath' | 'tmdbApiKey') => ({
+    const [fanartStatus, setFanartStatus] = useState<{ ok: boolean; text: string } | null>(null)
+    const testFanart = async () => {
+        setFanartStatus({ ok: true, text: 'Prüfe …' })
+        const result = await window.api.fanartTest(draft?.fanartApiKey.trim() ?? '')
+        setFanartStatus(result.ok ? { ok: true, text: 'Verbindung erfolgreich' } : { ok: false, text: result.error })
+    }
+
+    const bind = (key: NumberKey | 'audioBranding' | 'videoEncodeArgs' | 'ffmpegPath' | 'ffprobePath' | 'tmdbApiKey' | 'fanartApiKey') => ({
         value: draft?.[key] ?? '',
         onChange: (event: { target: { value: string } }) => set(key, event.target.value)
     })
@@ -164,7 +174,8 @@ export function SettingsDialog() {
                 ...DEFAULT_SETTINGS,
                 ffmpegPath: draft?.ffmpegPath ?? '',
                 ffprobePath: draft?.ffprobePath ?? '',
-                tmdbApiKey: draft?.tmdbApiKey ?? ''
+                tmdbApiKey: draft?.tmdbApiKey ?? '',
+                fanartApiKey: draft?.fanartApiKey ?? ''
             })
         )
 
@@ -407,6 +418,37 @@ export function SettingsDialog() {
                                     erzeugen.
                                 </span>
                                 <span>This product uses the TMDB API but is not endorsed or certified by TMDB.</span>
+                            </div>
+                        </Group>
+
+                        <Group title="Fanart.tv">
+                            <Field
+                                label="API-Key"
+                                hint="Persönlicher Key für weitere Cover, Staffelposter, Logos, Backdrops und Landscape-Bilder"
+                            >
+                                <Input {...bind('fanartApiKey')} type="password" placeholder="leer = nur Bilder von TMDB" />
+                                <Button variant="secondary" onClick={testFanart} disabled={!draft.fanartApiKey.trim()}>
+                                    Testen
+                                </Button>
+                            </Field>
+                            <div className="flex flex-col gap-1.5 pl-[216px] text-xs text-muted-foreground">
+                                {fanartStatus && (
+                                    <span className={cn('flex items-center gap-1', fanartStatus.ok ? 'text-success' : 'text-destructive')}>
+                                        {fanartStatus.ok ? <CheckCircle2 className="size-3.5" /> : <XCircle className="size-3.5" />}
+                                        {fanartStatus.text}
+                                    </span>
+                                )}
+                                <span>
+                                    Kostenloser Key: Konto bei Fanart.tv anlegen, dann unter{' '}
+                                    <button
+                                        type="button"
+                                        className="text-primary underline-offset-2 hover:underline"
+                                        onClick={() => window.api.openExternal('https://fanart.tv/get-an-api-key/')}
+                                    >
+                                        fanart.tv/get-an-api-key
+                                    </button>{' '}
+                                    erzeugen.
+                                </span>
                             </div>
                         </Group>
                     </div>

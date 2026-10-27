@@ -1,6 +1,7 @@
 import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import type { ScanRequest } from '../shared/peak'
-import type { ApplyJob, MediaFile, Settings } from '../shared/types'
+import type { ApplyJob, ArtworkJob, ArtworkRequest, MediaFile, Settings } from '../shared/types'
+import { exportArtwork, loadArtworkCandidates } from './artwork'
 import { getDiskSpace } from './disk-space'
 import { checkFfmpeg, resolveBinaries } from './ffmpeg'
 import { analyzeFile } from './metadata'
@@ -8,7 +9,8 @@ import { ScanService } from './scan-service'
 import { Runner } from './runner'
 import { findMediaFiles, listOutputNames } from './scanner'
 import { loadSettings, saveSettings } from './settings-store'
-import { getEpisodeImages, getSeason, getSeasons, searchTv, testKey } from './tmdb'
+import { testFanartKey } from './fanart'
+import { getEpisodeImages, getSeason, getSeasons, searchMovie, searchTv, testKey } from './tmdb'
 
 // Die Analyse liest nur Kopfdaten (das komplette Lesen passiert im Hintergrund-Scan), daher mehr gleichzeitig
 const ANALYZE_CONCURRENCY = 4
@@ -83,11 +85,17 @@ export function registerIpc(getWindow: () => BrowserWindow | null): { runner: Ru
     ipcMain.handle('output:list', (_event, dir: string) => listOutputNames(dir))
     ipcMain.handle('disk:space', (_event, dir: string) => getDiskSpace(dir))
 
-    ipcMain.handle('apply:start', (_event, jobs: ApplyJob[], outputDir: string) =>
-        runner.run(jobs, outputDir, loadSettings(), {
-            progress: (progress) => send('apply:progress', progress),
-            fileDone: (result) => send('apply:fileDone', result)
-        })
+    ipcMain.handle('apply:start', (_event, jobs: ApplyJob[], outputDir: string, artwork: ArtworkJob[]) =>
+        runner.run(
+            jobs,
+            outputDir,
+            loadSettings(),
+            {
+                progress: (progress) => send('apply:progress', progress),
+                fileDone: (result) => send('apply:fileDone', result)
+            },
+            artwork
+        )
     )
     ipcMain.handle('apply:cancel', () => runner.cancel())
 
@@ -105,7 +113,12 @@ export function registerIpc(getWindow: () => BrowserWindow | null): { runner: Ru
     ipcMain.handle('tmdb:episodeImages', (_event, showId: number, season: number, episode: number) =>
         getEpisodeImages(loadSettings().tmdbApiKey, showId, season, episode)
     )
+    ipcMain.handle('tmdb:searchMovie', (_event, query: string, year: number | null) => searchMovie(loadSettings().tmdbApiKey, query, year))
     ipcMain.handle('tmdb:test', (_event, apiKey: string) => testKey(apiKey))
+    ipcMain.handle('fanart:test', (_event, apiKey: string) => testFanartKey(apiKey))
+
+    ipcMain.handle('artwork:candidates', (_event, request: ArtworkRequest) => loadArtworkCandidates(loadSettings(), request))
+    ipcMain.handle('artwork:export', (_event, jobs: ArtworkJob[], outputDir: string) => exportArtwork(jobs, outputDir, loadSettings()))
 
     return { runner, scans }
 }

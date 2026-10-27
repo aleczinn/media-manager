@@ -6,6 +6,9 @@ directories:
 files:
     - out/**/*
     - package.json
+extraResources:
+    - from: resources/overlays
+      to: overlays
 asarUnpack:
     - node_modules/mediainfo.js/**
 win:

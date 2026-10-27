@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
+import type { ArtworkJob } from '@shared/types'
 import type { Derived } from '@/lib/rows'
 import { useStore } from '@/lib/store'
 import { cn, formatDuration } from '@/lib/utils'
@@ -98,7 +99,7 @@ function RunProgress() {
     )
 }
 
-export function ApplyBar({ derived }: { derived: Derived }) {
+export function ApplyBar({ derived, artworkJobs }: { derived: Derived; artworkJobs: ArtworkJob[] }) {
     const settings = useStore((s) => s.settings)
     const ffmpeg = useStore((s) => s.ffmpeg)
     const disk = useStore((s) => s.disk)
@@ -145,6 +146,18 @@ export function ApplyBar({ derived }: { derived: Derived }) {
                                 {summary.skipped > 0 && <span className="text-warning"> · {summary.skipped} übersprungen</span>}
                                 {summary.error > 0 && <span className="text-destructive"> · {summary.error} Fehler</span>}
                                 {summary.cancelled > 0 && <span> · {summary.cancelled} abgebrochen</span>}
+                                {summary.artwork && (
+                                    <span
+                                        className={summary.artwork.every((result) => result.ok) ? undefined : 'text-destructive'}
+                                        title={summary.artwork
+                                            .filter((result) => !result.ok)
+                                            .map((result) => `${result.fileName}: ${result.message}`)
+                                            .join('\n')}
+                                    >
+                                        {' '}
+                                        · {summary.artwork.filter((result) => result.ok).length}/{summary.artwork.length} Bilder
+                                    </span>
+                                )}
                             </span>
                         )}
                         {blocker && <span className="ml-auto text-xs">{blocker}</span>}
@@ -157,7 +170,7 @@ export function ApplyBar({ derived }: { derived: Derived }) {
                         Abbrechen
                     </Button>
                 ) : (
-                    <Button size="lg" onClick={() => apply(jobs)} disabled={!!blocker}>
+                    <Button size="lg" onClick={() => apply(jobs, settings?.pipeline.saveArtwork ? artworkJobs : [])} disabled={!!blocker}>
                         <Play className="fill-current" />
                         Anwenden{jobs.length > 0 && ` (${jobs.length})`}
                     </Button>

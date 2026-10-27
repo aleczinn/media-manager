@@ -1,11 +1,12 @@
 import { isPlaceholderTitle } from '../shared/tmdb-match'
-import type { TmdbEpisode, TmdbImage, TmdbResult, TmdbSeasonSummary, TmdbShow } from '../shared/types'
+import type { ArtworkCandidate, TmdbEpisode, TmdbImage, TmdbMovie, TmdbResult, TmdbSeasonSummary, TmdbShow } from '../shared/types'
 
 const API = 'https://api.themoviedb.org/3'
+const IMAGE = 'https://image.tmdb.org/t/p'
 const LANGUAGE = 'de-DE'
 const FALLBACK_LANGUAGE = 'en-US'
 
-class TmdbError extends Error {}
+export class TmdbError extends Error {}
 
 interface RawShow {
     id: number
@@ -14,6 +15,23 @@ interface RawShow {
     first_air_date?: string
     overview?: string
     poster_path?: string | null
+}
+
+interface RawMovie {
+    id: number
+    title: string
+    original_title: string
+    release_date?: string
+    overview?: string
+    poster_path?: string | null
+}
+
+interface RawImage {
+    file_path: string
+    width: number
+    height: number
+    vote_average?: number
+    iso_639_1?: string | null
 }
 
 interface RawEpisode {
@@ -65,7 +83,7 @@ async function request<T>(apiKey: string, path: string, params: Record<string, s
     return promise
 }
 
-async function wrap<T>(run: () => Promise<T>): Promise<TmdbResult<T>> {
+export async function wrap<T>(run: () => Promise<T>): Promise<TmdbResult<T>> {
     try {
         return { ok: true, data: await run() }
     } catch (error) {
@@ -82,6 +100,15 @@ const toShow = (raw: RawShow): TmdbShow => ({
     posterPath: raw.poster_path ?? null
 })
 
+const toMovie = (raw: RawMovie): TmdbMovie => ({
+    id: raw.id,
+    name: raw.title,
+    originalName: raw.original_title,
+    year: raw.release_date ? Number(raw.release_date.slice(0, 4)) || null : null,
+    overview: raw.overview ?? '',
+    posterPath: raw.poster_path ?? null
+})
+
 /** Sucht Serien; ohne Treffer mit Jahr wird ohne Jahr nochmal gesucht */
 export function searchTv(apiKey: string, query: string, year: number | null): Promise<TmdbResult<TmdbShow[]>> {
     return wrap(async () => {
@@ -94,6 +121,21 @@ export function searchTv(apiKey: string, query: string, year: number | null): Pr
         let { results } = await search(true)
         if (results.length === 0 && year) results = (await search(false)).results
         return results.map(toShow)
+    })
+}
+
+/** Sucht Filme; ohne Treffer mit Jahr wird ohne Jahr nochmal gesucht */
+export function searchMovie(apiKey: string, query: string, year: number | null): Promise<TmdbResult<TmdbMovie[]>> {
+    return wrap(async () => {
+        const search = (withYear: boolean) =>
+            request<{ results: RawMovie[] }>(apiKey, '/search/movie', {
+                query,
+                language: LANGUAGE,
+                ...(withYear && year ? { primary_release_year: String(year) } : {})
+            })
+        let { results } = await search(true)
+        if (results.length === 0 && year) results = (await search(false)).results
+        return results.map(toMovie)
     })
 }
 
@@ -147,6 +189,54 @@ export function getEpisodeImages(apiKey: string, showId: number, season: number,
             .sort((a, b) => (b.vote_average ?? 0) - (a.vote_average ?? 0))
             .map((still) => ({ path: still.file_path, width: still.width, height: still.height }))
     })
+}
+
+const IMAGE_LANGUAGES = { include_image_language: 'de,en,null' }
+
+/** Wandelt ein TMDB-Bild in einen Vorschlag; Logos gibt es teils nur als SVG, die fallen weg */
+function toCandidate(image: RawImage, previewSize: string): ArtworkCandidate | null {
+    if (!/\.(jpe?g|png)$/i.test(image.file_path)) return null
+    return {
+        source: 'tmdb',
+        url: `${IMAGE}/original${image.file_path}`,
+        previewUrl: `${IMAGE}/${previewSize}${image.file_path}`,
+        lang: image.iso_639_1 || null,
+        width: image.width,
+        height: image.height,
+        score: image.vote_average ?? 0
+    }
+}
+
+const toCandidates = (images: RawImage[] | undefined, previewSize: string) =>
+    (images ?? []).map((image) => toCandidate(image, previewSize)).filter((candidate) => candidate !== null)
+
+/** Poster, Hintergründe und Logos einer Serie oder eines Films (Deutsch, Englisch und ohne Text) */
+export async function getTmdbArtwork(
+    apiKey: string,
+    kind: 'tv' | 'movie',
+    id: number
+): Promise<{ poster: ArtworkCandidate[]; backdrop: ArtworkCandidate[]; logo: ArtworkCandidate[] }> {
+    const images = await request<{ posters?: RawImage[]; backdrops?: RawImage[]; logos?: RawImage[] }>(
+        apiKey,
+        `/${kind}/${id}/images`,
+        IMAGE_LANGUAGES
+    )
+    return {
+        poster: toCandidates(images.posters, 'w342'),
+        backdrop: toCandidates(images.backdrops, 'w780'),
+        logo: toCandidates(images.logos, 'w500')
+    }
+}
+
+export async function getTmdbSeasonPosters(apiKey: string, showId: number, season: number): Promise<ArtworkCandidate[]> {
+    const images = await request<{ posters?: RawImage[] }>(apiKey, `/tv/${showId}/season/${season}/images`, IMAGE_LANGUAGES)
+    return toCandidates(images.posters, 'w342')
+}
+
+/** TheTVDB-ID einer Serie, über die Fanart.tv Serien findet */
+export async function getTvdbId(apiKey: string, showId: number): Promise<number | null> {
+    const ids = await request<{ tvdb_id?: number | null }>(apiKey, `/tv/${showId}/external_ids`)
+    return ids.tvdb_id ?? null
 }
 
 /** Prüft einen (noch nicht gespeicherten) Key */

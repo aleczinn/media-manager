@@ -46,6 +46,42 @@ export function seriesQueryFromFile(file: { name: string; fullPath: string; rela
     return null
 }
 
+/** Typische Release-Angaben, ab denen kein Titel mehr folgt */
+const RELEASE_TAG =
+    /(german|deutsch|dl|ml|multi|complete|extended|uncut|unrated|remastered|directors?|imax|upscale|upsuhd|regrade|hdr|hdr10|dv|dovi|2160p|1080p|720p|576p|480p|4k|uhd|bluray|blu-ray|bdrip|brrip|remux|web|webrip|web-dl|webdl|hdtv|dvdrip|x264|x265|h264|h265|hevc|avc|av1|aac|ac3|eac3|dts|truehd|atmos)/i
+
+/** Titel und Jahr eines Films aus einem Datei- oder Ordnernamen, z. B. „Dune.Part.Two.2024.German.DL.2160p“ */
+function movieQueryFromName(name: string, maxYear: number): SeriesQuery | null {
+    const text = name.replace(/[._]+/g, ' ').replace(/\s+/g, ' ').trim()
+    const tagIndex = text.search(RELEASE_TAG)
+    const head = tagIndex > 0 ? text.slice(0, tagIndex) : text
+    const years = (part: string) =>
+        [...part.matchAll(YEAR)].filter((match) => match.index > 0 && Number(match[0]) <= maxYear).map((match) => match.index)
+
+    // Die letzte plausible Jahreszahl vor den Release-Angaben, nicht am Anfang („Wonder Woman 1984 2020“, „2012 2009“).
+    // Ohne Jahr davor zählt die erste danach, falls ein Titelwort wie „Web“ die Angaben zu früh beginnen ließ.
+    const yearIndex = years(head).pop() ?? years(text)[0] ?? -1
+    const year = yearIndex > 0 ? Number(text.slice(yearIndex, yearIndex + 4)) : null
+
+    const title = (yearIndex > 0 ? text.slice(0, yearIndex) : head)
+        .replace(/[()[\]{}]/g, ' ')
+        .replace(/\s*-\s*$/, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+    return title ? { query: title, year } : null
+}
+
+/** Suchbegriff für die Filmsuche: zuerst Dateiname, dann die Ordner (bevorzugt einer mit Jahr) */
+export function movieQueryFromFile(
+    file: { name: string; fullPath: string; relativePath?: string },
+    maxYear = new Date().getFullYear() + 1
+): SeriesQuery | null {
+    const queries = [file.name, ...sourceFolders(file)]
+        .map((name) => movieQueryFromName(name, maxYear))
+        .filter((query): query is SeriesQuery => query !== null)
+    return queries.find((query) => query.year !== null) ?? queries[0] ?? null
+}
+
 /** Episode, die laut Dateiname (SxxEyy) zur Datei gehört */
 export function episodeRefFromName(name: string): EpisodeRef | null {
     const parsed = parseEpisode(name)

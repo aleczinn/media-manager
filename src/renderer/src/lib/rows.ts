@@ -3,7 +3,7 @@ import { findConflicts, type Conflict } from '@shared/conflicts'
 import { subtitleTrackId } from '@shared/external-subs'
 import { fileKey, peakKey, type ScanRequest, type ScanStatus } from '@shared/peak'
 import { hasUncountedSubtitles, planTracks, withSubtitleCounts, type TrackPlan } from '@shared/pipeline'
-import { buildTargetStem } from '@shared/rename'
+import { buildTargetStem, parseEpisode } from '@shared/rename'
 import { estimateRequiredBytes } from '@shared/space'
 import { episodeRefFromName, findEpisode, sanitizeTitle, tmdbImageUrl } from '@shared/tmdb-match'
 import type { ApplyFileResult, ApplyJob, FileAnalysis, SubtitleOverride, TmdbEpisode } from '@shared/types'
@@ -31,6 +31,8 @@ export interface Row {
     /** Episodenbild für Anzeige und -thumb.jpg (manuell gewählt oder Standardbild der Episode) */
     stillPath: string | null
     stillManual: boolean
+    /** Hauptdatei des zugeordneten Films (bekommt den Filmnamen) */
+    movieMain: boolean
     conflict: Conflict | null
     result: ApplyFileResult | undefined
 }
@@ -63,6 +65,7 @@ export function useDerived(): Derived {
     const tmdbEpisodes = useStore((s) => s.tmdb.episodes)
     const episodeOverrides = useStore((s) => s.episodeOverrides)
     const stillOverrides = useStore((s) => s.stillOverrides)
+    const movie = useStore((s) => s.tmdb.movie)
 
     return useMemo(() => {
         if (!settings) {
@@ -78,12 +81,24 @@ export function useDerived(): Derived {
             }
         }
 
+        // Bei einem Film bekommt nur die größte Datei ohne Episodenangabe den Filmnamen, Extras behalten ihren
+        const movieMainId = movie
+            ? files
+                  .filter((entry) => !excluded[entry.file.id] && !parseEpisode(entry.file.name))
+                  .reduce<FileEntry | null>((largest, entry) => (!largest || entry.file.size > largest.file.size ? entry : largest), null)
+                  ?.file.id
+            : undefined
+
         const base = files.map((entry) => {
+            const movieMain = entry.file.id === movieMainId
             const episodeManual = entry.file.id in episodeOverrides
             const ref = episodeManual ? episodeOverrides[entry.file.id] : episodeRefFromName(entry.file.name)
             const episode = tmdbEpisodes.length > 0 ? findEpisode(tmdbEpisodes, ref) : null
             const title = episode ? sanitizeTitle(episode.title) : ''
-            const autoStem = settings.pipeline.renameFile ? buildTargetStem(entry.file, settings.defaultSource, title) : entry.file.name
+            const movieName = movieMain && movie ? { title: sanitizeTitle(movie.name), year: movie.year } : null
+            const autoStem = settings.pipeline.renameFile
+                ? buildTargetStem(entry.file, settings.defaultSource, title, movieName)
+                : entry.file.name
             const override = overrides[entry.file.id]
             const key = fileKey({ inputPath: entry.file.fullPath, size: entry.file.size })
             const counts = subtitleCounts[key]
@@ -107,6 +122,7 @@ export function useDerived(): Derived {
                 episodeManual,
                 stillPath: episode ? (stillOverrides[entry.file.id] ?? episode.stillPath) : null,
                 stillManual: !!episode && entry.file.id in stillOverrides,
+                movieMain,
                 result: results[entry.file.id]
             }
         })
@@ -172,7 +188,8 @@ export function useDerived(): Derived {
         results,
         tmdbEpisodes,
         episodeOverrides,
-        stillOverrides
+        stillOverrides,
+        movie
     ])
 }
 

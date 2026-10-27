@@ -10,7 +10,11 @@ const OPTIONS: { key: keyof Options; label: string; hint: string }[] = [
         label: 'Normalisieren',
         hint: 'Erste Tonspur peak-normalisiert als zusätzliche AC3-Spur (mit Branding) vorne einfügen'
     },
-    { key: 'renameFile', label: 'Datei umbenennen', hint: 'Zielname nach Schema S01E02 - Titel {edition-…} {source-…}' },
+    {
+        key: 'renameFile',
+        label: 'Datei umbenennen',
+        hint: 'Zielname nach Schema S01E02 - Titel {edition-…} {source-…} bzw. bei Filmen Titel (Jahr) {edition-…} {source-…}'
+    },
     {
         key: 'filterLanguages',
         label: 'Sprachen filtern',
@@ -37,7 +41,12 @@ const OPTIONS: { key: keyof Options; label: string; hint: string }[] = [
     {
         key: 'saveThumbnails',
         label: 'Vorschaubild speichern',
-        hint: 'Episodenbild von TMDB als <Zielname>-thumb.jpg neben der Datei speichern (nur mit zugeordneter Serie)'
+        hint: 'Episodenbild von TMDB als <Zielname>-thumb.jpg neben der Datei speichern, höchstens 1920×1080 (nur mit zugeordneter Serie)'
+    },
+    {
+        key: 'saveArtwork',
+        label: 'Bilder speichern',
+        hint: 'Cover, Staffelposter, Logo, Backdrop und Landscape aus dem Bilder-Tab in den Output-Ordner schreiben'
     }
 ]
 

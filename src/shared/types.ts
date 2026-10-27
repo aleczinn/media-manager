@@ -1,3 +1,4 @@
+import type { OverlayId } from './overlays'
 import type { PeakUpdate, ScanRequest, ScanStatusUpdate, SubtitleCountsUpdate } from './peak'
 
 export interface MediaFile {
@@ -103,6 +104,8 @@ export interface PipelineOptions {
     encodeVideo: boolean
     /** Episodenbild von TMDB als `<Zielname>-thumb.jpg` speichern (nur mit zugeordneter Serie) */
     saveThumbnails: boolean
+    /** Cover, Staffelposter, Logo, Backdrop und Landscape aus dem Bilder-Tab in den Output-Ordner schreiben */
+    saveArtwork: boolean
 }
 
 export interface Settings {
@@ -133,6 +136,8 @@ export interface Settings {
     concurrency: number
     /** TMDB API-Key (v3) oder Read Access Token; leer = keine TMDB-Anbindung */
     tmdbApiKey: string
+    /** Persönlicher Fanart.tv-API-Key; leer = nur TMDB als Bildquelle */
+    fanartApiKey: string
     pipeline: PipelineOptions
 }
 
@@ -144,6 +149,9 @@ export interface TmdbShow {
     overview: string
     posterPath: string | null
 }
+
+/** Film bei TMDB, gleiche Felder wie eine Serie (Titel, Originaltitel, Jahr aus dem Kinostart) */
+export type TmdbMovie = TmdbShow
 
 export interface TmdbEpisode {
     season: number
@@ -163,6 +171,62 @@ export interface TmdbImage {
     path: string
     width: number
     height: number
+}
+
+export type ArtworkKind = 'poster' | 'logo' | 'backdrop' | 'landscape'
+
+/** Ein Bildvorschlag von TMDB oder Fanart.tv */
+export interface ArtworkCandidate {
+    source: 'tmdb' | 'fanart'
+    /** Bild in voller Größe (für den Export) */
+    url: string
+    /** Kleinere Fassung für Vorschau und Auswahl */
+    previewUrl: string
+    /** Sprache des Bildtexts, `null` = ohne Text */
+    lang: string | null
+    width?: number
+    height?: number
+    /** Bewertung (TMDB) bzw. Likes (Fanart.tv) */
+    score: number
+    /** Backdrop, das zusätzlich als Landscape angeboten wird */
+    fromBackdrop?: boolean
+}
+
+export interface ArtworkCandidates {
+    poster: ArtworkCandidate[]
+    logo: ArtworkCandidate[]
+    backdrop: ArtworkCandidate[]
+    landscape: ArtworkCandidate[]
+    /** Staffelposter je Staffelnummer (nur Serien) */
+    seasons: Record<number, ArtworkCandidate[]>
+}
+
+export interface ArtworkRequest {
+    kind: 'tv' | 'movie'
+    tmdbId: number
+    /** Staffeln, für die Poster geladen werden */
+    seasons: number[]
+}
+
+/** Antwort auf `artworkCandidates`; Fehler einer Quelle landen in `warnings`, die andere liefert trotzdem */
+export interface ArtworkLoadResult {
+    candidates: ArtworkCandidates
+    warnings: string[]
+}
+
+/** Ein Bild, das in den Output-Ordner geschrieben wird */
+export interface ArtworkJob {
+    fileName: string
+    url: string
+    kind: ArtworkKind
+    /** Nur bei Postern: Overlays, die darübergelegt werden */
+    overlays: OverlayId[]
+}
+
+export interface ArtworkResult {
+    fileName: string
+    ok: boolean
+    message?: string
 }
 
 /** Antwort der TMDB-Aufrufe: Daten oder eine verständliche Fehlermeldung */
@@ -215,6 +279,8 @@ export interface ApplySummary {
     skipped: number
     error: number
     cancelled: number
+    /** Ergebnis der Bilder (Cover, Staffelposter …), falls welche mitgeschrieben wurden */
+    artwork?: ArtworkResult[]
 }
 
 export interface MediaManagerApi {
@@ -227,13 +293,17 @@ export interface MediaManagerApi {
     analyze(requestId: number, files: MediaFile[]): Promise<void>
     prefetchScans(requests: ScanRequest[]): Promise<void>
     tmdbSearch(query: string, year: number | null): Promise<TmdbResult<TmdbShow[]>>
+    tmdbSearchMovie(query: string, year: number | null): Promise<TmdbResult<TmdbMovie[]>>
     tmdbSeasons(showId: number): Promise<TmdbResult<TmdbSeasonSummary[]>>
     tmdbSeason(showId: number, season: number): Promise<TmdbResult<TmdbEpisode[]>>
     tmdbEpisodeImages(showId: number, season: number, episode: number): Promise<TmdbResult<TmdbImage[]>>
     tmdbTest(apiKey: string): Promise<TmdbResult<true>>
+    fanartTest(apiKey: string): Promise<TmdbResult<true>>
+    artworkCandidates(request: ArtworkRequest): Promise<TmdbResult<ArtworkLoadResult>>
+    exportArtwork(jobs: ArtworkJob[], outputDir: string): Promise<ArtworkResult[]>
     listOutput(dir: string): Promise<string[]>
     diskSpace(dir: string): Promise<DiskSpace | null>
-    apply(jobs: ApplyJob[], outputDir: string): Promise<ApplySummary>
+    apply(jobs: ApplyJob[], outputDir: string, artwork: ArtworkJob[]): Promise<ApplySummary>
     cancelApply(): Promise<void>
     openPath(path: string): Promise<void>
     openExternal(url: string): Promise<void>

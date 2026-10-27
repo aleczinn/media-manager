@@ -5,10 +5,10 @@ import type { ChildProcess } from 'node:child_process'
 import { buildFfmpegArgs } from '../shared/build-args'
 import { decideGain } from '../shared/peak'
 import { hasUncountedSubtitles, planTracks, withSubtitleCounts } from '../shared/pipeline'
-import type { ApplyFileResult, ApplyJob, ApplyPhase, ApplyProgress, ApplySummary, Settings } from '../shared/types'
+import type { ApplyFileResult, ApplyJob, ApplyPhase, ApplyProgress, ApplySummary, ArtworkJob, Settings } from '../shared/types'
+import { exportArtwork, renderImage } from './artwork'
 import { parseProgressLine, resolveBinaries, runProcess } from './ffmpeg'
 import { clampConcurrency, type ScanService } from './scan-service'
-import { downloadImage } from './tmdb'
 
 export interface RunnerEvents {
     progress(progress: ApplyProgress): void
@@ -36,7 +36,13 @@ export class Runner {
         this.cancelWaiters.forEach((wake) => wake())
     }
 
-    async run(jobs: ApplyJob[], outputDir: string, settings: Settings, events: RunnerEvents): Promise<ApplySummary> {
+    async run(
+        jobs: ApplyJob[],
+        outputDir: string,
+        settings: Settings,
+        events: RunnerEvents,
+        artwork: ArtworkJob[] = []
+    ): Promise<ApplySummary> {
         if (this.running) throw new Error('Es läuft bereits ein Vorgang')
         this.running = true
         this.cancelled = false
@@ -59,6 +65,9 @@ export class Runner {
                 }
             }
             await Promise.all(Array.from({ length: Math.min(clampConcurrency(settings.concurrency), jobs.length) }, worker))
+
+            // Cover, Staffelposter und Co. nach den Videos; die Bilder gelten für den ganzen Ordner
+            if (artwork.length > 0 && !this.cancelled) summary.artwork = await exportArtwork(artwork, outputDir, settings)
         } finally {
             this.running = false
             this.children.clear()
@@ -168,7 +177,7 @@ export class Runner {
             if (job.thumbUrl) {
                 // Ein fehlendes Bild macht die fertige Datei nicht kaputt, es wird nur vermerkt
                 try {
-                    await saveThumbnail(job.thumbUrl, targetPath)
+                    await renderImage(settings, job.thumbUrl, 'thumb', targetPath.replace(/\.mkv$/i, '') + '-thumb.jpg')
                     notes.push('Vorschaubild gespeichert')
                 } catch (error) {
                     notes.push(`Vorschaubild fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`)
@@ -197,18 +206,6 @@ export class Runner {
 
     private throwIfCancelled(): void {
         if (this.cancelled) throw new CancelledError()
-    }
-}
-
-/** Speichert das Episodenbild als `<Zielname>-thumb.jpg` neben der MKV (erst als .partial, dann umbenannt) */
-async function saveThumbnail(url: string, targetPath: string): Promise<void> {
-    const thumbPath = targetPath.replace(/\.mkv$/i, '') + '-thumb.jpg'
-    const tempPath = `${thumbPath}.partial`
-    try {
-        await fsp.writeFile(tempPath, await downloadImage(url))
-        await fsp.rename(tempPath, thumbPath)
-    } finally {
-        await fsp.rm(tempPath, { force: true }).catch(() => undefined)
     }
 }
 
