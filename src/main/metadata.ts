@@ -2,6 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import mediaInfoFactory, { type MediaInfo } from 'mediainfo.js'
 import { subtitleHintsFromFilename } from '../shared/external-subs'
+import { analysisKey } from '../shared/peak'
 import type { AudioTrackInfo, FileAnalysis, MediaFile, SubtitleTrackInfo, VideoTrackInfo } from '../shared/types'
 import { runProcess } from './ffmpeg'
 
@@ -107,6 +108,23 @@ async function runMediaInfo(file: string): Promise<MediaInfoTrack[]> {
 
 const str = (value: unknown): string => (value === undefined || value === null ? '' : String(value))
 const flag = (stream: FfprobeStream, key: string): boolean => stream.disposition?.[key] === 1
+
+const analyses = new Map<string, Promise<FileAnalysis>>()
+
+/**
+ * Wie `analyzeFile`, aber bis zum Programmende gemerkt: Erneutes Einlesen zeigt bekannte Dateien sofort.
+ * Geänderte Dateien (Größe, Änderungszeit, externe Untertitel) bekommen einen neuen Schlüssel; Fehler werden nicht gemerkt.
+ */
+export function analyzeFileCached(file: MediaFile, ffprobe: string): Promise<FileAnalysis> {
+    const key = analysisKey(file)
+    let analysis = analyses.get(key)
+    if (!analysis) {
+        analysis = analyzeFile(file, ffprobe)
+        analyses.set(key, analysis)
+        analysis.catch(() => analyses.delete(key))
+    }
+    return analysis
+}
 
 /**
  * Liest die Spuren einer Datei. Grundlage sind die ffprobe-Streams (das sieht ffmpeg später),

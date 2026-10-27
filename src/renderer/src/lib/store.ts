@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { ArtworkSlot } from '@shared/artwork'
 import type { OverlayId } from '@shared/overlays'
-import type { PeakState, ScanStatus } from '@shared/peak'
+import { analysisKey, type PeakState, type ScanStatus } from '@shared/peak'
 import type { EpisodeRef } from '@shared/tmdb-match'
 import type {
     ApplyFileResult,
@@ -90,6 +90,8 @@ interface State {
     files: FileEntry[]
     scanning: boolean
     analyzeRequest: number
+    /** Zuletzt eingelesener Input-Ordner; erneutes Einlesen desselben Ordners behält Eingaben und Zuordnung */
+    scannedDir: string | null
     excluded: Record<string, boolean>
     /** Vom Nutzer bearbeitete Zielnamen (ohne .mkv) */
     overrides: Record<string, string>
@@ -171,6 +173,7 @@ export const useStore = create<State>()((set, get) => ({
     files: [],
     scanning: false,
     analyzeRequest: 0,
+    scannedDir: null,
     excluded: {},
     overrides: {},
     typeOverrides: {},
@@ -265,23 +268,45 @@ export const useStore = create<State>()((set, get) => ({
         const dir = get().settings?.inputDir
         if (!dir || get().run.running) return
 
-        // Peak- und Zählergebnisse bleiben erhalten: Sie hängen an Pfad + Größe und gelten auch nach erneutem Einlesen
+        // Peak- und Zählergebnisse bleiben immer erhalten: Sie hängen an Pfad + Größe und gelten auch nach erneutem Einlesen.
+        // Derselbe Ordner noch einmal (Aktualisieren) behält zusätzlich Eingaben, Analysen und die TMDB-Zuordnung.
+        const refresh = dir === get().scannedDir
         const requestId = get().analyzeRequest + 1
         set({
             scanning: true,
             analyzeRequest: requestId,
-            files: [],
-            excluded: {},
-            overrides: {},
-            typeOverrides: {},
-            expanded: {},
-            ...emptyMedia,
-            run: emptyRun
+            run: emptyRun,
+            ...(refresh ? {} : { scannedDir: dir, files: [], excluded: {}, overrides: {}, typeOverrides: {}, expanded: {}, ...emptyMedia })
         })
         try {
             const files = await window.api.scan(dir)
-            set({ files: files.map((file) => ({ file, status: 'pending' })) })
-            void window.api.analyze(requestId, files)
+            const previous = new Map(get().files.map((entry) => [entry.file.id, entry]))
+            const changed = (file: MediaFile) => {
+                const before = previous.get(file.id)
+                return !!before && analysisKey(before.file) !== analysisKey(file)
+            }
+            // Unveränderte Dateien behalten ihre Analyse, nur neue und geänderte werden (im Main-Prozess ggf. aus dem Cache) analysiert
+            const entries = files.map((file): FileEntry => {
+                const before = previous.get(file.id)
+                return before?.status === 'done' && !changed(file) ? { ...before, file } : { file, status: 'pending' }
+            })
+            const ids = new Set(files.map((file) => file.id))
+            const keep = <T>(record: Record<string, T>, drop: (id: string) => boolean = () => false) =>
+                Object.fromEntries(Object.entries(record).filter(([id]) => ids.has(id) && !drop(id)))
+            const changedIds = new Set(files.filter(changed).map((file) => file.id))
+
+            set((state) => ({
+                files: entries,
+                // Eingaben verschwundener Dateien fallen weg; die Spurwahl einer geänderten Datei passt nicht mehr zu ihren Spuren
+                excluded: keep(state.excluded),
+                overrides: keep(state.overrides),
+                typeOverrides: keep(state.typeOverrides, (id) => changedIds.has(id)),
+                expanded: keep(state.expanded),
+                episodeOverrides: keep(state.episodeOverrides),
+                stillOverrides: keep(state.stillOverrides)
+            }))
+            const pending = entries.filter((entry) => entry.status === 'pending').map((entry) => entry.file)
+            if (pending.length > 0) void window.api.analyze(requestId, pending)
         } finally {
             set({ scanning: false })
         }

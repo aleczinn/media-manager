@@ -12,6 +12,8 @@ export interface MediaFile {
     /** Pfad relativ zum Input-Ordner */
     relativePath: string
     size: number
+    /** Letzte Änderung (ms seit 1970), erkennt ersetzte Dateien gleicher Größe */
+    modifiedMs: number
     /** Zugehörige externe Untertiteldateien (Subs-Ordner oder gleichnamige Dateien daneben) */
     externalSubtitles: ExternalSubtitleFile[]
 }
