@@ -49,8 +49,10 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
 - 🎞️ **TMDB**
   - Serie einmal bei [TMDB](https://www.themoviedb.org) suchen und zuordnen; der Suchbegriff wird aus Ordner- und Dateiname vorbelegt
   - Jede Folge bekommt per Staffel und Folge ihren Titel, auf Deutsch und ohne Übersetzung auf Englisch
-  - Pro Datei lässt sich die Episode per Dropdown umstellen, z. B. wenn TMDB eine Doppelfolge als eine Episode führt
-  - Optional wird das Episodenbild als `<Zielname>-thumb.jpg` neben der Datei gespeichert (wie es Jellyfin, Emby und Kodi erwarten)
+  - Pro Datei lässt sich die Episode per Dropdown umstellen, z. B. wenn TMDB eine Doppelfolge als eine Episode führt; Rechtsklick aufs Dropdown setzt wieder die erkannte Folge
+  - Links neben dem Zielnamen steht das Episodenbild, beim Überfahren groß (520 px)
+  - Viele Folgen haben bei TMDB mehrere Bilder: Klick aufs Episodenbild öffnet die Auswahl mit allen Bildern der Folge, Rechtsklick stellt das Standardbild wieder her; manuell gewählte Bilder sind orange umrandet
+  - Optional wird das gewählte Episodenbild in Originalgröße als `<Zielname>-thumb.jpg` neben der Datei gespeichert (wie es Jellyfin, Emby und Kodi erwarten)
 - 🎬 **Video & Metadaten**
   - Video wird verlustfrei kopiert oder optional neu encodiert (H.264, H.265, NVIDIA, Intel QSV, AV1) mit eigenen Encoder-Argumenten
   - Container- und Videotitel werden geleert, eine gleichnamige `.txt` neben der Datei wird als Beschreibung übernommen
@@ -71,7 +73,7 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
 1. **Input** und **Output** wählen. Beide Ordner werden gespeichert und beim nächsten Start wieder geöffnet.
 2. Unter **Verarbeitung** die gewünschten Schritte an- oder abschalten.
 3. Links Dateien ausschließen, die nicht verarbeitet werden sollen. Über den Pfeil vor einer Datei öffnet sich die Spurübersicht; dort lassen sich Untertitel per Klick auf den Chip übernehmen, entfernen oder umtypisieren.
-4. Bei Serien über **Serie zuordnen** die Serie bei TMDB auswählen. Die Folgentitel landen automatisch in den Zielnamen; unter jedem Namen lässt sich die Episode bei Bedarf umstellen.
+4. Bei Serien über **Serie zuordnen** die Serie bei TMDB auswählen. Die Folgentitel landen automatisch in den Zielnamen; unter jedem Namen lässt sich die Episode bei Bedarf umstellen und per Klick aufs Episodenbild ein anderes Bild wählen.
 5. Rechts die Zielnamen prüfen und bei Bedarf von Hand anpassen.
 6. **Anwenden** klicken. Fertige Dateien werden grün markiert, übersprungene und fehlerhafte zeigen ihren Grund im Tooltip.
 

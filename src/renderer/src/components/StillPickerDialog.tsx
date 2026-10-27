@@ -84,7 +84,7 @@ export function StillPickerDialog({
                                             )}
                                         >
                                             <img
-                                                src={tmdbImageUrl(image.path, 'w300')}
+                                                src={tmdbImageUrl(image.path, 'w780')}
                                                 alt=""
                                                 className="aspect-video w-full object-cover"
                                             />

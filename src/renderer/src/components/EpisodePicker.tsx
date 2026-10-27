@@ -126,7 +126,7 @@ export function EpisodeThumbnail({ row, disabled }: { row: Row; disabled: boolea
                 <Tooltip>
                     <TooltipTrigger asChild>{thumbnail}</TooltipTrigger>
                     <TooltipContent side="left" className="max-w-none p-1.5">
-                        <img src={tmdbImageUrl(stillPath, 'w780')} alt="" className="aspect-video w-[520px] rounded object-cover" />
+                        <img src={tmdbImageUrl(stillPath, 'w1280')} alt="" className="aspect-video w-[520px] rounded object-cover" />
                         <div className="flex items-center justify-between gap-4 px-1 pt-1.5 text-xs">
                             <span>
                                 {formatEpisodeRef(episode)} · {episode.title}
