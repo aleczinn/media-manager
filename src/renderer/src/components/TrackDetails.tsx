@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { AudioLines, Captions, FileText, Film, Sparkles } from 'lucide-react'
+import { AudioLines, Captions, FileText, Film, Image as ImageIcon, Paperclip, Sparkles } from 'lucide-react'
 import { getAudioTrackName, getAudioType } from '@shared/audio-names'
 import { subtitleTrackId } from '@shared/external-subs'
 import { normalizeLanguage } from '@shared/languages'
@@ -13,7 +13,7 @@ import {
     type SubtitleRemovalReason,
     type TrackPlan
 } from '@shared/pipeline'
-import type { FileAnalysis, SubtitleOverride, SubtitleTrackInfo } from '@shared/types'
+import type { FileAnalysis, MediaFile, SubtitleOverride, SubtitleTrackInfo } from '@shared/types'
 import { describePeak } from '@/lib/peak'
 import { useStore } from '@/lib/store'
 import { cn, formatDuration } from '@/lib/utils'
@@ -184,15 +184,49 @@ function SourceSubtitleLine({
     )
 }
 
+/** YouTube-Modus: Beschreibung und Bild, die gleichnamig neben die MKV kopiert werden */
+function SidecarLines({ file, stem }: { file: MediaFile; stem: string }) {
+    const name = (filePath: string) => filePath.split(/[\\/]/).pop()
+    const lines = [
+        { icon: FileText, label: 'Beschreibung', source: file.description?.path, target: `${stem}.txt`, hint: file.description?.preview },
+        { icon: ImageIcon, label: 'Bild', source: file.image ?? undefined, target: `${stem}.jpg`, hint: undefined }
+    ]
+    return (
+        <Section icon={Paperclip} label="Begleitdateien">
+            {lines.map(({ icon: Icon, label, source, target, hint }) =>
+                source ? (
+                    <li
+                        key={label}
+                        className="flex items-center gap-2 py-0.5"
+                        title={[`Quelle: ${name(source)}`, hint].filter(Boolean).join('\n\n')}
+                    >
+                        <Icon className="size-3.5 shrink-0 text-primary" />
+                        <span className="shrink-0">{label}</span>
+                        <span className="truncate text-xs text-muted-foreground">{target}</span>
+                    </li>
+                ) : (
+                    <li key={label} className="flex items-center gap-2 py-0.5 text-xs text-warning">
+                        <Icon className="size-3.5 shrink-0" />
+                        {label === 'Bild' ? 'Kein Bild (.jpg) gefunden' : 'Keine Beschreibung (.txt) gefunden'}
+                    </li>
+                )
+            )}
+        </Section>
+    )
+}
+
 /** Aufklappbare Übersicht der Spuren: vorher (Quelle) und nachher (Ausgabe). */
 export function TrackDetails({
-    fileId,
+    file,
+    stem,
     analysis,
     plan,
     peakKey,
     countsPending
 }: {
-    fileId: string
+    file: MediaFile
+    /** Zielname ohne Endung */
+    stem: string
     analysis: FileAnalysis
     plan: TrackPlan
     peakKey: string | null
@@ -200,6 +234,7 @@ export function TrackDetails({
 }) {
     const unknownLanguage = useStore((s) => s.settings?.unknownLanguage ?? 'und')
     const settings = useStore((s) => s.settings)
+    const fileId = file.id
     const peak = useStore((s) => (peakKey ? s.peaks[peakKey] : undefined))
     const peakInfo = settings && peakKey ? describePeak(peak, settings) : null
     // Reicht der Peak schon, wird keine normalisierte Spur geschrieben; dann steht dort nur der Hinweis
@@ -301,6 +336,7 @@ export function TrackDetails({
                         />
                     ))}
                 </Section>
+                {settings?.mode === 'youtube' && <SidecarLines file={file} stem={stem} />}
             </div>
         </div>
     )

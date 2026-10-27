@@ -1,6 +1,7 @@
 import type { Settings } from './types'
 
 export const DEFAULT_SETTINGS: Settings = {
+    mode: 'media',
     inputDir: '',
     outputDir: '',
     audioBranding: '[Sky Mix]',

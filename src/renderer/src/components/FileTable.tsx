@@ -5,9 +5,11 @@ import {
     CheckCircle2,
     ChevronRight,
     Clock,
+    FileText,
     FileVideo,
     FileX,
     FolderSearch,
+    Image as ImageIcon,
     Loader2,
     RotateCcw,
     SkipForward,
@@ -124,6 +126,22 @@ function ScanIndicator({ row }: { row: Row }) {
     return null
 }
 
+/** YouTube-Modus: wurden Beschreibung (.txt) und Bild (.jpg) zur Datei gefunden? */
+function SidecarIndicator({ row }: { row: Row }) {
+    const { description, image } = row.entry.file
+    const name = (filePath: string) => filePath.split(/[\\/]/).pop()
+    return (
+        <>
+            <WithTooltip text={description ? `Beschreibung: ${name(description.path)}` : 'Keine Beschreibung (.txt) gefunden'}>
+                <FileText className={cn('size-3.5', description ? 'text-primary' : 'text-muted-foreground/40')} />
+            </WithTooltip>
+            <WithTooltip text={image ? `Bild: ${name(image)}` : 'Kein Bild (.jpg) gefunden'}>
+                <ImageIcon className={cn('size-3.5', image ? 'text-primary' : 'text-muted-foreground/40')} />
+            </WithTooltip>
+        </>
+    )
+}
+
 function TrackSummary({ row }: { row: Row }) {
     const peak = useStore((s) => (row.peakKey ? s.peaks[row.peakKey] : undefined))
     const settings = useStore((s) => s.settings)
@@ -146,6 +164,7 @@ function TrackSummary({ row }: { row: Row }) {
             </span>
             <ScanIndicator row={row} />
             {row.peakKey && <NormalizeIndicator peakKey={row.peakKey} />}
+            {settings.mode === 'youtube' && <SidecarIndicator row={row} />}
         </span>
     )
 }
@@ -241,7 +260,8 @@ function FileRow({ row }: { row: Row }) {
 
             {expanded && row.analysis && row.plan && (
                 <TrackDetails
-                    fileId={file.id}
+                    file={file}
+                    stem={row.stem}
                     analysis={row.analysis}
                     plan={row.plan}
                     peakKey={row.peakKey}

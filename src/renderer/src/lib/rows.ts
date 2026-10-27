@@ -8,6 +8,7 @@ import { buildTargetStem, parseEpisode } from '@shared/rename'
 import { estimateRequiredBytes } from '@shared/space'
 import { episodeRefFromName, findEpisode, sanitizeTitle, tmdbImageUrl, type EpisodeRef } from '@shared/tmdb-match'
 import type { ApplyFileResult, ApplyJob, ArtworkJob, FileAnalysis, SubtitleOverride, TmdbEpisode } from '@shared/types'
+import { cleanYoutubeName } from '@shared/youtube'
 import { useStore, type FileEntry } from './store'
 
 export interface Row {
@@ -86,12 +87,12 @@ export function useDerived(): Derived {
     const results = useStore((s) => s.run.results)
     const subtitleCounts = useStore((s) => s.subtitleCounts)
     const scanStatus = useStore((s) => s.scanStatus)
-    const tmdbEpisodes = useStore((s) => s.tmdb.episodes)
+    const showEpisodes = useStore((s) => s.tmdb.episodes)
     const episodeOverrides = useStore((s) => s.episodeOverrides)
     const stillOverrides = useStore((s) => s.stillOverrides)
     const missingSelected = useStore((s) => s.missingSelected)
     const missingStills = useStore((s) => s.missingStills)
-    const movie = useStore((s) => s.tmdb.movie)
+    const assignedMovie = useStore((s) => s.tmdb.movie)
 
     return useMemo(() => {
         if (!settings) {
@@ -111,6 +112,11 @@ export function useDerived(): Derived {
             }
         }
 
+        // Im YouTube-Modus spielt die TMDB-Zuordnung keine Rolle
+        const youtube = settings.mode === 'youtube'
+        const tmdbEpisodes = youtube ? [] : showEpisodes
+        const movie = youtube ? null : assignedMovie
+
         // Bei einem Film bekommt nur die größte Datei ohne Episodenangabe den Filmnamen, Extras behalten ihren
         const movieMainId = movie
             ? files
@@ -126,9 +132,11 @@ export function useDerived(): Derived {
             const episode = tmdbEpisodes.length > 0 ? findEpisode(tmdbEpisodes, ref) : null
             const title = episode ? sanitizeTitle(episode.title) : ''
             const movieName = movieMain && movie ? { title: sanitizeTitle(movie.name), year: movie.year } : null
-            const autoStem = settings.pipeline.renameFile
-                ? buildTargetStem(entry.file, settings.defaultSource, title, movieName)
-                : entry.file.name
+            const autoStem = !settings.pipeline.renameFile
+                ? entry.file.name
+                : youtube
+                  ? cleanYoutubeName(entry.file.name)
+                  : buildTargetStem(entry.file, settings.defaultSource, title, movieName)
             const override = overrides[entry.file.id]
             const key = fileKey({ inputPath: entry.file.fullPath, size: entry.file.size })
             const counts = subtitleCounts[key]
@@ -226,7 +234,9 @@ export function useDerived(): Derived {
                 size: row.entry.file.size,
                 targetName: `${row.stem}.mkv`,
                 analysis: row.analysis!,
-                thumbUrl: settings.pipeline.saveThumbnails && row.stillPath ? tmdbImageUrl(row.stillPath) : undefined
+                thumbUrl: settings.pipeline.saveThumbnails && row.stillPath ? tmdbImageUrl(row.stillPath) : undefined,
+                descriptionPath: row.entry.file.description?.path,
+                ...(youtube && { imagePath: row.entry.file.image ?? undefined, copySidecars: true })
             })),
             // Auch Dateien mit Namenskonflikt vorab scannen, der Konflikt wird meist noch behoben.
             // Peak und Zählung landen pro Datei in einem gemeinsamen Lesedurchgang; Bekanntes überspringt der Main-Prozess.
@@ -264,12 +274,12 @@ export function useDerived(): Derived {
         scanStatus,
         outputNames,
         results,
-        tmdbEpisodes,
+        showEpisodes,
         episodeOverrides,
         stillOverrides,
         missingSelected,
         missingStills,
-        movie
+        assignedMovie
     ])
 }
 

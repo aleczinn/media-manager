@@ -27,7 +27,7 @@ import { cn } from '@/lib/utils'
 type NumberKey = 'spaceWarningGb' | 'normalizeMinGain' | 'normalizeMaxGain'
 
 /** Bearbeitungsstand des Dialogs; Zahlen als Text, damit sie frei eingegeben werden können (fehlende Folgen schaltet die Dateiliste) */
-type Draft = Omit<Settings, 'inputDir' | 'outputDir' | 'pipeline' | 'showMissingEpisodes' | NumberKey> & Record<NumberKey, string>
+type Draft = Omit<Settings, 'mode' | 'inputDir' | 'outputDir' | 'pipeline' | 'showMissingEpisodes' | NumberKey> & Record<NumberKey, string>
 
 const toDraft = (s: Settings): Draft => ({
     audioBranding: s.audioBranding,

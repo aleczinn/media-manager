@@ -16,6 +16,16 @@ export interface MediaFile {
     modifiedMs: number
     /** Zugehörige externe Untertiteldateien (Subs-Ordner oder gleichnamige Dateien daneben) */
     externalSubtitles: ExternalSubtitleFile[]
+    /** Beschreibung aus einer .txt daneben (gleicher Name, auch mit JDownloader-Zusätzen) */
+    description: DescriptionFile | null
+    /** Vorschaubild (.jpg) daneben, gleicher Name wie bei der Beschreibung */
+    image: string | null
+}
+
+export interface DescriptionFile {
+    path: string
+    /** Anfang des Texts für die Vorschau */
+    preview: string
 }
 
 export interface ExternalSubtitleFile {
@@ -110,7 +120,11 @@ export interface PipelineOptions {
     saveArtwork: boolean
 }
 
+/** `media`: Filme und Serien, `youtube`: Downloads von JDownloader */
+export type AppMode = 'media' | 'youtube'
+
 export interface Settings {
+    mode: AppMode
     inputDir: string
     outputDir: string
     /** Text, der an den Titel der normalisierten Tonspur angehängt wird */
@@ -262,6 +276,12 @@ export interface ApplyJob {
     analysis: FileAnalysis
     /** Episodenbild, das als `<Zielname>-thumb.jpg` gespeichert wird */
     thumbUrl?: string
+    /** Beschreibung (.txt), landet bei „Metadaten bereinigen“ im Container */
+    descriptionPath?: string
+    /** Vorschaubild (.jpg), wird im YouTube-Modus als `<Zielname>.jpg` kopiert */
+    imagePath?: string
+    /** YouTube-Modus: Beschreibung und Bild gleichnamig neben die MKV kopieren */
+    copySidecars?: boolean
 }
 
 export type ApplyPhase = 'analyze' | 'build'

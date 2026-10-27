@@ -71,9 +71,15 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
   - Staffelposter haben standardmäßig keine Overlays, lassen sich aber einzeln setzen (Rechtsklick auf die Overlays entfernt sie wieder)
   - Backdrop und Landscape höchstens 1920×1080, Logos unverändert als PNG
   - Gespeichert wird beim Anwenden (Option **Bilder speichern**) oder über **Nur Bilder exportieren**, mit den Namen, die Jellyfin und Emby im Serien- bzw. Filmordner erwarten: `cover.jpg`, `season01-poster.jpg`, `season-specials-poster.jpg`, `logo.png`, `backdrop.jpg`, `landscape.jpg`
+- 📺 **YouTube-Modus**
+  - Umschalter **Filme & Serien | YouTube** oben neben dem Titel, für Videos, die mit JDownloader heruntergeladen wurden (Video, `… (Beschreibung).txt` und `… (BQ).jpg`)
+  - Der Zielname ist der Videotitel ohne Qualitätsangabe wie `(2160p_60fps_AV1-128kbit_AAC)`; Emojis und Sonderzeichen bleiben
+  - Beschreibung und Bild werden über den bereinigten Namen zugeordnet; Symbole in der Zeile und der Abschnitt **Begleitdateien** in der Spurübersicht zeigen, ob sie gefunden wurden (die Beschreibung im Tooltip)
+  - Jede Tonspur wird auf Deutsch gesetzt, egal mit welcher Sprache sie getaggt ist, und wie gewohnt normalisiert
+  - Im Output landen `<Name>.mkv`, `<Name>.txt` und `<Name>.jpg`; die Beschreibung steht zusätzlich in den Metadaten. TMDB-Leiste und Bilder-Tab sind ausgeblendet
 - 🎬 **Video & Metadaten**
   - Video wird verlustfrei kopiert oder optional neu encodiert (H.264, H.265, NVIDIA, Intel QSV, AV1) mit eigenen Encoder-Argumenten
-  - Container- und Videotitel werden geleert, eine gleichnamige `.txt` neben der Datei wird als Beschreibung übernommen
+  - Container- und Videotitel werden geleert, eine gleichnamige `.txt` neben der Datei (auch `… (Beschreibung).txt`) wird als Beschreibung übernommen
 - ⚡ **Ausführung**
   - Mehrere Dateien gleichzeitig, einstellbar von 1 bis 4 (Standard 2; für normale Festplatten 1)
   - Fortschritt pro Datei und gesamt mit Restzeit, jederzeit abbrechbar
@@ -143,7 +149,7 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 
 ### Struktur
 
-- `src/shared/`: reine Logik ohne Electron (Spurplanung, Renaming, externe Untertitel, TMDB-Zuordnung, fehlende Folgen, Bilder und Overlays, ffmpeg-Argumente, Platzschätzung), getestet in `tests/`
+- `src/shared/`: reine Logik ohne Electron (Spurplanung, Renaming, YouTube-Namen, externe Untertitel, TMDB-Zuordnung, fehlende Folgen, Bilder und Overlays, ffmpeg-Argumente, Platzschätzung), getestet in `tests/`
 - `src/main/`: Electron-Main-Prozess (Ordner-Scan, ffprobe und MediaInfo, Hintergrund-Scan für Peak und Untertitel-Zählung, TMDB- und Fanart.tv-Abfragen, Bilder rendern, Ausführung, Einstellungen)
 - `src/preload/`: typisierte Brücke `window.api` zwischen Oberfläche und Main-Prozess
 - `src/renderer/`: React-Oberfläche mit Tailwind CSS und shadcn/ui-Komponenten
@@ -151,6 +157,16 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 - `scripts/corruption-checker.ts`: der Corruption-Checker
 
 ## Changelog
+
+1.0.6 | YouTube-Modus
+
+- Umschalter „Filme & Serien | YouTube“ für Videos von JDownloader
+- Zielname ohne Qualitätsangaben wie „(2160p_60fps_AV1-128kbit_AAC)“, „(Beschreibung)“ und „(BQ)“
+- Beschreibung (.txt) und Bild (.jpg) werden erkannt, in der Dateiliste und der Spurübersicht angezeigt und gleichnamig neben die MKV kopiert
+- Jede Tonspur wird auf Deutsch gesetzt, egal mit welcher Sprache sie getaggt ist, und wie gewohnt normalisiert
+- Auch im normalen Modus wird eine „… (Beschreibung).txt“ als Beschreibung übernommen
+
+![YouTube-Modus](docs/1.0.6.jpg)
 
 1.0.5 | Normalisierungshinweis und Genres
 

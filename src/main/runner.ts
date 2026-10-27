@@ -149,7 +149,7 @@ export class Runner {
                 notes.push(plan.normalizeSkipReason)
             }
 
-            const description = settings.pipeline.cleanMetadata ? await readDescription(job) : null
+            const description = settings.pipeline.cleanMetadata && job.descriptionPath ? await readDescription(job.descriptionPath) : null
             const args = buildFfmpegArgs({ inputPath: job.inputPath, outputPath: tempPath, plan, settings, gainDb, description })
 
             report('build', 0, null)
@@ -173,6 +173,24 @@ export class Runner {
             if (code !== 0) throw new Error(stderrTail.slice(-5).join('\n') || `ffmpeg beendet mit Code ${code}`)
 
             await fsp.rename(tempPath, targetPath)
+
+            if (job.copySidecars) {
+                // Beschreibung und Bild heißen danach wie die MKV; ein Fehler macht die fertige Datei nicht kaputt
+                const stem = targetPath.replace(/\.mkv$/i, '')
+                const sidecars = [
+                    { from: job.descriptionPath, to: `${stem}.txt`, label: 'Beschreibung' },
+                    { from: job.imagePath, to: `${stem}.jpg`, label: 'Bild' }
+                ]
+                for (const { from, to, label } of sidecars) {
+                    if (!from) continue
+                    try {
+                        await fsp.copyFile(from, to)
+                        notes.push(`${label} kopiert`)
+                    } catch (error) {
+                        notes.push(`${label} nicht kopiert: ${error instanceof Error ? error.message : String(error)}`)
+                    }
+                }
+            }
 
             if (job.thumbUrl) {
                 // Ein fehlendes Bild macht die fertige Datei nicht kaputt, es wird nur vermerkt
@@ -209,11 +227,10 @@ export class Runner {
     }
 }
 
-/** Beschreibung aus einer `<name>.txt` neben der Quelldatei. */
-async function readDescription(job: ApplyJob): Promise<string | null> {
-    const parsed = path.parse(job.inputPath)
+/** Beschreibung aus der zugehörigen .txt (beim Einlesen gefunden) */
+async function readDescription(descriptionPath: string): Promise<string | null> {
     try {
-        const text = (await fsp.readFile(path.join(parsed.dir, `${parsed.name}.txt`), 'utf8')).trim()
+        const text = (await fsp.readFile(descriptionPath, 'utf8')).trim()
         return text || null
     } catch {
         return null

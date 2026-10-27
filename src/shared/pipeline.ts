@@ -2,6 +2,7 @@ import { getAudioTrackName, getAudioType } from './audio-names'
 import { subtitleTrackId } from './external-subs'
 import { getLanguageName, normalizeLanguage } from './languages'
 import type { AudioTrackInfo, FileAnalysis, Settings, SubtitleOverride, SubtitleTrackInfo, SubtitleType, VideoTrackInfo } from './types'
+import { YOUTUBE_AUDIO_LANGUAGE } from './youtube'
 
 export interface PlannedVideo {
     source: VideoTrackInfo
@@ -134,7 +135,12 @@ function subtitleDispositions(track: SubtitleTrackInfo, type: SubtitleType): str
 function planAudio(tracks: AudioTrackInfo[], settings: Settings): PlannedAudio[] {
     const { pipeline, languages, audioOrder, unknownLanguage } = settings
 
-    let audio = tracks.map((source) => ({ source, language: normalizeLanguage(source.language, unknownLanguage) }))
+    // Im YouTube-Modus ist jede Tonspur deutsch, egal wie sie getaggt ist
+    const youtube = settings.mode === 'youtube'
+    let audio = tracks.map((source) => ({
+        source,
+        language: youtube ? YOUTUBE_AUDIO_LANGUAGE : normalizeLanguage(source.language, unknownLanguage)
+    }))
 
     if (pipeline.filterLanguages) {
         audio = audio.filter((track) => languages.includes(track.language))

@@ -35,7 +35,7 @@ const OPTIONS: { key: keyof Options; label: string; hint: string }[] = [
     {
         key: 'cleanMetadata',
         label: 'Metadaten bereinigen',
-        hint: 'Container- und Videotitel leeren, Beschreibung aus gleichnamiger .txt übernehmen'
+        hint: 'Container- und Videotitel leeren, Beschreibung aus der zugehörigen .txt übernehmen (gleicher Name, auch mit „(Beschreibung)“)'
     },
     { key: 'encodeVideo', label: 'Video encodieren', hint: 'Video neu encodieren statt kopieren (langsam, Codec in den Einstellungen)' },
     {
@@ -50,8 +50,16 @@ const OPTIONS: { key: keyof Options; label: string; hint: string }[] = [
     }
 ]
 
+/** Im YouTube-Modus gibt es keine TMDB-Bilder */
+const MEDIA_ONLY: (keyof Options)[] = ['saveThumbnails', 'saveArtwork']
+
+const YOUTUBE_HINTS: Partial<Record<keyof Options, string>> = {
+    renameFile: 'Qualitätsangaben wie (1080p_60fps_…), (Beschreibung) und (BQ) aus dem Namen entfernen'
+}
+
 export function PipelineOptions() {
     const pipeline = useStore((s) => s.settings?.pipeline)
+    const youtube = useStore((s) => s.settings?.mode === 'youtube')
     const running = useStore((s) => s.run.running)
     const updateSettings = useStore((s) => s.updateSettings)
 
@@ -60,7 +68,7 @@ export function PipelineOptions() {
     return (
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border bg-card/60 px-4 py-2.5">
             <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Verarbeitung</span>
-            {OPTIONS.map(({ key, label, hint }) => (
+            {OPTIONS.filter(({ key }) => !youtube || !MEDIA_ONLY.includes(key)).map(({ key, label, hint }) => (
                 <Tooltip key={key}>
                     <TooltipTrigger asChild>
                         <Label className="cursor-pointer font-normal">
@@ -72,7 +80,7 @@ export function PipelineOptions() {
                             {label}
                         </Label>
                     </TooltipTrigger>
-                    <TooltipContent>{hint}</TooltipContent>
+                    <TooltipContent>{(youtube && YOUTUBE_HINTS[key]) || hint}</TooltipContent>
                 </Tooltip>
             ))}
         </div>
