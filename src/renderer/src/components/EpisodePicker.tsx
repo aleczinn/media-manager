@@ -1,4 +1,4 @@
-import { ChevronDown, Image, ImageOff } from 'lucide-react'
+import { ChevronDown, ImageOff } from 'lucide-react'
 import { episodeRefFromName, formatEpisodeRef, tmdbImageUrl } from '@shared/tmdb-match'
 import type { TmdbEpisode } from '@shared/types'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -29,7 +29,7 @@ export function EpisodePicker({ row, disabled }: { row: Row; disabled: boolean }
     }
 
     return (
-        <div className="flex min-w-0 items-center gap-1.5 pl-1">
+        <div className="flex min-w-0 items-center gap-1.5">
             <div className="relative min-w-0">
                 <select
                     value={row.episode ? refKey(row.episode) : ''}
@@ -59,23 +59,38 @@ export function EpisodePicker({ row, disabled }: { row: Row; disabled: boolean }
                 <ChevronDown className="pointer-events-none absolute top-1/2 right-1.5 size-3 -translate-y-1/2 text-muted-foreground" />
             </div>
             {row.episodeManual && <span className="shrink-0 text-[10px] text-warning">manuell</span>}
-            {row.episode &&
-                (row.episode.stillPath ? (
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <span className="shrink-0 text-muted-foreground">
-                                <Image className="size-3.5" />
-                            </span>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-none p-1">
-                            <img src={tmdbImageUrl(row.episode.stillPath, 'w300')} alt="" className="w-[300px] rounded" />
-                        </TooltipContent>
-                    </Tooltip>
-                ) : (
-                    <span className="shrink-0 text-muted-foreground/60" title="Bei TMDB gibt es zu dieser Folge kein Vorschaubild">
-                        <ImageOff className="size-3.5" />
-                    </span>
-                ))}
         </div>
+    )
+}
+
+/** Vorschaubild der zugeordneten Episode links neben Zielname und Dropdown; beim Überfahren größer */
+export function EpisodeThumbnail({ episode }: { episode: TmdbEpisode | null }) {
+    const box = 'h-[62px] w-[110px] shrink-0 overflow-hidden rounded-md border bg-secondary/60'
+
+    if (!episode?.stillPath) {
+        return (
+            <span
+                className={cn(box, 'flex items-center justify-center text-muted-foreground/60')}
+                title={episode ? 'Bei TMDB gibt es zu dieser Folge kein Vorschaubild' : 'Keine TMDB-Episode zugeordnet'}
+            >
+                <ImageOff className="size-4" />
+            </span>
+        )
+    }
+
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <span className={box}>
+                    <img src={tmdbImageUrl(episode.stillPath, 'w300')} alt="" className="size-full object-cover" />
+                </span>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="max-w-none p-1">
+                <img src={tmdbImageUrl(episode.stillPath, 'w300')} alt="" className="w-[300px] rounded" />
+                <div className="px-1 pt-1 text-xs">
+                    {formatEpisodeRef(episode)} · {episode.title}
+                </div>
+            </TooltipContent>
+        </Tooltip>
     )
 }
