@@ -11,7 +11,7 @@
 
 Eine Desktop-App für Windows, die Serien- und Filmdateien für die eigene Mediathek aufbereitet. Sie liest einen Input-Ordner ein, schlägt für jede Datei einen einheitlichen Namen vor und baut daraus eine neue MKV im Output-Ordner: mit sortierten und sauber benannten Ton- und Untertitelspuren, einer lautstärke-normalisierten Tonspur und eingebundenen externen Untertiteln. Die Quelldateien bleiben dabei unverändert.
 
-![Media Manager](docs/1.0.1.jpg)
+![Media Manager](docs/1.0.3.jpg)
 
 Links stehen die gefundenen Dateien, rechts die Zielnamen. Jede Datei lässt sich ausschließen, jeder Name bearbeiten, und pro Datei zeigt eine aufklappbare Übersicht, welche Spuren vorher da sind und welche in der fertigen Datei landen. Ein Klick auf **Anwenden** verarbeitet alles.
 
@@ -150,6 +150,14 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 - `scripts/corruption-checker.ts`: der Corruption-Checker
 
 ## Changelog
+
+1.0.3 | Fehlende Folgen
+
+- Abgleich mit TMDB: fehlende Folgen der erkannten Staffeln werden angezeigt, doppelt zugeordnete Folgen markiert
+- Fehlende Folgen erscheinen an ihrer Stelle in der Dateiliste (abschaltbar über „Fehlende Folgen anzeigen“)
+- Angehakte fehlende Folgen bekommen ihr Vorschaubild schwarz-weiß mit Vignette exportiert, z. B. für noch nicht verfügbare Anime-Folgen
+
+![Fehlende Folgen](docs/1.0.3.jpg)
 
 1.0.2 | Artwork
 
