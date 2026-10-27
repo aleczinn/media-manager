@@ -21,6 +21,7 @@ const api: MediaManagerApi = {
     tmdbSeasons: (showId) => ipcRenderer.invoke('tmdb:seasons', showId),
     tmdbSeason: (showId, season) => ipcRenderer.invoke('tmdb:season', showId, season),
     tmdbEpisodeImages: (showId, season, episode) => ipcRenderer.invoke('tmdb:episodeImages', showId, season, episode),
+    tmdbGenres: (kind, id) => ipcRenderer.invoke('tmdb:genres', kind, id),
     tmdbTest: (apiKey) => ipcRenderer.invoke('tmdb:test', apiKey),
     fanartTest: (apiKey) => ipcRenderer.invoke('fanart:test', apiKey),
     artworkCandidates: (request) => ipcRenderer.invoke('artwork:candidates', request),

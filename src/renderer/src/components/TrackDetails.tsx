@@ -202,6 +202,8 @@ export function TrackDetails({
     const settings = useStore((s) => s.settings)
     const peak = useStore((s) => (peakKey ? s.peaks[peakKey] : undefined))
     const peakInfo = settings && peakKey ? describePeak(peak, settings) : null
+    // Reicht der Peak schon, wird keine normalisierte Spur geschrieben; dann steht dort nur der Hinweis
+    const normalized = plan.normalize && peakInfo?.tone !== 'none' ? plan.normalize : null
     const keptAudio = new Set(plan.audio.map((track) => track.source.index))
 
     const audioMeta = (track: FileAnalysis['audio'][number]) =>
@@ -251,15 +253,21 @@ export function TrackDetails({
                     ))}
                 </Section>
                 <Section icon={AudioLines} label="Audio">
-                    {plan.normalize && (
-                        <li className="flex items-center gap-2 py-0.5 text-primary">
-                            <Lang code={plan.normalize.language} />
+                    {plan.normalize && !normalized && peakInfo && (
+                        <li className="flex items-center gap-2 py-0.5 text-xs text-muted-foreground">
                             <Sparkles className="size-3.5 shrink-0" />
-                            <span className="truncate">{plan.normalize.title}</span>
-                            <span className="shrink-0 text-xs text-muted-foreground">AC3 {plan.normalize.bitrate} · neu</span>
+                            {peakInfo.text}
                         </li>
                     )}
-                    {plan.normalize && peakInfo && (
+                    {normalized && (
+                        <li className="flex items-center gap-2 py-0.5 text-primary">
+                            <Lang code={normalized.language} />
+                            <Sparkles className="size-3.5 shrink-0" />
+                            <span className="truncate">{normalized.title}</span>
+                            <span className="shrink-0 text-xs text-muted-foreground">AC3 {normalized.bitrate} · neu</span>
+                        </li>
+                    )}
+                    {normalized && peakInfo && (
                         <li className={cn('py-0.5 pl-10 text-xs', peakInfo.tone === 'error' ? 'text-warning' : 'text-muted-foreground')}>
                             {peakInfo.text}
                         </li>

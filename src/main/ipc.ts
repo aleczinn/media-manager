@@ -10,7 +10,7 @@ import { Runner } from './runner'
 import { findMediaFiles, listOutputNames } from './scanner'
 import { loadSettings, saveSettings } from './settings-store'
 import { testFanartKey } from './fanart'
-import { getEpisodeImages, getSeason, getSeasons, searchMovie, searchTv, testKey } from './tmdb'
+import { getEpisodeImages, getGenres, getSeason, getSeasons, searchMovie, searchTv, testKey } from './tmdb'
 
 // Die Analyse liest nur Kopfdaten (das komplette Lesen passiert im Hintergrund-Scan), daher mehr gleichzeitig
 const ANALYZE_CONCURRENCY = 4
@@ -114,6 +114,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): { runner: Ru
         getEpisodeImages(loadSettings().tmdbApiKey, showId, season, episode)
     )
     ipcMain.handle('tmdb:searchMovie', (_event, query: string, year: number | null) => searchMovie(loadSettings().tmdbApiKey, query, year))
+    ipcMain.handle('tmdb:genres', (_event, kind: 'tv' | 'movie', id: number) => getGenres(loadSettings().tmdbApiKey, kind, id))
     ipcMain.handle('tmdb:test', (_event, apiKey: string) => testKey(apiKey))
     ipcMain.handle('fanart:test', (_event, apiKey: string) => testFanartKey(apiKey))
 

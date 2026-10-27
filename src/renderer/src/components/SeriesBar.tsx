@@ -72,6 +72,18 @@ export function SeriesBar({ derived }: { derived: Derived }) {
                             Film{movieMain ? ` · Hauptdatei ${movieMain.entry.file.name}` : ' · keine Datei ohne Episodenangabe'}
                         </span>
                     )}
+                    {tmdb.genres.length > 0 && (
+                        <span className="ml-4 flex min-w-0 items-center gap-1 overflow-hidden" title={tmdb.genres.join(', ')}>
+                            {tmdb.genres.map((genre) => (
+                                <span
+                                    key={genre}
+                                    className="shrink-0 rounded bg-secondary px-1.5 py-px text-[11px] whitespace-nowrap text-muted-foreground"
+                                >
+                                    {genre}
+                                </span>
+                            ))}
+                        </span>
+                    )}
                 </div>
             ) : (
                 <span className="text-sm text-muted-foreground">

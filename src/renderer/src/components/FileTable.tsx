@@ -125,9 +125,13 @@ function ScanIndicator({ row }: { row: Row }) {
 }
 
 function TrackSummary({ row }: { row: Row }) {
+    const peak = useStore((s) => (row.peakKey ? s.peaks[row.peakKey] : undefined))
+    const settings = useStore((s) => s.settings)
     const { analysis } = row
-    if (!analysis || !row.plan) return null
-    const audioAfter = row.plan.audio.length + (row.plan.normalize ? 1 : 0)
+    if (!analysis || !row.plan || !settings) return null
+    // Ohne nötige Verstärkung kommt keine normalisierte Spur dazu
+    const normalizes = !!row.plan.normalize && describePeak(peak, settings).tone !== 'none'
+    const audioAfter = row.plan.audio.length + (normalizes ? 1 : 0)
     const embedded = analysis.subtitle.filter((track) => track.inputIndex === 0).length
     const external = analysis.subtitle.length - embedded
 
