@@ -152,10 +152,11 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 
 ## Changelog
 
-1.0.5 | Normalisierungshinweis
+1.0.5 | Normalisierungshinweis und Genres
 
 - Reicht der Peak einer Tonspur schon, wird keine normalisierte Spur mehr angezeigt, sondern nur der Hinweis „Peak …, keine Normalisierung nötig“
 - Die Spurzahl in der Dateiliste (z. B. A 2→2) berücksichtigt das ebenfalls
+- Die TMDB-Leiste zeigt die Genres der zugeordneten Serie bzw. des Films (auf Deutsch), als Hilfe beim Einsortieren
 
 1.0.4 | Aktualisieren ohne Datenverlust
 
