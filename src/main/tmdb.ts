@@ -201,8 +201,6 @@ export function getEpisodeImages(apiKey: string, showId: number, season: number,
     })
 }
 
-const IMAGE_LANGUAGES = { include_image_language: 'de,en,null' }
-
 /** Wandelt ein TMDB-Bild in einen Vorschlag; Logos gibt es teils nur als SVG, die fallen weg */
 function toCandidate(image: RawImage, previewSize: string): ArtworkCandidate | null {
     if (!/\.(jpe?g|png)$/i.test(image.file_path)) return null
@@ -220,17 +218,13 @@ function toCandidate(image: RawImage, previewSize: string): ArtworkCandidate | n
 const toCandidates = (images: RawImage[] | undefined, previewSize: string) =>
     (images ?? []).map((image) => toCandidate(image, previewSize)).filter((candidate) => candidate !== null)
 
-/** Poster, Hintergründe und Logos einer Serie oder eines Films (Deutsch, Englisch und ohne Text) */
+/** Poster, Hintergründe und Logos einer Serie oder eines Films in allen Sprachen (sortiert wird später: Deutsch, Englisch, ohne Text zuerst) */
 export async function getTmdbArtwork(
     apiKey: string,
     kind: 'tv' | 'movie',
     id: number
 ): Promise<{ poster: ArtworkCandidate[]; backdrop: ArtworkCandidate[]; logo: ArtworkCandidate[] }> {
-    const images = await request<{ posters?: RawImage[]; backdrops?: RawImage[]; logos?: RawImage[] }>(
-        apiKey,
-        `/${kind}/${id}/images`,
-        IMAGE_LANGUAGES
-    )
+    const images = await request<{ posters?: RawImage[]; backdrops?: RawImage[]; logos?: RawImage[] }>(apiKey, `/${kind}/${id}/images`)
     return {
         poster: toCandidates(images.posters, 'w342'),
         backdrop: toCandidates(images.backdrops, 'w780'),
@@ -239,7 +233,7 @@ export async function getTmdbArtwork(
 }
 
 export async function getTmdbSeasonPosters(apiKey: string, showId: number, season: number): Promise<ArtworkCandidate[]> {
-    const images = await request<{ posters?: RawImage[] }>(apiKey, `/tv/${showId}/season/${season}/images`, IMAGE_LANGUAGES)
+    const images = await request<{ posters?: RawImage[] }>(apiKey, `/tv/${showId}/season/${season}/images`)
     return toCandidates(images.posters, 'w342')
 }
 
