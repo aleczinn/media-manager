@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { buildArtworkJobs, type ArtworkPlanInput } from '@shared/artwork'
-import { overlaysFromNames, type OverlayId } from '@shared/overlays'
+import { overlaysFromNames, toggleOverlay, type OverlayId } from '@shared/overlays'
 import { sourceFolders } from '@shared/rename'
 import { episodeRefFromName } from '@shared/tmdb-match'
 import type { ArtworkJob } from '@shared/types'
@@ -68,7 +68,9 @@ export function useArtworkPlan(rows: Row[]): ArtworkPlan {
 
     return useMemo(() => {
         const active = rows.filter((row) => !row.excluded)
-        const autoOverlays = overlaysFromNames(active.flatMap((row) => [row.entry.file.name, ...sourceFolders(row.entry.file)]))
+        const fromNames = overlaysFromNames(active.flatMap((row) => [row.entry.file.name, ...sourceFolders(row.entry.file)]))
+        // 3D-Filme bekommen das Blu-ray-3D-Overlay statt 4K (beides liegt oben links)
+        const autoOverlays = active.some((row) => row.stereo.format) ? toggleOverlay(fromNames, '3d') : fromNames
         const fileSeasons = show
             ? [
                   ...new Set(

@@ -4,12 +4,13 @@ import { subtitleTrackId } from '@shared/external-subs'
 import { anchorFile, episodeKey, findEpisodeGaps, interleaveMissing, missingEpisodeStem, type TableEntry } from '@shared/missing'
 import { fileKey, peakKey, type ScanRequest, type ScanStatus } from '@shared/peak'
 import { hasUncountedSubtitles, planTracks, withSubtitleCounts, type TrackPlan } from '@shared/pipeline'
-import { buildTargetStem, parseEpisode } from '@shared/rename'
+import { buildTargetStem, parseEpisode, sourceFolders } from '@shared/rename'
+import { detect3D, formatFromVideo, stereoWarning, with3DTag, withResolution, type Stereo3D } from '@shared/stereo3d'
 import { estimateRequiredBytes } from '@shared/space'
 import { episodeRefFromName, findEpisode, sanitizeTitle, tmdbImageUrl, type EpisodeRef } from '@shared/tmdb-match'
 import type { ApplyFileResult, ApplyJob, ArtworkJob, FileAnalysis, SubtitleOverride, TmdbEpisode } from '@shared/types'
 import { cleanYoutubeName } from '@shared/youtube'
-import { useStore, type FileEntry } from './store'
+import { useStore, type FileEntry, type StereoContentState } from './store'
 
 export interface Row {
     entry: FileEntry
@@ -37,8 +38,58 @@ export interface Row {
     movieMain: boolean
     /** Mehrere angehakte Dateien sind derselben Folge zugeordnet */
     duplicate: boolean
+    stereo: StereoInfo
     conflict: Conflict | null
     result: ApplyFileResult | undefined
+}
+
+/** 3D laut Name, Datei oder Inhalt bzw. manueller Wahl */
+export interface StereoInfo {
+    /** Name oder Datei sagen 3D (auch ohne erkennbares Format) */
+    detectedIs3D: boolean
+    detected: Stereo3D | null
+    /** Woher `detected` stammt */
+    source: 'name' | 'file' | 'content' | null
+    /** Gilt für Name und `stereo_mode` */
+    format: Stereo3D | null
+    manual: boolean
+    /** Format passt nicht zur Datei (Auflösung, MVC) */
+    warning: string | null
+    content: StereoContentState | undefined
+    /** Inhaltserkennung läuft automatisch: 3D im Namen, aber weder Name noch Datei verraten das Format */
+    needsContent: boolean
+}
+
+/** Format nach Rangfolge: Name, Datei (`stereo_mode`, MVC), Inhaltserkennung */
+function resolveStereo(
+    entry: FileEntry,
+    override: Stereo3D | 'none' | undefined,
+    content: StereoContentState | undefined,
+    youtube: boolean
+): StereoInfo {
+    const fromName = detect3D(entry.file.name, sourceFolders(entry.file))
+    const video = entry.analysis?.video[0]
+    const fromFile = formatFromVideo(video)
+    const layout = content?.status === 'done' ? content.result.layout : null
+    const fromContent = layout ? withResolution(layout, video) : null
+    const [detected, source] = fromName.format
+        ? [fromName.format, 'name' as const]
+        : fromFile
+          ? [fromFile, 'file' as const]
+          : fromContent
+            ? [fromContent, 'content' as const]
+            : [null, null]
+    const format = youtube ? null : override !== undefined ? (override === 'none' ? null : override) : detected
+    return {
+        detectedIs3D: fromName.is3D || !!fromFile,
+        detected,
+        source,
+        format,
+        manual: override !== undefined,
+        warning: stereoWarning(format, video),
+        content,
+        needsContent: !youtube && fromName.is3D && !fromName.format && !fromFile && override === undefined && !!entry.analysis
+    }
 }
 
 /** Folge einer erkannten Staffel, zu der es keine Datei gibt */
@@ -82,6 +133,8 @@ export function useDerived(): Derived {
     const files = useStore((s) => s.files)
     const excluded = useStore((s) => s.excluded)
     const overrides = useStore((s) => s.overrides)
+    const stereoOverrides = useStore((s) => s.stereoOverrides)
+    const stereoContent = useStore((s) => s.stereoContent)
     const typeOverrides = useStore((s) => s.typeOverrides)
     const outputNames = useStore((s) => s.outputNames)
     const results = useStore((s) => s.run.results)
@@ -132,11 +185,18 @@ export function useDerived(): Derived {
             const episode = tmdbEpisodes.length > 0 ? findEpisode(tmdbEpisodes, ref) : null
             const title = episode ? sanitizeTitle(episode.title) : ''
             const movieName = movieMain && movie ? { title: sanitizeTitle(movie.name), year: movie.year } : null
+            const stereo = resolveStereo(
+                entry,
+                stereoOverrides[entry.file.id],
+                stereoContent[fileKey({ inputPath: entry.file.fullPath, size: entry.file.size })],
+                youtube
+            )
+            // Jellyfin erkennt 3D an der Kennung am Ende, z. B. „… {source-BluRay} 3D.HTAB“
             const autoStem = !settings.pipeline.renameFile
                 ? entry.file.name
                 : youtube
                   ? cleanYoutubeName(entry.file.name)
-                  : buildTargetStem(entry.file, settings.defaultSource, title, movieName)
+                  : with3DTag(buildTargetStem(entry.file, settings.defaultSource, title, movieName), stereo.format)
             const override = overrides[entry.file.id]
             const key = fileKey({ inputPath: entry.file.fullPath, size: entry.file.size })
             const counts = subtitleCounts[key]
@@ -161,6 +221,7 @@ export function useDerived(): Derived {
                 stillPath: episode ? (stillOverrides[entry.file.id] ?? episode.stillPath) : null,
                 stillManual: !!episode && entry.file.id in stillOverrides,
                 movieMain,
+                stereo,
                 result: results[entry.file.id]
             }
         })
@@ -236,6 +297,7 @@ export function useDerived(): Derived {
                 analysis: row.analysis!,
                 thumbUrl: settings.pipeline.saveThumbnails && row.stillPath ? tmdbImageUrl(row.stillPath) : undefined,
                 descriptionPath: row.entry.file.description?.path,
+                stereo3d: row.stereo.format ?? undefined,
                 ...(youtube && { imagePath: row.entry.file.image ?? undefined, copySidecars: true })
             })),
             // Auch Dateien mit Namenskonflikt vorab scannen, der Konflikt wird meist noch behoben.
@@ -269,6 +331,8 @@ export function useDerived(): Derived {
         files,
         excluded,
         overrides,
+        stereoOverrides,
+        stereoContent,
         typeOverrides,
         subtitleCounts,
         scanStatus,

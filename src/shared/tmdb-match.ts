@@ -1,4 +1,5 @@
 import { parseEpisode, sourceFolders } from './rename'
+import { strip3D } from './stereo3d'
 import type { TmdbEpisode } from './types'
 
 export interface SeriesQuery {
@@ -52,7 +53,8 @@ const RELEASE_TAG =
 
 /** Titel und Jahr eines Films aus einem Datei- oder Ordnernamen, z. B. „Dune.Part.Two.2024.German.DL.2160p“ */
 function movieQueryFromName(name: string, maxYear: number): SeriesQuery | null {
-    const text = name.replace(/[._]+/g, ' ').replace(/\s+/g, ' ').trim()
+    // 3D-Angaben wie „3D.HOU“ stehen oft vor dem Jahr und gehören nicht zum Titel
+    const text = strip3D(name).replace(/[._]+/g, ' ').replace(/\s+/g, ' ').trim()
     const tagIndex = text.search(RELEASE_TAG)
     const head = tagIndex > 0 ? text.slice(0, tagIndex) : text
     const years = (part: string) =>

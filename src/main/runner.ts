@@ -150,7 +150,15 @@ export class Runner {
             }
 
             const description = settings.pipeline.cleanMetadata && job.descriptionPath ? await readDescription(job.descriptionPath) : null
-            const args = buildFfmpegArgs({ inputPath: job.inputPath, outputPath: tempPath, plan, settings, gainDb, description })
+            const args = buildFfmpegArgs({
+                inputPath: job.inputPath,
+                outputPath: tempPath,
+                plan,
+                settings,
+                gainDb,
+                description,
+                stereo3d: job.stereo3d
+            })
 
             report('build', 0, null)
             let speed: number | null = null

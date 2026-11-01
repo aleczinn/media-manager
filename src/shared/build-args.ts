@@ -1,4 +1,5 @@
 import type { TrackPlan } from './pipeline'
+import { STEREO_MODE, type Stereo3D } from './stereo3d'
 import type { Settings } from './types'
 
 export interface BuildArgsInput {
@@ -10,6 +11,8 @@ export interface BuildArgsInput {
     gainDb: number | null
     /** Inhalt einer Sidecar-`.txt` neben der Quelldatei */
     description: string | null
+    /** 3D-Format der Datei, `undefined` = kein 3D */
+    stereo3d?: Stereo3D
 }
 
 /** Untertitelformate, die sich nicht direkt in MKV kopieren lassen. */
@@ -24,7 +27,7 @@ export function formatGain(gainDb: number): string {
 }
 
 /** Baut die ffmpeg-Argumentliste für eine Datei (Port von `buildScript` aus dem alten Projekt). */
-export function buildFfmpegArgs({ inputPath, outputPath, plan, settings, gainDb, description }: BuildArgsInput): string[] {
+export function buildFfmpegArgs({ inputPath, outputPath, plan, settings, gainDb, description, stereo3d }: BuildArgsInput): string[] {
     const { pipeline, unknownLanguage } = settings
     const args: string[] = ['-hide_banner', '-nostdin', '-y', '-fflags', '+genpts', '-i', inputPath]
 
@@ -56,6 +59,9 @@ export function buildFfmpegArgs({ inputPath, outputPath, plan, settings, gainDb,
     plan.video.forEach((track, i) => {
         args.push('-map', `0:v:${track.source.index}`)
         if (pipeline.cleanMetadata) args.push(`-map_metadata:s:v:${i}`, '-1')
+        // 3D-Format für Player, die es aus der MKV statt aus dem Dateinamen lesen
+        const stereoMode = i === 0 && stereo3d ? STEREO_MODE[stereo3d] : undefined
+        if (stereoMode) args.push(`-metadata:s:v:${i}`, `stereo_mode=${stereoMode}`)
 
         if (pipeline.encodeVideo) {
             args.push(`-c:v:${i}`, settings.videoCodec, ...settings.videoEncodeArgs.split(/\s+/).filter(Boolean))

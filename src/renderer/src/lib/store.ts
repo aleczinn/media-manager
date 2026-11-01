@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import type { ArtworkSlot } from '@shared/artwork'
 import type { OverlayId } from '@shared/overlays'
-import { analysisKey, type PeakState, type ScanStatus } from '@shared/peak'
+import { analysisKey, fileKey, type PeakState, type ScanStatus } from '@shared/peak'
+import type { Stereo3D } from '@shared/stereo3d'
 import type { EpisodeRef } from '@shared/tmdb-match'
 import type {
     ApplyFileResult,
@@ -16,6 +17,7 @@ import type {
     FileAnalysis,
     MediaFile,
     Settings,
+    StereoContentResult,
     SubtitleOverride,
     TmdbEpisode,
     TmdbMovie,
@@ -66,6 +68,9 @@ const emptyMedia = {
     seasonOverlays: {}
 }
 
+export type StereoContentState =
+    { status: 'running' } | { status: 'done'; result: StereoContentResult } | { status: 'error'; error: string }
+
 export interface FileEntry {
     file: MediaFile
     status: 'pending' | 'done' | 'error'
@@ -97,6 +102,10 @@ interface State {
     excluded: Record<string, boolean>
     /** Vom Nutzer bearbeitete Zielnamen (ohne .mkv) */
     overrides: Record<string, string>
+    /** Manuell gewähltes 3D-Format je Datei; `none` = bewusst kein 3D */
+    stereoOverrides: Record<string, Stereo3D | 'none'>
+    /** Inhaltserkennung (SSIM der Bildhälften) je Datei (`fileKey()`), bleibt bis zum Programmende */
+    stereoContent: Record<string, StereoContentState>
     /** Manuelle Untertitel-Wahl (Typ oder entfernt) je Datei und Spur (`subtitleTrackId`) */
     typeOverrides: Record<string, Record<string, SubtitleOverride>>
     expanded: Record<string, boolean>
@@ -140,6 +149,10 @@ interface State {
     toggleExcluded(id: string): void
     setAllExcluded(excluded: boolean): void
     setOverride(id: string, stem: string | null): void
+    /** `undefined` = zurück auf die Erkennung aus dem Namen */
+    setStereo3D(fileId: string, value: Stereo3D | 'none' | undefined): void
+    /** Vergleicht die Bildhälften einiger Frames; `force` misst auch nach einem Fehler erneut */
+    detectStereoContent(file: { inputPath: string; size: number; durationSec: number }, force?: boolean): Promise<void>
     setTypeOverride(fileId: string, trackId: string, type: SubtitleOverride | null): void
     assignShow(show: TmdbShow): Promise<void>
     assignMovie(movie: TmdbMovie): void
@@ -179,6 +192,8 @@ export const useStore = create<State>()((set, get) => ({
     scannedDir: null,
     excluded: {},
     overrides: {},
+    stereoOverrides: {},
+    stereoContent: {},
     typeOverrides: {},
     expanded: {},
     outputNames: [],
@@ -280,7 +295,18 @@ export const useStore = create<State>()((set, get) => ({
             scanning: true,
             analyzeRequest: requestId,
             run: emptyRun,
-            ...(refresh ? {} : { scannedDir: dir, files: [], excluded: {}, overrides: {}, typeOverrides: {}, expanded: {}, ...emptyMedia })
+            ...(refresh
+                ? {}
+                : {
+                      scannedDir: dir,
+                      files: [],
+                      excluded: {},
+                      overrides: {},
+                      stereoOverrides: {},
+                      typeOverrides: {},
+                      expanded: {},
+                      ...emptyMedia
+                  })
         })
         try {
             const files = await window.api.scan(dir)
@@ -304,6 +330,7 @@ export const useStore = create<State>()((set, get) => ({
                 // Eingaben verschwundener Dateien fallen weg; die Spurwahl einer geänderten Datei passt nicht mehr zu ihren Spuren
                 excluded: keep(state.excluded),
                 overrides: keep(state.overrides),
+                stereoOverrides: keep(state.stereoOverrides),
                 typeOverrides: keep(state.typeOverrides, (id) => changedIds.has(id)),
                 expanded: keep(state.expanded),
                 episodeOverrides: keep(state.episodeOverrides),
@@ -341,6 +368,32 @@ export const useStore = create<State>()((set, get) => ({
             else overrides[id] = stem
             return { overrides }
         })
+    },
+
+    setStereo3D(fileId, value) {
+        set((state) => {
+            const stereoOverrides = { ...state.stereoOverrides }
+            if (value === undefined) delete stereoOverrides[fileId]
+            else stereoOverrides[fileId] = value
+            // Die Kennung soll im Namen ankommen, daher die Namensbearbeitung zurücksetzen
+            const overrides = { ...state.overrides }
+            delete overrides[fileId]
+            return { stereoOverrides, overrides }
+        })
+    },
+
+    async detectStereoContent(file, force = false) {
+        const key = fileKey(file)
+        const current = get().stereoContent[key]
+        if (current && (current.status !== 'error' || !force)) return
+        set((state) => ({ stereoContent: { ...state.stereoContent, [key]: { status: 'running' } } }))
+        const result = await window.api.detectStereo(file)
+        set((state) => ({
+            stereoContent: {
+                ...state.stereoContent,
+                [key]: result.ok ? { status: 'done', result: result.data } : { status: 'error', error: result.error }
+            }
+        }))
     },
 
     setTypeOverride(fileId, trackId, type) {

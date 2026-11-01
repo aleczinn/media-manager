@@ -5,6 +5,7 @@ import { exportArtwork, loadArtworkCandidates } from './artwork'
 import { getDiskSpace } from './disk-space'
 import { checkFfmpeg, resolveBinaries } from './ffmpeg'
 import { analyzeFileCached } from './metadata'
+import { detectStereoContent } from './stereo-content'
 import { ScanService } from './scan-service'
 import { Runner } from './runner'
 import { findMediaFiles, listOutputNames } from './scanner'
@@ -80,6 +81,12 @@ export function registerIpc(getWindow: () => BrowserWindow | null): { runner: Ru
         await Promise.all(Array.from({ length: ANALYZE_CONCURRENCY }, worker))
     })
 
+    ipcMain.handle('stereo:detect', (_event, file: { inputPath: string; size: number; durationSec: number }) =>
+        detectStereoContent(loadSettings(), file).then(
+            (data) => ({ ok: true, data }),
+            (error) => ({ ok: false, error: error instanceof Error ? error.message : String(error) })
+        )
+    )
     ipcMain.handle('scan:prefetch', (_event, requests: ScanRequest[]) => scans.prefetch(requests))
 
     ipcMain.handle('output:list', (_event, dir: string) => listOutputNames(dir))

@@ -13,10 +13,13 @@ import {
     type SubtitleRemovalReason,
     type TrackPlan
 } from '@shared/pipeline'
+import { STEREO_MODE } from '@shared/stereo3d'
 import type { FileAnalysis, MediaFile, SubtitleOverride, SubtitleTrackInfo } from '@shared/types'
 import { describePeak } from '@/lib/peak'
 import { useStore } from '@/lib/store'
+import type { StereoInfo } from '@/lib/rows'
 import { cn, formatDuration } from '@/lib/utils'
+import { describeContent, Stereo3DPicker, StereoContentButton } from './Stereo3DPicker'
 
 function Lang({ code }: { code: string }) {
     return (
@@ -219,6 +222,7 @@ function SidecarLines({ file, stem }: { file: MediaFile; stem: string }) {
 export function TrackDetails({
     file,
     stem,
+    stereo,
     analysis,
     plan,
     peakKey,
@@ -227,6 +231,7 @@ export function TrackDetails({
     file: MediaFile
     /** Zielname ohne Endung */
     stem: string
+    stereo: StereoInfo
     analysis: FileAnalysis
     plan: TrackPlan
     peakKey: string | null
@@ -250,7 +255,19 @@ export function TrackDetails({
                 <div className="text-xs font-semibold text-muted-foreground">Vorher · Dauer {formatDuration(analysis.durationSec)}</div>
                 <Section icon={Film} label="Video">
                     {analysis.video.map((track) => (
-                        <TrackLine key={track.index} lang={track.language} title={track.title} meta={track.codec} />
+                        <TrackLine
+                            key={track.index}
+                            lang={track.language}
+                            title={track.title}
+                            meta={[
+                                track.codec,
+                                track.width && track.height && `${track.width}×${track.height}`,
+                                track.stereoMode && `stereo_mode=${track.stereoMode}`,
+                                track.mvc && 'MVC'
+                            ]
+                                .filter(Boolean)
+                                .join(' · ')}
+                        />
                     ))}
                 </Section>
                 <Section icon={AudioLines} label="Audio">
@@ -286,6 +303,28 @@ export function TrackDetails({
                     {plan.video.map((track) => (
                         <TrackLine key={track.source.index} lang={track.source.language} title={track.title} meta={track.source.codec} />
                     ))}
+                    {settings?.mode !== 'youtube' && (
+                        <li className="flex items-center gap-2 py-0.5 pl-10">
+                            <Stereo3DPicker fileId={fileId} stereo={stereo} disabled={false} />
+                            {stereo.format && STEREO_MODE[stereo.format] && (
+                                <span className="shrink-0 text-xs text-muted-foreground">stereo_mode={STEREO_MODE[stereo.format]}</span>
+                            )}
+                            <StereoContentButton
+                                file={{ inputPath: file.fullPath, size: file.size, durationSec: analysis.durationSec }}
+                                stereo={stereo}
+                            />
+                        </li>
+                    )}
+                    {settings?.mode !== 'youtube' && stereo.content && (
+                        <li
+                            className={cn(
+                                'py-0.5 pl-10 text-xs',
+                                stereo.content.status === 'error' ? 'text-warning' : 'text-muted-foreground'
+                            )}
+                        >
+                            {describeContent(stereo)}
+                        </li>
+                    )}
                 </Section>
                 <Section icon={AudioLines} label="Audio">
                     {plan.normalize && !normalized && peakInfo && (

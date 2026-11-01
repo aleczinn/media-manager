@@ -23,6 +23,7 @@ const api: MediaManagerApi = {
     tmdbEpisodeImages: (showId, season, episode) => ipcRenderer.invoke('tmdb:episodeImages', showId, season, episode),
     tmdbGenres: (kind, id) => ipcRenderer.invoke('tmdb:genres', kind, id),
     tmdbTest: (apiKey) => ipcRenderer.invoke('tmdb:test', apiKey),
+    detectStereo: (file) => ipcRenderer.invoke('stereo:detect', file),
     fanartTest: (apiKey) => ipcRenderer.invoke('fanart:test', apiKey),
     artworkCandidates: (request) => ipcRenderer.invoke('artwork:candidates', request),
     exportArtwork: (jobs, outputDir) => ipcRenderer.invoke('artwork:export', jobs, outputDir),

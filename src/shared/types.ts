@@ -1,5 +1,6 @@
 import type { OverlayId } from './overlays'
 import type { PeakUpdate, ScanRequest, ScanStatusUpdate, SubtitleCountsUpdate } from './peak'
+import type { Stereo3D, StereoLayout } from './stereo3d'
 
 export interface MediaFile {
     id: string
@@ -40,6 +41,21 @@ export interface VideoTrackInfo {
     title: string
     language: string
     codec: string
+    width?: number
+    height?: number
+    /** Vorhandenes 3D-Format der Quelle (`left_right`, `top_bottom` …) */
+    stereoMode?: string | null
+    /** Blu-ray-3D-Spur (MediaInfo: Profil „Stereo High“ bzw. MultiView) */
+    mvc?: boolean
+}
+
+/** Ergebnis der Inhaltserkennung: mittlere SSIM der Hälften und die daraus erkannte Anordnung */
+export interface StereoContentResult {
+    layout: StereoLayout | null
+    /** Linke gegen rechte Hälfte */
+    sbs: number
+    /** Obere gegen untere Hälfte */
+    tab: number
 }
 
 export interface AudioTrackInfo {
@@ -282,6 +298,8 @@ export interface ApplyJob {
     imagePath?: string
     /** YouTube-Modus: Beschreibung und Bild gleichnamig neben die MKV kopieren */
     copySidecars?: boolean
+    /** 3D-Format, landet als `stereo_mode` in der Videospur */
+    stereo3d?: Stereo3D
 }
 
 export type ApplyPhase = 'analyze' | 'build'
@@ -326,6 +344,7 @@ export interface MediaManagerApi {
     tmdbEpisodeImages(showId: number, season: number, episode: number): Promise<TmdbResult<TmdbImage[]>>
     tmdbGenres(kind: 'tv' | 'movie', id: number): Promise<TmdbResult<string[]>>
     tmdbTest(apiKey: string): Promise<TmdbResult<true>>
+    detectStereo(file: { inputPath: string; size: number; durationSec: number }): Promise<TmdbResult<StereoContentResult>>
     fanartTest(apiKey: string): Promise<TmdbResult<true>>
     artworkCandidates(request: ArtworkRequest): Promise<TmdbResult<ArtworkLoadResult>>
     exportArtwork(jobs: ArtworkJob[], outputDir: string): Promise<ArtworkResult[]>
