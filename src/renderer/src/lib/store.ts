@@ -19,6 +19,7 @@ import type {
     Settings,
     StereoContentResult,
     SubtitleOverride,
+    TmdbDetails,
     TmdbEpisode,
     TmdbMovie,
     TmdbSeasonSummary,
@@ -34,11 +35,13 @@ interface TmdbState {
     episodes: TmdbEpisode[]
     /** Genres laut TMDB (auf Deutsch), zum Einsortieren */
     genres: string[]
+    /** Bewertung bei TMDB */
+    rating: TmdbDetails['rating']
     loading: boolean
     error: string | null
 }
 
-const emptyTmdb: TmdbState = { show: null, movie: null, seasons: [], episodes: [], genres: [], loading: false, error: null }
+const emptyTmdb: TmdbState = { show: null, movie: null, seasons: [], episodes: [], genres: [], rating: null, loading: false, error: null }
 
 interface ArtworkState {
     /** Vorschläge von TMDB und Fanart.tv, `null` solange nichts geladen ist */
@@ -159,7 +162,7 @@ interface State {
     /** Entfernt Serie bzw. Film */
     clearShow(): void
     loadArtwork(): Promise<void>
-    loadGenres(): Promise<void>
+    loadDetails(): Promise<void>
     /** `null` = zurück auf den ersten Vorschlag */
     setArtwork(slot: ArtworkSlot, url: string | null): void
     setArtworkEnabled(slot: ArtworkSlot, enabled: boolean): void
@@ -408,7 +411,7 @@ export const useStore = create<State>()((set, get) => ({
     async assignShow(show) {
         set({ ...emptyMedia, tmdb: { ...emptyTmdb, show, loading: true } })
         const isCurrent = () => get().tmdb.show?.id === show.id
-        void get().loadGenres()
+        void get().loadDetails()
 
         const seasons = await window.api.tmdbSeasons(show.id)
         if (!isCurrent()) return
@@ -444,17 +447,17 @@ export const useStore = create<State>()((set, get) => ({
     assignMovie(movie) {
         set({ ...emptyMedia, tmdb: { ...emptyTmdb, movie } })
         void get().loadArtwork()
-        void get().loadGenres()
+        void get().loadDetails()
     },
 
-    async loadGenres() {
+    async loadDetails() {
         const { show, movie } = get().tmdb
         const target = show ?? movie
         if (!target) return
-        // Nur ein Hinweis zum Einsortieren: Fehler werden still ignoriert
-        const result = await window.api.tmdbGenres(show ? 'tv' : 'movie', target.id)
+        // Genres und Bewertung sind nur Hinweise zum Einsortieren: Fehler werden still ignoriert
+        const result = await window.api.tmdbDetails(show ? 'tv' : 'movie', target.id)
         if (!result.ok || (get().tmdb.show ?? get().tmdb.movie) !== target) return
-        set((state) => ({ tmdb: { ...state.tmdb, genres: result.data } }))
+        set((state) => ({ tmdb: { ...state.tmdb, genres: result.data.genres, rating: result.data.rating } }))
     },
 
     clearShow() {

@@ -196,6 +196,13 @@ export interface TmdbEpisode {
     airDate: string | null
 }
 
+/** Zusatzinfos zur zugeordneten Serie bzw. zum Film */
+export interface TmdbDetails {
+    genres: string[]
+    /** Durchschnitt (0–10) und Anzahl der Stimmen bei TMDB; `null` ohne Stimmen */
+    rating: { average: number; votes: number } | null
+}
+
 export interface TmdbSeasonSummary {
     season: number
     name: string
@@ -342,7 +349,7 @@ export interface MediaManagerApi {
     tmdbSeasons(showId: number): Promise<TmdbResult<TmdbSeasonSummary[]>>
     tmdbSeason(showId: number, season: number): Promise<TmdbResult<TmdbEpisode[]>>
     tmdbEpisodeImages(showId: number, season: number, episode: number): Promise<TmdbResult<TmdbImage[]>>
-    tmdbGenres(kind: 'tv' | 'movie', id: number): Promise<TmdbResult<string[]>>
+    tmdbDetails(kind: 'tv' | 'movie', id: number): Promise<TmdbResult<TmdbDetails>>
     tmdbTest(apiKey: string): Promise<TmdbResult<true>>
     detectStereo(file: { inputPath: string; size: number; durationSec: number }): Promise<TmdbResult<StereoContentResult>>
     fanartTest(apiKey: string): Promise<TmdbResult<true>>
