@@ -25,12 +25,16 @@ describe('Overlays', () => {
         expect(toggleOverlay(['upscale', 'extended'], 'directors-cut')).toEqual(['upscale', 'directors-cut'])
         expect(toggleOverlay(['extended'], 'upscale')).toEqual(['upscale', 'extended'])
         expect(toggleOverlay(['upscale', 'extended'], 'extended')).toEqual(['upscale'])
+        // 4K und 3D liegen beide oben links
+        expect(toggleOverlay(['4k', 'extended'], '3d')).toEqual(['3d', 'extended'])
+        expect(toggleOverlay(['3d'], '4k')).toEqual(['4k'])
     })
 
     it('IMAX und Regrade ergeben die kombinierte Grafik', () => {
         expect(overlayFiles(['imax'])).toEqual(['overlay-imax.png'])
         expect(overlayFiles(['regrade', 'imax', '4k'])).toEqual(['overlay-4k.png', 'overlay-regrade-imax.png'])
         expect(overlayFiles(['extended', 'upscale'])).toEqual(['overlay-upscale.png', 'overlay-extended.png'])
+        expect(overlayFiles(['3d', 'extended'])).toEqual(['overlay-3d.png', 'overlay-extended.png'])
     })
 
     it('belegt aus den Namen vor', () => {

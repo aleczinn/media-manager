@@ -1,8 +1,10 @@
 /** Overlays für Cover und Staffelposter, als 600×900-PNG in `resources/overlays` */
-export type OverlayId = '4k' | 'upscale' | 'extended' | 'directors-cut' | 'imax' | 'regrade'
+export type OverlayId = '4k' | '3d' | 'upscale' | 'extended' | 'directors-cut' | 'imax' | 'regrade'
 
-export const OVERLAYS: { id: OverlayId; label: string; position: string }[] = [
+/** `coverOnly`: nur fürs Cover, nicht für Staffelposter */
+export const OVERLAYS: { id: OverlayId; label: string; position: string; coverOnly?: boolean }[] = [
     { id: '4k', label: '4K', position: 'oben links' },
+    { id: '3d', label: '3D', position: 'oben links', coverOnly: true },
     { id: 'upscale', label: 'Upscale', position: 'oben Mitte' },
     { id: 'extended', label: 'Extended', position: 'unten Mitte' },
     { id: 'directors-cut', label: "Director's Cut", position: 'unten Mitte' },
@@ -11,12 +13,15 @@ export const OVERLAYS: { id: OverlayId; label: string; position: string }[] = [
 ]
 
 /** Overlays an derselben Stelle, von denen nur eins aktiv sein kann */
-const EXCLUSIVE: OverlayId[][] = [['extended', 'directors-cut']]
+const EXCLUSIVE: OverlayId[][] = [
+    ['4k', '3d'],
+    ['extended', 'directors-cut']
+]
 
 const ORDER = OVERLAYS.map((overlay) => overlay.id)
 const sorted = (ids: OverlayId[]) => [...new Set(ids)].sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b))
 
-/** Schaltet ein Overlay um; Extended und Director's Cut verdrängen sich gegenseitig */
+/** Schaltet ein Overlay um; 4K und 3D bzw. Extended und Director's Cut verdrängen sich gegenseitig */
 export function toggleOverlay(selected: OverlayId[], id: OverlayId): OverlayId[] {
     if (selected.includes(id)) return selected.filter((other) => other !== id)
     const blocked = EXCLUSIVE.filter((group) => group.includes(id)).flat()

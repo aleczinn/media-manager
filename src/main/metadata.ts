@@ -13,8 +13,11 @@ interface FfprobeStream {
     profile?: string
     channels?: number
     nb_read_packets?: string
+    width?: number
+    height?: number
     tags?: Record<string, string>
     disposition?: Record<string, number>
+    side_data_list?: { side_data_type?: string; type?: string }[]
 }
 
 interface FfprobeResult {
@@ -109,6 +112,26 @@ async function runMediaInfo(file: string): Promise<MediaInfoTrack[]> {
 const str = (value: unknown): string => (value === undefined || value === null ? '' : String(value))
 const flag = (stream: FfprobeStream, key: string): boolean => stream.disposition?.[key] === 1
 
+/** 3D-Format der Quelle aus dem MKV-Tag bzw. den Stereo-3D-Seitendaten */
+function stereoModeOf(stream: FfprobeStream): string | null {
+    const tag = str(stream.tags?.stereo_mode ?? stream.tags?.STEREO_MODE).toLowerCase()
+    if (tag && tag !== 'mono') return tag
+    const side = stream.side_data_list?.find((data) => data.side_data_type === 'Stereo 3D')?.type?.toLowerCase()
+    if (side === 'side by side') return 'left_right'
+    if (side === 'top and bottom') return 'top_bottom'
+    return null
+}
+
+/**
+ * Blu-ray 3D: MediaInfo meldet das Profil „Stereo High“ bzw. das Format MVC. Zwei Ansichten allein reichen nicht,
+ * die meldet MediaInfo auch bei Side-by-Side mit `stereo_mode` (dann mit `MultiView_Layout`).
+ */
+function isMvc(info: MediaInfoTrack | undefined): boolean {
+    if (!info) return false
+    if (/stereo|mvc/i.test(str(info.Format_Profile)) || /mvc/i.test(str(info.Format))) return true
+    return Number(info.MultiView_Count) >= 2 && !str(info.MultiView_Layout)
+}
+
 const analyses = new Map<string, Promise<FileAnalysis>>()
 
 /**
@@ -166,7 +189,16 @@ export async function analyzeFile(file: MediaFile, ffprobe: string): Promise<Fil
         if (type === 'video') {
             // Cover-Bilder (z. B. in MP4) sind keine echten Videospuren
             if (flag(stream, 'attached_pic')) continue
-            const video: VideoTrackInfo = { index, title, language, codec: str(stream.codec_name) }
+            const video: VideoTrackInfo = {
+                index,
+                title,
+                language,
+                codec: str(stream.codec_name),
+                width: stream.width,
+                height: stream.height,
+                stereoMode: stereoModeOf(stream),
+                mvc: isMvc(info)
+            }
             analysis.video.push(video)
         } else if (type === 'audio') {
             const profile = str(stream.profile)

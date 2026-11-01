@@ -1,6 +1,6 @@
 # Media Manager
 
-[![Version](https://img.shields.io/badge/Media_Manager-1.0.6-8B7CFF?style=flat-square)](package.json)
+[![Version](https://img.shields.io/badge/Media_Manager-1.0.7-8B7CFF?style=flat-square)](package.json)
 [![Electron](https://img.shields.io/badge/Electron-45-47848F?style=flat-square&logo=electron)](https://www.electronjs.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
@@ -32,6 +32,7 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
   - Erkennt `S01E02`, `1x02` und alleinstehende `E01`
   - Edition aus dem Dateinamen: Extended, Upscale, Extended-Upscale, Director's Cut
   - Quelle aus dem Dateinamen, ersatzweise aus den Ordnernamen innerhalb des Input-Ordners: Disney+, Amazon, Netflix, ATVP, RTL+, Web, UHD, BluRay
+  - 3D-Filme bekommen die Kennung, die Jellyfin erwartet, ans Ende: `Titel (Jahr) {source-…} 3D.HTAB.mkv`. Erkannt wird das Format am Datei- oder Ordnernamen (`3D.HOU`, `3dhou`, `3D.HTB`, `3D.Half-SBS` …; HOU/OU/HTB wird zu HTAB, SBS zu HSBS), sonst an der Datei selbst (vorhandenes `stereo_mode`, MVC-Spur laut MediaInfo-Profil „Stereo High“). Steht nur „3D“ im Namen, vergleicht die App in sechs Frames die linke mit der rechten und die obere mit der unteren Bildhälfte (SSIM, entscheidend ist der Abstand der beiden Werte); per Knopf **Inhalt prüfen** in der Spurübersicht geht das für jede Datei. Half oder Full ergibt sich aus der Auflösung (3840×1080 → FSBS, 1920×2160 → FTAB), passt ein Format nicht zur Auflösung, gibt es einen gelben Hinweis. Ein Chip „3D · HTAB“ in der Zeile und ein Dropdown unter dem Zielnamen zeigen das Format (manuell änderbar, Rechtsklick setzt auf die Erkennung zurück; in der Spurübersicht auch für Dateien ohne 3D im Namen). Zusätzlich wird `stereo_mode` in die Videospur geschrieben
   - Zielnamen direkt in der Liste bearbeitbar, mit Knopf zum Zurücksetzen auf den Vorschlag
   - Konflikte werden rot markiert und beim Anwenden übersprungen: Datei existiert schon, Name doppelt, ungültige Zeichen
 - 🔊 **Tonspuren**
@@ -67,7 +68,7 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
   - Bei Landscape stehen nach den Landscape-Bildern von Fanart.tv auch alle Backdrops zur Wahl, die mit Text zuerst (markiert mit „Backdrop“)
   - Klick aufs Bild öffnet die Auswahl mit Quelle, Sprache und Auflösung (bei Fanart.tv nach dem Laden gemessen), Rechtsklick stellt das Standardbild wieder her; manuelle Wahl ist orange markiert, jedes Bild lässt sich per Haken vom Export ausnehmen
   - Cover und Staffelposter werden immer 600×900 groß, gestreckt statt beschnitten
-  - Overlays fürs Cover: 4K, Upscale, Extended, Director's Cut, IMAX und Regrade, auch mehrere gleichzeitig (z. B. Extended + Upscale); vorbelegt aus den Dateinamen, Extended und Director's Cut schließen sich aus, IMAX und Regrade teilen sich die Ecke unten rechts
+  - Overlays fürs Cover: 4K, 3D (Blu-ray 3D, nur Cover), Upscale, Extended, Director's Cut, IMAX und Regrade, auch mehrere gleichzeitig (z. B. Extended + Upscale); vorbelegt aus den Dateinamen bzw. dem erkannten 3D-Format, 4K und 3D sowie Extended und Director's Cut schließen sich aus, IMAX und Regrade teilen sich die Ecke unten rechts
   - Staffelposter haben standardmäßig keine Overlays, lassen sich aber einzeln setzen (Rechtsklick auf die Overlays entfernt sie wieder)
   - Backdrop und Landscape höchstens 1920×1080, Logos unverändert als PNG
   - Gespeichert wird beim Anwenden (Option **Bilder speichern**) oder über **Nur Bilder exportieren**, mit den Namen, die Jellyfin und Emby im Serien- bzw. Filmordner erwarten: `cover.jpg`, `season01-poster.jpg`, `season-specials-poster.jpg`, `logo.png`, `backdrop.jpg`, `landscape.jpg`
@@ -150,14 +151,27 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 
 ### Struktur
 
-- `src/shared/`: reine Logik ohne Electron (Spurplanung, Renaming, YouTube-Namen, externe Untertitel, TMDB-Zuordnung, fehlende Folgen, Bilder und Overlays, ffmpeg-Argumente, Platzschätzung), getestet in `tests/`
-- `src/main/`: Electron-Main-Prozess (Ordner-Scan, ffprobe und MediaInfo, Hintergrund-Scan für Peak und Untertitel-Zählung, TMDB- und Fanart.tv-Abfragen, Bilder rendern, Ausführung, Einstellungen)
+- `src/shared/`: reine Logik ohne Electron (Spurplanung, Renaming, 3D-Erkennung und -Entscheidung, YouTube-Namen, externe Untertitel, TMDB-Zuordnung, fehlende Folgen, Bilder und Overlays, ffmpeg-Argumente, Platzschätzung), getestet in `tests/`
+- `src/main/`: Electron-Main-Prozess (Ordner-Scan, ffprobe und MediaInfo, 3D-Inhaltserkennung, Hintergrund-Scan für Peak und Untertitel-Zählung, TMDB- und Fanart.tv-Abfragen, Bilder rendern, Ausführung, Einstellungen)
 - `src/preload/`: typisierte Brücke `window.api` zwischen Oberfläche und Main-Prozess
 - `src/renderer/`: React-Oberfläche mit Tailwind CSS und shadcn/ui-Komponenten
 - `resources/overlays/`: die Overlay-PNGs (600×900) für Cover und Staffelposter
 - `scripts/corruption-checker.ts`: der Corruption-Checker
 
 ## Changelog
+
+1.0.7 | 3D-Filme
+
+- 3D-Format (HSBS, FSBS, HTAB, FTAB, MVC) wird aus Datei- und Ordnernamen erkannt, HOU wird zu HTAB
+- Zielname mit Jellyfin-Kennung am Ende, z. B. „Avengers - Endgame (2019) {source-BluRay} 3D.HTAB.mkv“
+- Pro Datei zeigt ein Chip „3D · Format“ das Format, ein Dropdown unter dem Zielnamen und in der Spurübersicht ändert es
+- Das Format landet zusätzlich als stereo_mode in der MKV
+- Die TMDB-Suche ignoriert 3D-Angaben im Namen
+- Erkennung auch aus der Datei (vorhandenes stereo_mode, MVC-Spur) und, wenn nur „3D“ im Namen steht, am Bildinhalt (SSIM der Bildhälften); Knopf „Inhalt prüfen“ in der Spurübersicht
+- Half oder Full nach der Auflösung, gelber Hinweis, wenn Format und Auflösung bzw. MVC-Spur nicht zusammenpassen
+- Neues Cover-Overlay „Blu-ray 3D“ oben links, bei 3D-Filmen vorbelegt; schließt 4K aus und gibt es nur fürs Cover, nicht für Staffelposter
+
+![3D-Filme](docs/1.0.7.jpg)
 
 1.0.6 | YouTube-Modus
 

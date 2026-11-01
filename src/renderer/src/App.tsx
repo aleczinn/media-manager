@@ -107,10 +107,19 @@ export function App() {
     }, [])
 
     // Peak-Analyse und Untertitel-Zählung schon während der Durchsicht im Hintergrund starten (der Main-Prozess ignoriert bekannte)
-    const { scanRequests } = derived
+    const { scanRequests, rows } = derived
     useEffect(() => {
         if (scanRequests.length > 0) void window.api.prefetchScans(scanRequests)
     }, [scanRequests])
+
+    // „3D“ im Namen ohne Format: Anordnung am Bildinhalt erkennen (eine Datei nach der anderen, der Store merkt sich Ergebnisse)
+    useEffect(() => {
+        for (const row of rows) {
+            if (!row.stereo.needsContent || row.stereo.content || row.excluded || !row.analysis) continue
+            const { fullPath, size } = row.entry.file
+            void useStore.getState().detectStereoContent({ inputPath: fullPath, size, durationSec: row.analysis.durationSec })
+        }
+    }, [rows])
 
     return (
         <TooltipProvider delayDuration={300}>

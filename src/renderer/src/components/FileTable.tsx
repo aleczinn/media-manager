@@ -27,6 +27,7 @@ import { describePeak } from '@/lib/peak'
 import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import { EpisodePicker, EpisodeThumbnail, LocalThumbnail, StillThumbnail } from './EpisodePicker'
+import { Stereo3DChip, Stereo3DPicker } from './Stereo3DPicker'
 import { TrackDetails } from './TrackDetails'
 
 function WithTooltip({ text, children }: { text: string; children: ReactElement }) {
@@ -175,6 +176,8 @@ function FileRow({ row }: { row: Row }) {
     // Im YouTube-Modus zählt die TMDB-Zuordnung nicht, dafür steht dort das Bild neben dem Video
     const youtube = useStore((s) => s.settings?.mode === 'youtube')
     const hasShow = useStore((s) => s.tmdb.episodes.length > 0) && !youtube
+    // 3D-Auswahl unter dem Zielnamen, sobald der Name 3D verrät oder sie manuell gesetzt wurde (sonst in der Spurübersicht)
+    const showStereo = !youtube && (row.stereo.detectedIs3D || row.stereo.manual)
     const { toggleExcluded, toggleExpanded, setOverride } = useStore.getState()
     const { file } = row.entry
     const done = row.result?.status === 'ok'
@@ -208,6 +211,7 @@ function FileRow({ row }: { row: Row }) {
                         </div>
                         {folder && <div className="truncate text-xs text-muted-foreground">{folder}</div>}
                     </div>
+                    <Stereo3DChip stereo={row.stereo} />
                     <TrackSummary row={row} />
                     <span className="w-16 shrink-0 text-right text-xs text-muted-foreground tabular-nums">{formatBytes(file.size)}</span>
                     <span className="flex w-12 shrink-0 justify-center">
@@ -261,7 +265,12 @@ function FileRow({ row }: { row: Row }) {
                                 ) : null}
                             </span>
                         </div>
-                        {hasShow && <EpisodePicker row={row} disabled={row.excluded || running || done} />}
+                        {(hasShow || showStereo) && (
+                            <div className="flex min-w-0 items-center gap-3">
+                                {hasShow && <EpisodePicker row={row} disabled={row.excluded || running || done} />}
+                                {showStereo && <Stereo3DPicker fileId={file.id} stereo={row.stereo} disabled={row.excluded || done} />}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -270,6 +279,7 @@ function FileRow({ row }: { row: Row }) {
                 <TrackDetails
                     file={file}
                     stem={row.stem}
+                    stereo={row.stereo}
                     analysis={row.analysis}
                     plan={row.plan}
                     peakKey={row.peakKey}

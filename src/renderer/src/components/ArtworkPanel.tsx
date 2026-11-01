@@ -63,8 +63,11 @@ function OverlayChips({
     onChange,
     onReset,
     resetHint,
-    disabled
+    disabled,
+    cover
 }: {
+    /** Cover: auch die Overlays, die es nur fürs Cover gibt (3D) */
+    cover: boolean
     value: OverlayId[]
     onChange: (overlays: OverlayId[]) => void
     onReset: () => void
@@ -80,7 +83,7 @@ function OverlayChips({
             }}
             title={resetHint}
         >
-            {OVERLAYS.map((overlay) => {
+            {OVERLAYS.filter((overlay) => cover || !overlay.coverOnly).map((overlay) => {
                 const active = value.includes(overlay.id)
                 return (
                     <button
@@ -195,6 +198,7 @@ function SlotCard({ slot, label, plan, className }: { slot: ArtworkSlot; label: 
 
             {isPoster && (
                 <OverlayChips
+                    cover={season === null}
                     value={overlays}
                     onChange={changeOverlays}
                     onReset={() => (season === null ? setCoverOverlays(null) : setSeasonOverlays(season, null))}
