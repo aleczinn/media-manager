@@ -72,7 +72,7 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
   - Backdrop und Landscape höchstens 1920×1080, Logos unverändert als PNG
   - Gespeichert wird beim Anwenden (Option **Bilder speichern**) oder über **Nur Bilder exportieren**, mit den Namen, die Jellyfin und Emby im Serien- bzw. Filmordner erwarten: `cover.jpg`, `season01-poster.jpg`, `season-specials-poster.jpg`, `logo.png`, `backdrop.jpg`, `landscape.jpg`
 - 📺 **YouTube-Modus**
-  - Umschalter **Filme & Serien | YouTube** oben neben dem Titel, für Videos, die mit JDownloader heruntergeladen wurden (Video, `… (Beschreibung).txt` und `… (BQ).jpg`)
+  - Umschalter **Filme & Serien | YouTube** oben neben dem Titel (beim Start immer Filme & Serien), für Videos, die mit JDownloader heruntergeladen wurden (Video, `… (Beschreibung).txt` und `… (BQ).jpg`)
   - Der Zielname ist der Videotitel ohne Qualitätsangabe wie `(2160p_60fps_AV1-128kbit_AAC)`; Emojis und Sonderzeichen bleiben
   - Beschreibung und Bild werden über den bereinigten Namen zugeordnet; Symbole in der Zeile und der Abschnitt **Begleitdateien** in der Spurübersicht zeigen, ob sie gefunden wurden (die Beschreibung im Tooltip)
   - Das Bild steht links neben dem Zielnamen, beim Überfahren groß (520 px)

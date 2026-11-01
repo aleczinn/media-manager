@@ -15,12 +15,20 @@ import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import type { AppMode } from '@shared/types'
 
-const MODES: { mode: AppMode; label: string; icon: typeof Clapperboard; hint: string }[] = [
-    { mode: 'media', label: 'Filme & Serien', icon: Clapperboard, hint: 'Umbenennen nach TMDB, Vorschaubilder und Artwork' },
+/** `active`: Farbe des gewählten Modus; YouTube in YouTube-Rot, damit der Modus sofort auffällt */
+const MODES: { mode: AppMode; label: string; icon: typeof Clapperboard; hint: string; active: string }[] = [
+    {
+        mode: 'media',
+        label: 'Filme & Serien',
+        icon: Clapperboard,
+        hint: 'Umbenennen nach TMDB, Vorschaubilder und Artwork',
+        active: 'bg-primary/15 text-primary'
+    },
     {
         mode: 'youtube',
         label: 'YouTube',
         icon: MonitorPlay,
+        active: 'bg-[#ff0033] font-medium text-white',
         hint: 'JDownloader-Downloads: Namen bereinigen, Tonspur auf Deutsch, Beschreibung (.txt) und Bild (.jpg) gleichnamig mitkopieren'
     }
 ]
@@ -34,7 +42,7 @@ function ModeSwitch() {
 
     return (
         <div className="flex items-center rounded-lg border bg-card/60 p-0.5">
-            {MODES.map(({ mode: value, label, icon: Icon, hint }) => (
+            {MODES.map(({ mode: value, label, icon: Icon, hint, active }) => (
                 <button
                     key={value}
                     type="button"
@@ -43,7 +51,7 @@ function ModeSwitch() {
                     onClick={() => updateSettings({ mode: value })}
                     className={cn(
                         'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors disabled:opacity-50',
-                        mode === value ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                        mode === value ? active : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                     )}
                 >
                     <Icon className="size-3.5" />
