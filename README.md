@@ -1,6 +1,6 @@
 # Media Manager
 
-[![Version](https://img.shields.io/badge/Media_Manager-1.0.7-8B7CFF?style=flat-square)](package.json)
+[![Version](https://img.shields.io/badge/Media_Manager-1.0.8-8B7CFF?style=flat-square)](package.json)
 [![Electron](https://img.shields.io/badge/Electron-45-47848F?style=flat-square&logo=electron)](https://www.electronjs.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
@@ -34,13 +34,14 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
   - Quelle aus dem Dateinamen, ersatzweise aus den Ordnernamen innerhalb des Input-Ordners: Disney+, Amazon, Netflix, ATVP, RTL+, Web, UHD, BluRay
   - 3D-Filme bekommen die Kennung, die Jellyfin erwartet, ans Ende: `Titel (Jahr) {source-…} 3D.HTAB.mkv`. Erkannt wird das Format am Datei- oder Ordnernamen (`3D.HOU`, `3dhou`, `3D.HTB`, `3D.Half-SBS` …; HOU/OU/HTB wird zu HTAB, SBS zu HSBS), sonst an der Datei selbst (vorhandenes `stereo_mode`, MVC-Spur laut MediaInfo-Profil „Stereo High“). Steht nur „3D“ im Namen, vergleicht die App in sechs Frames die linke mit der rechten und die obere mit der unteren Bildhälfte (SSIM, entscheidend ist der Abstand der beiden Werte); per Knopf **Inhalt prüfen** in der Spurübersicht geht das für jede Datei. Half oder Full ergibt sich aus der Auflösung (3840×1080 → FSBS, 1920×2160 → FTAB), passt ein Format nicht zur Auflösung, gibt es einen gelben Hinweis. Ein Chip „3D · HTAB“ in der Zeile und ein Dropdown unter dem Zielnamen zeigen das Format (manuell änderbar, Rechtsklick setzt auf die Erkennung zurück; in der Spurübersicht auch für Dateien ohne 3D im Namen). Zusätzlich wird `stereo_mode` in die Videospur geschrieben
   - Zielnamen direkt in der Liste bearbeitbar, mit Knopf zum Zurücksetzen auf den Vorschlag
-  - Konflikte werden rot markiert und beim Anwenden übersprungen: Datei existiert schon, Name doppelt, ungültige Zeichen
+  - Konflikte werden rot markiert und beim Anwenden übersprungen: Datei existiert schon, Name doppelt, ungültige Zeichen. Eine schon exportierte (grüne) Datei, die ab- und wieder angewählt wird, wird neu geprüft und erscheint dann als „existiert bereits“
 - 🔊 **Tonspuren**
   - Filtern nach Sprachen, sortieren nach Sprache, Kanalzahl und Format
   - Einheitliche Titel wie „Dolby Digital Plus 5.1“; Atmos, DTS:X, DTS-HD MA und DTS-HD HR werden über MediaInfo erkannt
   - Peak-Normalisierung: Die erste Tonspur wird gemessen (`volumedetect`) und als zusätzliche AC3-Spur (Stereo 384k, 5.1 640k) vorne eingefügt, mit einstellbarem Branding im Titel, z. B. „Dolby Digital 5.1 [Sky Mix]“
   - Mindest- und Maximal-Gain einstellbar, unterstützte Formate und Kanalzahlen per Checkbox
   - Der Peak wird im Hintergrund gemessen, während man die Liste durchsieht; beim Anwenden muss dann nur noch geschrieben werden
+  - Reicht der Peak schon (Gain unter dem Mindest-Gain), kommt keine normalisierte Spur dazu; die Spurübersicht zeigt dann nur „Peak …, keine Normalisierung nötig“
 - 💬 **Untertitel**
   - Externe Untertitel aus einem `Subs`-Ordner oder gleichnamige Dateien neben dem Video: `.idx/.sub` (VobSub), `.srt`, `.ass`, `.ssa`, `.sup` (PGS)
   - Sprache aus der Datei selbst oder aus dem Dateinamen (`-eng`, `.de`, `german` …), Forced und SDH ebenfalls aus dem Dateinamen
@@ -51,6 +52,7 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
   - Einheitliche Titel wie „Deutsch Erzwungen“ oder „English SDH“ mit passenden Markierungen; Schriften für ASS-Untertitel werden mitkopiert, MP4-Untertitel nach SRT umgewandelt
 - 🎞️ **TMDB**
   - Serie oder Film einmal bei [TMDB](https://www.themoviedb.org) suchen und zuordnen; Suchbegriff und Jahr werden aus Ordner- und Dateiname vorbelegt
+  - Die TMDB-Leiste zeigt neben dem Titel die Genres (auf Deutsch) und die Bewertung, z. B. „★ 8,1/10 TMDB“ (Anzahl der Stimmen im Tooltip), als Hilfe beim Einsortieren
   - Jede Folge bekommt per Staffel und Folge ihren Titel, auf Deutsch und ohne Übersetzung auf Englisch
   - Pro Datei lässt sich die Episode per Dropdown umstellen, z. B. wenn TMDB eine Doppelfolge als eine Episode führt; Rechtsklick aufs Dropdown setzt wieder die erkannte Folge
   - Links neben dem Zielnamen steht das Episodenbild, beim Überfahren groß (520 px)
@@ -97,12 +99,13 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
 ## Bedienung
 
 1. **Input** und **Output** wählen. Beide Ordner werden gespeichert und beim nächsten Start wieder geöffnet.
-2. Unter **Verarbeitung** die gewünschten Schritte an- oder abschalten.
-3. Links Dateien ausschließen, die nicht verarbeitet werden sollen. Über den Pfeil vor einer Datei öffnet sich die Spurübersicht; dort lassen sich Untertitel per Klick auf den Chip übernehmen, entfernen oder umtypisieren.
-4. Über **Serie / Film zuordnen** die Serie oder den Film bei TMDB auswählen. Die Titel landen automatisch in den Zielnamen; bei Serien lässt sich unter jedem Namen die Episode umstellen und per Klick aufs Episodenbild ein anderes Bild wählen.
-5. Im Tab **Bilder** Cover, Logo, Backdrop, Landscape und Staffelposter prüfen und die Overlays fürs Cover setzen.
-6. Rechts die Zielnamen prüfen und bei Bedarf von Hand anpassen.
-7. **Anwenden** klicken. Fertige Dateien werden grün markiert, übersprungene und fehlerhafte zeigen ihren Grund im Tooltip.
+2. Oben neben dem Titel den Modus wählen: **Filme & Serien** (Standard) oder **YouTube** für Downloads von JDownloader.
+3. Unter **Verarbeitung** die gewünschten Schritte an- oder abschalten.
+4. Links Dateien ausschließen, die nicht verarbeitet werden sollen. Über den Pfeil vor einer Datei öffnet sich die Spurübersicht; dort lassen sich Untertitel per Klick auf den Chip übernehmen, entfernen oder umtypisieren und bei 3D-Filmen das Format setzen.
+5. Über **Serie / Film zuordnen** die Serie oder den Film bei TMDB auswählen. Die Titel landen automatisch in den Zielnamen; bei Serien lässt sich unter jedem Namen die Episode umstellen und per Klick aufs Episodenbild ein anderes Bild wählen.
+6. Im Tab **Bilder** Cover, Logo, Backdrop, Landscape und Staffelposter prüfen und die Overlays fürs Cover setzen.
+7. Rechts die Zielnamen prüfen und bei Bedarf von Hand anpassen.
+8. **Anwenden** klicken. Fertige Dateien werden grün markiert, übersprungene und fehlerhafte zeigen ihren Grund im Tooltip.
 
 Die Einstellungen liegen in `%APPDATA%\.media-manager\settings.json`.
 
@@ -155,10 +158,16 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 - `src/main/`: Electron-Main-Prozess (Ordner-Scan, ffprobe und MediaInfo, 3D-Inhaltserkennung, Hintergrund-Scan für Peak und Untertitel-Zählung, TMDB- und Fanart.tv-Abfragen, Bilder rendern, Ausführung, Einstellungen)
 - `src/preload/`: typisierte Brücke `window.api` zwischen Oberfläche und Main-Prozess
 - `src/renderer/`: React-Oberfläche mit Tailwind CSS und shadcn/ui-Komponenten
-- `resources/overlays/`: die Overlay-PNGs (600×900) für Cover und Staffelposter
+- `resources/overlays/`: die Overlay-PNGs (600×900) für Cover und Staffelposter sowie die Vignette (1920×1080) für die Bilder fehlender Folgen
 - `scripts/corruption-checker.ts`: der Corruption-Checker
 
 ## Changelog
+
+1.0.8 | Bewertung, mehr Bilder und Neuprüfung
+
+- Die TMDB-Leiste zeigt neben den Genres die Bewertung, z. B. „★ 8,1/10 TMDB“
+- Bilder von TMDB in allen Sprachen statt nur Deutsch, Englisch und ohne Text (z. B. 15 statt 3 Poster); Deutsch, Englisch und ohne Text stehen weiterhin vorn
+- Eine schon exportierte Datei, die ab- und wieder angewählt wird, wird neu geprüft und als „existiert bereits“ markiert
 
 1.0.7 | 3D-Filme
 
@@ -224,7 +233,7 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 
 ## Verwendete Bibliotheken
 
-- [mediainfo.js](https://github.com/buzz/mediainfo.js) (BSD-2-Clause) für die genaue Formaterkennung der Tonspuren
+- [mediainfo.js](https://github.com/buzz/mediainfo.js) (BSD-2-Clause) für die genaue Formaterkennung der Tonspuren und die Erkennung von MVC (Blu-ray 3D)
 - [Radix UI](https://www.radix-ui.com) und [shadcn/ui](https://ui.shadcn.com) (MIT) für die Bedienelemente
 - [dnd kit](https://dndkit.com) (MIT) für die sortierbaren Listen
 - [Lucide](https://lucide.dev) (ISC) für die Icons
