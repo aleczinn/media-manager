@@ -64,7 +64,7 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
   - Geschrieben beim Anwenden (mit **Vorschaubild speichern**) oder über **Nur Bilder exportieren**; das Bild lässt sich wie bei Dateien per Klick ändern
 - 🖼️ **Bilder**
   - Eigener Tab für Cover, Logo, Backdrop, Landscape und die Poster aller Staffeln, mit Vorschlägen von TMDB und [Fanart.tv](https://fanart.tv); angehakt sind nur die Staffeln, die in den Dateien vorkommen
-  - Standardbild ist immer zuerst ein TMDB-Bild, danach Fanart.tv; jeweils Deutsch vor Englisch, Backdrops ohne Text zuerst
+  - Standardbild ist immer zuerst ein TMDB-Bild, danach Fanart.tv; jeweils Deutsch vor Englisch, Backdrops ohne Text zuerst. Bilder in anderen Sprachen (z. B. Koreanisch, Französisch) stehen ebenfalls zur Wahl, ganz hinten
   - Bei Landscape stehen nach den Landscape-Bildern von Fanart.tv auch alle Backdrops zur Wahl, die mit Text zuerst (markiert mit „Backdrop“)
   - Klick aufs Bild öffnet die Auswahl mit Quelle, Sprache und Auflösung (bei Fanart.tv nach dem Laden gemessen), Rechtsklick stellt das Standardbild wieder her; manuelle Wahl ist orange markiert, jedes Bild lässt sich per Haken vom Export ausnehmen
   - Cover und Staffelposter werden immer 600×900 groß, gestreckt statt beschnitten
