@@ -19,6 +19,7 @@ import type {
     Settings,
     StereoContentResult,
     SubtitleOverride,
+    TmdbDetails,
     TmdbEpisode,
     TmdbMovie,
     TmdbSeasonSummary,
@@ -34,11 +35,13 @@ interface TmdbState {
     episodes: TmdbEpisode[]
     /** Genres laut TMDB (auf Deutsch), zum Einsortieren */
     genres: string[]
+    /** Bewertung bei TMDB */
+    rating: TmdbDetails['rating']
     loading: boolean
     error: string | null
 }
 
-const emptyTmdb: TmdbState = { show: null, movie: null, seasons: [], episodes: [], genres: [], loading: false, error: null }
+const emptyTmdb: TmdbState = { show: null, movie: null, seasons: [], episodes: [], genres: [], rating: null, loading: false, error: null }
 
 interface ArtworkState {
     /** Vorschläge von TMDB und Fanart.tv, `null` solange nichts geladen ist */
@@ -159,7 +162,7 @@ interface State {
     /** Entfernt Serie bzw. Film */
     clearShow(): void
     loadArtwork(): Promise<void>
-    loadGenres(): Promise<void>
+    loadDetails(): Promise<void>
     /** `null` = zurück auf den ersten Vorschlag */
     setArtwork(slot: ArtworkSlot, url: string | null): void
     setArtworkEnabled(slot: ArtworkSlot, enabled: boolean): void
@@ -182,6 +185,19 @@ interface State {
 }
 
 const emptyRun: RunState = { running: false, cancelling: false, active: {}, total: 0, done: 0, startedAt: 0, results: {}, summary: null }
+
+/**
+ * Ab- oder Anwählen vergisst das Ergebnis des letzten Laufs (z. B. „fertig“) und liest den Output-Ordner neu ein.
+ * So greift wieder die normale Prüfung, und eine schon exportierte Datei fällt als „existiert bereits“ auf.
+ */
+function forgetResults(ids: string[]): void {
+    const { run, refreshOutput } = useStore.getState()
+    if (!ids.some((id) => id in run.results)) return
+    const results = { ...run.results }
+    ids.forEach((id) => delete results[id])
+    useStore.setState({ run: { ...run, results } })
+    void refreshOutput()
+}
 
 export const useStore = create<State>()((set, get) => ({
     settings: null,
@@ -355,10 +371,12 @@ export const useStore = create<State>()((set, get) => ({
 
     toggleExcluded(id) {
         set((state) => ({ excluded: { ...state.excluded, [id]: !state.excluded[id] } }))
+        forgetResults([id])
     },
 
     setAllExcluded(excluded) {
         set((state) => ({ excluded: Object.fromEntries(state.files.map((entry) => [entry.file.id, excluded])) }))
+        forgetResults(get().files.map((entry) => entry.file.id))
     },
 
     setOverride(id, stem) {
@@ -408,7 +426,7 @@ export const useStore = create<State>()((set, get) => ({
     async assignShow(show) {
         set({ ...emptyMedia, tmdb: { ...emptyTmdb, show, loading: true } })
         const isCurrent = () => get().tmdb.show?.id === show.id
-        void get().loadGenres()
+        void get().loadDetails()
 
         const seasons = await window.api.tmdbSeasons(show.id)
         if (!isCurrent()) return
@@ -444,17 +462,17 @@ export const useStore = create<State>()((set, get) => ({
     assignMovie(movie) {
         set({ ...emptyMedia, tmdb: { ...emptyTmdb, movie } })
         void get().loadArtwork()
-        void get().loadGenres()
+        void get().loadDetails()
     },
 
-    async loadGenres() {
+    async loadDetails() {
         const { show, movie } = get().tmdb
         const target = show ?? movie
         if (!target) return
-        // Nur ein Hinweis zum Einsortieren: Fehler werden still ignoriert
-        const result = await window.api.tmdbGenres(show ? 'tv' : 'movie', target.id)
+        // Genres und Bewertung sind nur Hinweise zum Einsortieren: Fehler werden still ignoriert
+        const result = await window.api.tmdbDetails(show ? 'tv' : 'movie', target.id)
         if (!result.ok || (get().tmdb.show ?? get().tmdb.movie) !== target) return
-        set((state) => ({ tmdb: { ...state.tmdb, genres: result.data } }))
+        set((state) => ({ tmdb: { ...state.tmdb, genres: result.data.genres, rating: result.data.rating } }))
     },
 
     clearShow() {

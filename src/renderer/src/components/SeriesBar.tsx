@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Film, Loader2, Tv, X } from 'lucide-react'
+import { Film, Loader2, Star, Tv, X } from 'lucide-react'
 import { parseEpisode } from '@shared/rename'
 import { episodeRefFromName, movieQueryFromFile, seriesQueryFromFile, tmdbImageUrl } from '@shared/tmdb-match'
 import { Button } from '@/components/ui/button'
@@ -82,6 +82,18 @@ export function SeriesBar({ derived }: { derived: Derived }) {
                                     {genre}
                                 </span>
                             ))}
+                        </span>
+                    )}
+                    {tmdb.rating && (
+                        <span
+                            className="ml-4 flex shrink-0 items-center gap-1 text-xs text-muted-foreground tabular-nums"
+                            title={`Bewertung bei TMDB: ${tmdb.rating.average.toFixed(1).replace('.', ',')} von 10 (${tmdb.rating.votes.toLocaleString('de-DE')} Stimmen)`}
+                        >
+                            <Star className="size-3.5 fill-warning text-warning" />
+                            <span>
+                                <span className="font-medium text-foreground">{tmdb.rating.average.toFixed(1).replace('.', ',')}</span>/10
+                            </span>
+                            <span className="text-[10px] tracking-wide uppercase">TMDB</span>
                         </span>
                     )}
                 </div>
