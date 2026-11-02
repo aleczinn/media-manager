@@ -183,6 +183,19 @@ interface State {
 
 const emptyRun: RunState = { running: false, cancelling: false, active: {}, total: 0, done: 0, startedAt: 0, results: {}, summary: null }
 
+/**
+ * Ab- oder Anwählen vergisst das Ergebnis des letzten Laufs (z. B. „fertig“) und liest den Output-Ordner neu ein.
+ * So greift wieder die normale Prüfung, und eine schon exportierte Datei fällt als „existiert bereits“ auf.
+ */
+function forgetResults(ids: string[]): void {
+    const { run, refreshOutput } = useStore.getState()
+    if (!ids.some((id) => id in run.results)) return
+    const results = { ...run.results }
+    ids.forEach((id) => delete results[id])
+    useStore.setState({ run: { ...run, results } })
+    void refreshOutput()
+}
+
 export const useStore = create<State>()((set, get) => ({
     settings: null,
     ffmpeg: null,
@@ -355,10 +368,12 @@ export const useStore = create<State>()((set, get) => ({
 
     toggleExcluded(id) {
         set((state) => ({ excluded: { ...state.excluded, [id]: !state.excluded[id] } }))
+        forgetResults([id])
     },
 
     setAllExcluded(excluded) {
         set((state) => ({ excluded: Object.fromEntries(state.files.map((entry) => [entry.file.id, excluded])) }))
+        forgetResults(get().files.map((entry) => entry.file.id))
     },
 
     setOverride(id, stem) {
