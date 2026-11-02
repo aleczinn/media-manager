@@ -1,5 +1,14 @@
 import { isPlaceholderTitle } from '../shared/tmdb-match'
-import type { ArtworkCandidate, TmdbEpisode, TmdbImage, TmdbMovie, TmdbResult, TmdbSeasonSummary, TmdbShow } from '../shared/types'
+import type {
+    ArtworkCandidate,
+    TmdbDetails,
+    TmdbEpisode,
+    TmdbImage,
+    TmdbMovie,
+    TmdbResult,
+    TmdbSeasonSummary,
+    TmdbShow
+} from '../shared/types'
 
 const API = 'https://api.themoviedb.org/3'
 const IMAGE = 'https://image.tmdb.org/t/p'
@@ -155,11 +164,20 @@ export function getSeasons(apiKey: string, showId: number): Promise<TmdbResult<T
     })
 }
 
-/** Genres einer Serie bzw. eines Films auf Deutsch (bei Serien aus derselben, gecachten Abfrage wie die Staffeln) */
-export function getGenres(apiKey: string, kind: 'tv' | 'movie', id: number): Promise<TmdbResult<string[]>> {
+/** Genres (auf Deutsch) und Bewertung einer Serie bzw. eines Films (bei Serien aus derselben, gecachten Abfrage wie die Staffeln) */
+export function getDetails(apiKey: string, kind: 'tv' | 'movie', id: number): Promise<TmdbResult<TmdbDetails>> {
     return wrap(async () => {
-        const details = await request<{ genres?: { name: string }[] }>(apiKey, `/${kind}/${id}`, { language: LANGUAGE })
-        return (details.genres ?? []).map((genre) => genre.name).filter(Boolean)
+        const details = await request<{ genres?: { name: string }[]; vote_average?: number; vote_count?: number }>(
+            apiKey,
+            `/${kind}/${id}`,
+            { language: LANGUAGE }
+        )
+        const votes = details.vote_count ?? 0
+        return {
+            genres: (details.genres ?? []).map((genre) => genre.name).filter(Boolean),
+            // Ohne Stimmen ist die Bewertung 0 und sagt nichts aus
+            rating: votes > 0 && details.vote_average ? { average: details.vote_average, votes } : null
+        }
     })
 }
 
