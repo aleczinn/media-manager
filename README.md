@@ -1,6 +1,6 @@
 # Media Manager
 
-[![Version](https://img.shields.io/badge/Media_Manager-1.0.8-8B7CFF?style=flat-square)](package.json)
+[![Version](https://img.shields.io/badge/Media_Manager-1.0.9-8B7CFF?style=flat-square)](package.json)
 [![Electron](https://img.shields.io/badge/Electron-45-47848F?style=flat-square&logo=electron)](https://www.electronjs.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
@@ -163,6 +163,13 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 - `scripts/corruption-checker.ts`: der Corruption-Checker
 
 ## Changelog
+
+1.0.9 | Namensregeln im YouTube-Modus
+
+- Neuer Editor **Namensregeln** im Kopf der Spalte Zielname: Benannte Regelsätze bringen uneinheitliche Videotitel in ein Format, z. B. „OUTLAST [HD+] #018 - Titel ★ Let's Play Outlast“ zu „#018 - Titel“
+- Schritte: alles davor oder danach entfernen, ersetzen (auch per Regex), Zeichen abschneiden und Muster umbauen, z. B. „{titel} 🈲 OUTLAST 2 [{nr}]“ zu „#{nr} - {titel}“; die Reihenfolge lässt sich per Drag & Drop ändern
+- Regelsätze werden je Quellordner zugewiesen und bleiben gespeichert; Schritte, die nicht passen, ändern nichts, von Hand eingetragene Namen haben Vorrang
+- Live-Vorschau mit Vorher und Nachher samt Dateiendung, die Konflikte rot markiert; der Text lässt sich markieren und kopieren, z. B. um Sonderzeichen wie ★ in einen Schritt zu übernehmen
 
 1.0.8 | Bewertung, mehr Bilder und Neuprüfung
 
