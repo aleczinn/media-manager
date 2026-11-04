@@ -77,6 +77,7 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
 - 📺 **YouTube-Modus**
   - Umschalter **Filme & Serien | YouTube** oben neben dem Titel (beim Start immer Filme & Serien), für Videos, die mit JDownloader heruntergeladen wurden (Video, `… (Beschreibung).txt` und `… (BQ).jpg`)
   - Der Zielname ist der Videotitel ohne Qualitätsangabe wie `(2160p_60fps_AV1-128kbit_AAC)`; Emojis und Sonderzeichen bleiben
+  - **Namensregeln** im Kopf der Spalte Zielname: Benannte Regelsätze aus Schritten (alles davor oder danach entfernen, ersetzen, auch per Regex, Zeichen abschneiden, Muster umbauen wie `{titel} 🈲 OUTLAST 2 [{nr}]` → `#{nr} - {titel}`) kürzen die Namen und werden je Quellordner zugewiesen. Eine Live-Vorschau zeigt Vorher und Nachher samt Konflikten; Schritte, die nicht passen, ändern nichts, von Hand eingetragene Namen haben Vorrang. Regelsätze und Zuweisungen bleiben gespeichert
   - Beschreibung und Bild werden über den bereinigten Namen zugeordnet; Symbole in der Zeile und der Abschnitt **Begleitdateien** in der Spurübersicht zeigen, ob sie gefunden wurden (die Beschreibung im Tooltip)
   - Das Bild steht links neben dem Zielnamen, beim Überfahren groß (520 px)
   - Jede Tonspur wird auf Deutsch gesetzt, egal mit welcher Sprache sie getaggt ist, und wie gewohnt normalisiert
@@ -104,7 +105,7 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
 4. Links Dateien ausschließen, die nicht verarbeitet werden sollen. Über den Pfeil vor einer Datei öffnet sich die Spurübersicht; dort lassen sich Untertitel per Klick auf den Chip übernehmen, entfernen oder umtypisieren und bei 3D-Filmen das Format setzen.
 5. Über **Serie / Film zuordnen** die Serie oder den Film bei TMDB auswählen. Die Titel landen automatisch in den Zielnamen; bei Serien lässt sich unter jedem Namen die Episode umstellen und per Klick aufs Episodenbild ein anderes Bild wählen.
 6. Im Tab **Bilder** Cover, Logo, Backdrop, Landscape und Staffelposter prüfen und die Overlays fürs Cover setzen.
-7. Rechts die Zielnamen prüfen und bei Bedarf von Hand anpassen.
+7. Rechts die Zielnamen prüfen und bei Bedarf von Hand anpassen; im YouTube-Modus lassen sie sich über **Namensregeln** je Ordner einheitlich kürzen.
 8. **Anwenden** klicken. Fertige Dateien werden grün markiert, übersprungene und fehlerhafte zeigen ihren Grund im Tooltip.
 
 Die Einstellungen liegen in `%APPDATA%\.media-manager\settings.json`.
@@ -154,7 +155,7 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 
 ### Struktur
 
-- `src/shared/`: reine Logik ohne Electron (Spurplanung, Renaming, 3D-Erkennung und -Entscheidung, YouTube-Namen, externe Untertitel, TMDB-Zuordnung, fehlende Folgen, Bilder und Overlays, ffmpeg-Argumente, Platzschätzung), getestet in `tests/`
+- `src/shared/`: reine Logik ohne Electron (Spurplanung, Renaming, 3D-Erkennung und -Entscheidung, YouTube-Namen und Namensregeln, externe Untertitel, TMDB-Zuordnung, fehlende Folgen, Bilder und Overlays, ffmpeg-Argumente, Platzschätzung), getestet in `tests/`
 - `src/main/`: Electron-Main-Prozess (Ordner-Scan, ffprobe und MediaInfo, 3D-Inhaltserkennung, Hintergrund-Scan für Peak und Untertitel-Zählung, TMDB- und Fanart.tv-Abfragen, Bilder rendern, Ausführung, Einstellungen)
 - `src/preload/`: typisierte Brücke `window.api` zwischen Oberfläche und Main-Prozess
 - `src/renderer/`: React-Oberfläche mit Tailwind CSS und shadcn/ui-Komponenten

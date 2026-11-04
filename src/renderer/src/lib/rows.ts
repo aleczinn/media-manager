@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { findConflicts, type Conflict } from '@shared/conflicts'
 import { subtitleTrackId } from '@shared/external-subs'
 import { anchorFile, episodeKey, findEpisodeGaps, interleaveMissing, missingEpisodeStem, type TableEntry } from '@shared/missing'
+import { youtubeStem } from '@shared/name-rules'
 import { fileKey, peakKey, type ScanRequest, type ScanStatus } from '@shared/peak'
 import { hasUncountedSubtitles, planTracks, withSubtitleCounts, type TrackPlan } from '@shared/pipeline'
 import { buildTargetStem, parseEpisode, sourceFolders } from '@shared/rename'
@@ -9,7 +10,6 @@ import { detect3D, formatFromVideo, stereoWarning, with3DTag, withResolution, ty
 import { estimateRequiredBytes } from '@shared/space'
 import { episodeRefFromName, findEpisode, sanitizeTitle, tmdbImageUrl, type EpisodeRef } from '@shared/tmdb-match'
 import type { ApplyFileResult, ApplyJob, ArtworkJob, FileAnalysis, SubtitleOverride, TmdbEpisode } from '@shared/types'
-import { cleanYoutubeName } from '@shared/youtube'
 import { useStore, type FileEntry, type StereoContentState } from './store'
 
 export interface Row {
@@ -195,7 +195,7 @@ export function useDerived(): Derived {
             const autoStem = !settings.pipeline.renameFile
                 ? entry.file.name
                 : youtube
-                  ? cleanYoutubeName(entry.file.name)
+                  ? youtubeStem(entry.file, settings)
                   : with3DTag(buildTargetStem(entry.file, settings.defaultSource, title, movieName), stereo.format)
             const override = overrides[entry.file.id]
             const key = fileKey({ inputPath: entry.file.fullPath, size: entry.file.size })

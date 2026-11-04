@@ -27,6 +27,7 @@ import { describePeak } from '@/lib/peak'
 import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import { EpisodePicker, EpisodeThumbnail, LocalThumbnail, StillThumbnail } from './EpisodePicker'
+import { NameRulesDialog } from './NameRulesDialog'
 import { Stereo3DChip, Stereo3DPicker } from './Stereo3DPicker'
 import { TrackDetails } from './TrackDetails'
 
@@ -395,6 +396,7 @@ export function FileTable({ derived }: { derived: Derived }) {
     const running = useStore((s) => s.run.running)
     const setAllExcluded = useStore((s) => s.setAllExcluded)
     const hasShow = useStore((s) => s.tmdb.episodes.length > 0 && s.settings?.mode !== 'youtube')
+    const youtube = useStore((s) => s.settings?.mode === 'youtube')
     const { rows, missing, order, conflictCount, pendingAnalysis, scanProgress } = derived
 
     const selectedCount = rows.filter((row) => !row.excluded).length
@@ -437,6 +439,7 @@ export function FileTable({ derived }: { derived: Derived }) {
                         </span>
                     )}
                     {hasShow && rows.length > 0 && <EpisodeCheck derived={derived} />}
+                    {youtube && <NameRulesDialog rows={rows} />}
                 </div>
             </div>
 

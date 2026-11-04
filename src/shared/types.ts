@@ -1,3 +1,4 @@
+import type { NameRuleSet } from './name-rules'
 import type { OverlayId } from './overlays'
 import type { PeakUpdate, ScanRequest, ScanStatusUpdate, SubtitleCountsUpdate } from './peak'
 import type { Stereo3D, StereoLayout } from './stereo3d'
@@ -172,6 +173,10 @@ export interface Settings {
     fanartApiKey: string
     /** Fehlende Folgen der erkannten Staffeln in der Dateiliste zeigen (und deren s/w-Bild exportieren können) */
     showMissingEpisodes: boolean
+    /** YouTube-Modus: gespeicherte Regelsätze für den Zielnamen */
+    nameRuleSets: NameRuleSet[]
+    /** YouTube-Modus: innerster Quellordner → ID des Regelsatzes */
+    folderRuleSets: Record<string, string>
     pipeline: PipelineOptions
 }
 
