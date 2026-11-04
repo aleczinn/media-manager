@@ -173,10 +173,8 @@ export interface Settings {
     fanartApiKey: string
     /** Fehlende Folgen der erkannten Staffeln in der Dateiliste zeigen (und deren s/w-Bild exportieren können) */
     showMissingEpisodes: boolean
-    /** YouTube-Modus: gespeicherte Regelsätze für den Zielnamen */
+    /** YouTube-Modus: gespeicherte Presets für den Zielnamen */
     nameRuleSets: NameRuleSet[]
-    /** YouTube-Modus: innerster Quellordner → ID des Regelsatzes */
-    folderRuleSets: Record<string, string>
     pipeline: PipelineOptions
 }
 

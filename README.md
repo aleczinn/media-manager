@@ -77,7 +77,8 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
 - 📺 **YouTube-Modus**
   - Umschalter **Filme & Serien | YouTube** oben neben dem Titel (beim Start immer Filme & Serien), für Videos, die mit JDownloader heruntergeladen wurden (Video, `… (Beschreibung).txt` und `… (BQ).jpg`)
   - Der Zielname ist der Videotitel ohne Qualitätsangabe wie `(2160p_60fps_AV1-128kbit_AAC)`; Emojis und Sonderzeichen bleiben
-  - **Namensregeln** im Kopf der Spalte Zielname: Benannte Regelsätze aus Schritten (alles davor oder danach entfernen, ersetzen, auch per Regex, Zeichen abschneiden, Muster umbauen wie `{titel} 🈲 OUTLAST 2 [{nr}]` → `#{nr} - {titel}`) kürzen die Namen und werden je Quellordner zugewiesen. Eine Live-Vorschau zeigt Vorher und Nachher samt Konflikten; Schritte, die nicht passen, ändern nichts, von Hand eingetragene Namen haben Vorrang. Regelsätze und Zuweisungen bleiben gespeichert
+  - **Namensregeln** im Kopf der Spalte Zielname: Presets aus Schritten (alles davor oder danach entfernen, ersetzen, auch per Regex, Zeichen abschneiden, Muster umbauen wie `{titel} 🈲 OUTLAST 2 [{nr}]` → `#{nr} - {titel}`) kürzen die Namen. Das gewählte Preset gilt sofort für alle aktuellen Dateien, bei einem anderen Input-Ordner beginnt die Auswahl wieder bei „Keine Regeln“. Eine Live-Vorschau zeigt Vorher und Nachher samt Konflikten; Schritte, die nicht passen, ändern nichts, von Hand eingetragene Namen haben Vorrang
+  - Ein Feld fürs Preset: Reinklicken benennt um, der Pfeil öffnet die Liste. **Speichern** ist nur bei Änderungen aktiv und lässt den Dialog offen; beim Schließen mit ungespeicherten Änderungen fragt die App nach (weiter bearbeiten, verwerfen oder speichern). Die Presets bleiben dauerhaft gespeichert, die Auswahl nur für die aktuellen Dateien
   - Beschreibung und Bild werden über den bereinigten Namen zugeordnet; Symbole in der Zeile und der Abschnitt **Begleitdateien** in der Spurübersicht zeigen, ob sie gefunden wurden (die Beschreibung im Tooltip)
   - Das Bild steht links neben dem Zielnamen, beim Überfahren groß (520 px)
   - Jede Tonspur wird auf Deutsch gesetzt, egal mit welcher Sprache sie getaggt ist, und wie gewohnt normalisiert
@@ -105,7 +106,7 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
 4. Links Dateien ausschließen, die nicht verarbeitet werden sollen. Über den Pfeil vor einer Datei öffnet sich die Spurübersicht; dort lassen sich Untertitel per Klick auf den Chip übernehmen, entfernen oder umtypisieren und bei 3D-Filmen das Format setzen.
 5. Über **Serie / Film zuordnen** die Serie oder den Film bei TMDB auswählen. Die Titel landen automatisch in den Zielnamen; bei Serien lässt sich unter jedem Namen die Episode umstellen und per Klick aufs Episodenbild ein anderes Bild wählen.
 6. Im Tab **Bilder** Cover, Logo, Backdrop, Landscape und Staffelposter prüfen und die Overlays fürs Cover setzen.
-7. Rechts die Zielnamen prüfen und bei Bedarf von Hand anpassen; im YouTube-Modus lassen sie sich über **Namensregeln** je Ordner einheitlich kürzen.
+7. Rechts die Zielnamen prüfen und bei Bedarf von Hand anpassen; im YouTube-Modus lassen sie sich über **Namensregeln** mit einem Preset einheitlich kürzen.
 8. **Anwenden** klicken. Fertige Dateien werden grün markiert, übersprungene und fehlerhafte zeigen ihren Grund im Tooltip.
 
 Die Einstellungen liegen in `%APPDATA%\.media-manager\settings.json`.
@@ -166,9 +167,10 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 
 1.0.9 | Namensregeln im YouTube-Modus
 
-- Neuer Editor **Namensregeln** im Kopf der Spalte Zielname: Benannte Regelsätze bringen uneinheitliche Videotitel in ein Format, z. B. „OUTLAST [HD+] #018 - Titel ★ Let's Play Outlast“ zu „#018 - Titel“
+- Neuer Editor **Namensregeln** im Kopf der Spalte Zielname: Gespeicherte Presets bringen uneinheitliche Videotitel in ein Format, z. B. „OUTLAST [HD+] #018 - Titel ★ Let's Play Outlast“ zu „#018 - Titel“
 - Schritte: alles davor oder danach entfernen, ersetzen (auch per Regex), Zeichen abschneiden und Muster umbauen, z. B. „{titel} 🈲 OUTLAST 2 [{nr}]“ zu „#{nr} - {titel}“; die Reihenfolge lässt sich per Drag & Drop ändern
-- Regelsätze werden je Quellordner zugewiesen und bleiben gespeichert; Schritte, die nicht passen, ändern nichts, von Hand eingetragene Namen haben Vorrang
+- Das gewählte Preset gilt sofort für alle aktuellen Dateien, so lassen sich Presets einfach durchprobieren; Schritte, die nicht passen, ändern nichts, von Hand eingetragene Namen haben Vorrang
+- Presets bleiben gespeichert; ein gemeinsames Feld zum Wählen und Umbenennen, Speichern ohne Schließen und Nachfrage beim Schließen mit ungespeicherten Änderungen
 - Live-Vorschau mit Vorher und Nachher samt Dateiendung, die Konflikte rot markiert; der Text lässt sich markieren und kopieren, z. B. um Sonderzeichen wie ★ in einen Schritt zu übernehmen
 
 1.0.8 | Bewertung, mehr Bilder und Neuprüfung

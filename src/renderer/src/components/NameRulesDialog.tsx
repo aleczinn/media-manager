@@ -3,25 +3,16 @@ import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, us
 import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { ArrowRight, GripVertical, Plus, Replace, Trash2, X } from 'lucide-react'
+import { ArrowRight, Check, ChevronDown, GripVertical, Plus, Replace, Save, Trash2, X } from 'lucide-react'
+import { Popover } from 'radix-ui'
 import { findConflicts } from '@shared/conflicts'
-import {
-    applyNameRules,
-    NAME_STEP_LABELS,
-    ruleFolder,
-    stepError,
-    youtubeStem,
-    type NameRules,
-    type NameStep,
-    type NameStepType
-} from '@shared/name-rules'
+import { applyNameRules, NAME_STEP_LABELS, stepError, type NameRuleSet, type NameStep, type NameStepType } from '@shared/name-rules'
 import { cleanYoutubeName } from '@shared/youtube'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select } from '@/components/ui/select'
 import type { Row } from '@/lib/rows'
 import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
@@ -245,60 +236,39 @@ interface PreviewRow {
     conflict: string | null
 }
 
-/** Vorher → Nachher mit den Regeln aus dem Entwurf, inklusive der Konflikte, die die Tabelle danach zeigen würde */
-function usePreview(rows: Row[], rules: NameRules, selectedId: string | null): { preview: PreviewRow[]; assigned: boolean } {
+/** Vorher → Nachher mit den Schritten aus dem Entwurf, inklusive der Konflikte, die die Tabelle danach zeigen würde */
+function usePreview(rows: Row[], steps: NameStep[]): PreviewRow[] {
     const overrides = useStore((s) => s.overrides)
     const outputNames = useStore((s) => s.outputNames)
 
     return useMemo(() => {
-        const selected = rules.nameRuleSets.find((set) => set.id === selectedId) ?? null
-        const assignedRows = rows.filter((row) => rules.folderRuleSets[ruleFolder(row.entry.file)] === selectedId)
-        const assigned = assignedRows.length > 0
-        const shown = assigned ? assignedRows : rows
-        const shownIds = new Set(shown.map((row) => row.entry.file.id))
-
-        const stemOf = (row: Row) => {
-            const { file } = row.entry
-            if (overrides[file.id] !== undefined) return overrides[file.id]
-            // Solange der Regelsatz keinem Ordner zugewiesen ist, zeigt die Vorschau ihn probeweise auf allen Dateien
-            if (shownIds.has(file.id) && selected) return applyNameRules(cleanYoutubeName(file.name), selected.steps)
-            return youtubeStem(file, rules)
-        }
+        const stemOf = (row: Row) => overrides[row.entry.file.id] ?? applyNameRules(cleanYoutubeName(row.entry.file.name), steps)
         const conflicts = findConflicts(
             rows.filter((row) => !row.excluded && row.result?.status !== 'ok').map((row) => ({ id: row.entry.file.id, stem: stemOf(row) })),
             outputNames
         )
-
-        return {
-            assigned,
-            preview: shown.map((row) => {
-                const { file } = row.entry
-                const before = cleanYoutubeName(file.name)
-                const after = stemOf(row)
-                return {
-                    id: file.id,
-                    before,
-                    after,
-                    changed: after !== before,
-                    manual: overrides[file.id] !== undefined,
-                    conflict: conflicts.get(file.id)?.message ?? null
-                }
-            })
-        }
-    }, [rows, rules, selectedId, overrides, outputNames])
+        return rows.map((row) => {
+            const { file } = row.entry
+            const before = cleanYoutubeName(file.name)
+            const after = stemOf(row)
+            return {
+                id: file.id,
+                before,
+                after,
+                changed: after !== before,
+                manual: overrides[file.id] !== undefined,
+                conflict: conflicts.get(file.id)?.message ?? null
+            }
+        })
+    }, [rows, steps, overrides, outputNames])
 }
 
-function Preview({ rows, rules, selectedId }: { rows: Row[]; rules: NameRules; selectedId: string | null }) {
-    const { preview, assigned } = usePreview(rows, rules, selectedId)
+function Preview({ rows, steps }: { rows: Row[]; steps: NameStep[] }) {
+    const preview = usePreview(rows, steps)
 
     return (
         <section className="flex min-h-0 flex-col gap-2">
             <h3 className="text-sm font-medium">Vorschau</h3>
-            {selectedId && !assigned && rows.length > 0 && (
-                <p className="text-xs text-warning">
-                    Noch keinem Ordner zugewiesen: Die Vorschau zeigt den Regelsatz probeweise auf allen Dateien.
-                </p>
-            )}
             {/* Markierbar, damit sich Sonderzeichen wie ★ direkt in die Schritte kopieren lassen */}
             <ul className="min-h-0 flex-1 overflow-y-auto rounded-md border bg-black/20 select-text">
                 {preview.map((row) => (
@@ -338,82 +308,180 @@ function Preview({ rows, rules, selectedId }: { rows: Row[]; rules: NameRules; s
     )
 }
 
-/** Quellordner der aktuellen Liste mit ihrer Dateianzahl */
-function foldersOf(rows: Row[]): { folder: string; count: number }[] {
-    const counts = new Map<string, number>()
-    for (const row of rows) {
-        const folder = ruleFolder(row.entry.file)
-        counts.set(folder, (counts.get(folder) ?? 0) + 1)
+const NO_PRESET = 'Keine Regeln'
+
+/** Ein Feld für beides: Der Text benennt das gewählte Preset um, der Pfeil öffnet die Liste */
+function PresetPicker({
+    presets,
+    selected,
+    changed,
+    onSelect,
+    onRename
+}: {
+    presets: NameRuleSet[]
+    selected: NameRuleSet | null
+    /** Presets mit ungespeicherten Änderungen */
+    changed: Set<string>
+    onSelect: (id: string | null) => void
+    onRename: (name: string) => void
+}) {
+    const [open, setOpen] = useState(false)
+    const choose = (id: string | null) => {
+        onSelect(id)
+        setOpen(false)
     }
-    return Array.from(counts, ([folder, count]) => ({ folder, count })).sort((a, b) => a.folder.localeCompare(b.folder, 'de'))
+    const option = (id: string | null, label: string) => (
+        <li key={id ?? 'none'}>
+            <button
+                type="button"
+                onClick={() => choose(id)}
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent"
+            >
+                <Check className={cn('size-3.5 shrink-0', (selected?.id ?? null) === id ? 'text-primary' : 'invisible')} />
+                <span className={cn('min-w-0 flex-1 truncate', id === null && 'text-muted-foreground')}>{label}</span>
+                {id && changed.has(id) && <span className="shrink-0 text-[10px] text-warning">geändert</span>}
+            </button>
+        </li>
+    )
+
+    return (
+        <Popover.Root open={open} onOpenChange={setOpen}>
+            <Popover.Anchor asChild>
+                <div
+                    className={cn(
+                        'flex h-9 min-w-0 flex-1 rounded-md border border-input bg-black/20 shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/40',
+                        selected && !selected.name.trim() && 'border-destructive'
+                    )}
+                >
+                    <input
+                        aria-label="Name des Presets"
+                        value={selected?.name ?? NO_PRESET}
+                        readOnly={!selected}
+                        placeholder="Name des Presets"
+                        spellCheck={false}
+                        title={selected ? 'Zum Umbenennen einfach ändern und speichern' : undefined}
+                        onClick={() => !selected && setOpen(true)}
+                        onChange={(event) => onRename(event.target.value)}
+                        className={cn(
+                            'h-full min-w-0 flex-1 bg-transparent px-3 text-sm outline-none placeholder:text-muted-foreground',
+                            !selected && 'cursor-pointer text-muted-foreground'
+                        )}
+                    />
+                    <Popover.Trigger asChild>
+                        <button
+                            type="button"
+                            aria-label="Preset wählen"
+                            className="flex w-9 shrink-0 items-center justify-center rounded-r-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                        >
+                            <ChevronDown className={cn('size-4 transition-transform', open && 'rotate-180')} />
+                        </button>
+                    </Popover.Trigger>
+                </div>
+            </Popover.Anchor>
+            <Popover.Portal>
+                <Popover.Content
+                    align="start"
+                    sideOffset={4}
+                    onOpenAutoFocus={(event) => event.preventDefault()}
+                    className="z-50 max-h-72 w-(--radix-popover-trigger-width) overflow-y-auto rounded-md border bg-popover p-1 shadow-lg"
+                >
+                    <ul>
+                        {option(null, NO_PRESET)}
+                        {presets.map((preset) => option(preset.id, preset.name.trim() || 'Ohne Namen'))}
+                    </ul>
+                </Popover.Content>
+            </Popover.Portal>
+        </Popover.Root>
+    )
 }
 
-/** Editor für die Namensregeln des YouTube-Modus; Änderungen gelten erst nach „Speichern“ */
+/** Kleinster freier Standardname, auch nachdem Presets gelöscht wurden */
+function newPresetName(presets: NameRuleSet[]): string {
+    const names = new Set(presets.map((preset) => preset.name))
+    let number = 1
+    while (names.has(`Preset ${number}`)) number++
+    return `Preset ${number}`
+}
+
+const NO_STEPS: NameStep[] = []
+const NO_PRESETS: NameRuleSet[] = []
+
+/**
+ * Editor für die Presets der Namensregeln im YouTube-Modus. Das gewählte Preset gilt sofort für alle aktuellen Dateien.
+ * Änderungen an den Presets liegen in einem Entwurf, bis sie gespeichert werden; der Dialog bleibt dabei offen.
+ */
 export function NameRulesDialog({ rows }: { rows: Row[] }) {
     const running = useStore((s) => s.run.running)
-    const settings = useStore((s) => s.settings)
+    const saved = useStore((s) => s.settings?.nameRuleSets ?? NO_PRESETS)
+    const renameFile = useStore((s) => s.settings?.pipeline.renameFile ?? true)
     const updateSettings = useStore((s) => s.updateSettings)
+    const activeId = useStore((s) => s.activeRuleSetId)
+    const setActive = useStore((s) => s.setActiveRuleSet)
     const [open, setOpen] = useState(false)
-    const [draft, setDraft] = useState<NameRules>({ nameRuleSets: [], folderRuleSets: {} })
-    const [selectedId, setSelectedId] = useState<string | null>(null)
-    const folders = foldersOf(rows)
+    const [draft, setDraft] = useState<NameRuleSet[]>([])
+    const [confirmClose, setConfirmClose] = useState(false)
+
+    const selected = draft.find((set) => set.id === activeId) ?? null
+    const activeName = saved.find((set) => set.id === activeId)?.name
+    const dirty = JSON.stringify(draft) !== JSON.stringify(saved)
+    const canSave = dirty && draft.every((set) => set.name.trim())
+    const changed = useMemo(() => {
+        const savedById = new Map(saved.map((set) => [set.id, JSON.stringify(set)]))
+        return new Set(draft.filter((set) => savedById.get(set.id) !== JSON.stringify(set)).map((set) => set.id))
+    }, [draft, saved])
 
     const onOpenChange = (next: boolean) => {
-        if (next && settings) {
-            const { nameRuleSets, folderRuleSets } = settings
-            setDraft({ nameRuleSets, folderRuleSets })
-            // Vorbelegt mit dem Regelsatz des ersten Ordners, der einen hat
-            const assigned = folders.map(({ folder }) => folderRuleSets[folder]).find((id) => nameRuleSets.some((set) => set.id === id))
-            setSelectedId(assigned ?? nameRuleSets[0]?.id ?? null)
+        if (next) {
+            setDraft(saved)
+            setConfirmClose(false)
+            setOpen(true)
+        } else if (dirty) {
+            setConfirmClose(true)
+        } else {
+            setOpen(false)
         }
-        setOpen(next)
     }
 
-    const selected = draft.nameRuleSets.find((set) => set.id === selectedId) ?? null
+    const patchSelected = (patch: Partial<Pick<NameRuleSet, 'name' | 'steps'>>) =>
+        setDraft((current) => current.map((set) => (set.id === activeId ? { ...set, ...patch } : set)))
 
-    const patchSelected = (patch: Partial<{ name: string; steps: NameStep[] }>) =>
-        setDraft((current) => ({
-            ...current,
-            nameRuleSets: current.nameRuleSets.map((set) => (set.id === selectedId ? { ...set, ...patch } : set))
-        }))
-
-    const addSet = () => {
+    const addPreset = () => {
         const id = crypto.randomUUID()
-        setDraft((current) => ({
-            ...current,
-            nameRuleSets: [...current.nameRuleSets, { id, name: `Regelsatz ${current.nameRuleSets.length + 1}`, steps: [] }]
-        }))
-        setSelectedId(id)
+        setDraft((current) => [...current, { id, name: newPresetName(current), steps: [] }])
+        setActive(id)
     }
 
     const removeSelected = () => {
-        const remaining = draft.nameRuleSets.filter((set) => set.id !== selectedId)
-        setDraft({
-            nameRuleSets: remaining,
-            folderRuleSets: Object.fromEntries(Object.entries(draft.folderRuleSets).filter(([, id]) => id !== selectedId))
-        })
-        setSelectedId(remaining[0]?.id ?? null)
+        const index = draft.findIndex((set) => set.id === activeId)
+        const remaining = draft.filter((set) => set.id !== activeId)
+        setDraft(remaining)
+        setActive((remaining[index] ?? remaining[index - 1])?.id ?? null)
     }
 
-    const assign = (folder: string, id: string) =>
-        setDraft((current) => {
-            const folderRuleSets = { ...current.folderRuleSets }
-            if (id) folderRuleSets[folder] = id
-            else delete folderRuleSets[folder]
-            return { ...current, folderRuleSets }
-        })
-
     const save = async () => {
-        await updateSettings(draft)
+        const next = draft.map((set) => ({ ...set, name: set.name.trim() }))
+        setDraft(next)
+        await updateSettings({ nameRuleSets: next })
+    }
+
+    const discard = () => {
+        // Ein nur im Entwurf angelegtes Preset gibt es danach nicht mehr
+        if (!saved.some((set) => set.id === activeId)) setActive(null)
+        setOpen(false)
+    }
+
+    const saveAndClose = async () => {
+        await save()
         setOpen(false)
     }
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="-my-1 ml-auto h-7 tracking-normal normal-case" disabled={running}>
+                <Button variant="outline" size="sm" className="-my-1 ml-auto h-7 max-w-72 tracking-normal normal-case" disabled={running}>
                     <Replace className="size-3.5" />
                     Namensregeln
+                    {activeName && <span className="truncate font-normal text-primary">{activeName}</span>}
                 </Button>
             </DialogTrigger>
             {/* Ein Klick neben den Dialog soll die Arbeit nicht verwerfen */}
@@ -421,11 +489,11 @@ export function NameRulesDialog({ rows }: { rows: Row[] }) {
                 <DialogHeader>
                     <DialogTitle>Namensregeln</DialogTitle>
                     <DialogDescription>
-                        Die Schritte eines Regelsatzes laufen von oben nach unten über den bereinigten Namen. Ein Schritt, der nicht passt,
-                        ändert nichts. Von Hand eingetragene Zielnamen haben Vorrang.
+                        Das gewählte Preset gilt für alle aktuellen Dateien. Seine Schritte laufen von oben nach unten über den bereinigten
+                        Namen, ein Schritt, der nicht passt, ändert nichts. Von Hand eingetragene Zielnamen haben Vorrang.
                     </DialogDescription>
                 </DialogHeader>
-                {settings && !settings.pipeline.renameFile && (
+                {!renameFile && (
                     <p className="text-sm text-warning">
                         „Datei umbenennen“ ist abgeschaltet, die Regeln wirken erst, wenn du es wieder anschaltest.
                     </p>
@@ -434,23 +502,20 @@ export function NameRulesDialog({ rows }: { rows: Row[] }) {
                 <div className="grid min-h-0 flex-1 grid-cols-2 gap-5">
                     <div className="flex min-h-0 flex-col gap-4 overflow-y-auto pr-1">
                         <section className="flex flex-col gap-2">
-                            <h3 className="text-sm font-medium">Regelsatz</h3>
+                            <h3 className="text-sm font-medium">Preset</h3>
                             <div className="flex items-center gap-2">
-                                <Select
-                                    aria-label="Regelsatz wählen"
-                                    className="min-w-0 flex-1"
-                                    value={selectedId ?? ''}
-                                    disabled={!selected}
-                                    onChange={(event) => setSelectedId(event.target.value)}
-                                >
-                                    {!selected && <option value="">Noch kein Regelsatz</option>}
-                                    {draft.nameRuleSets.map((set) => (
-                                        <option key={set.id} value={set.id}>
-                                            {set.name || 'Ohne Namen'}
-                                        </option>
-                                    ))}
-                                </Select>
-                                <Button variant="secondary" onClick={addSet}>
+                                <PresetPicker
+                                    presets={draft}
+                                    selected={selected}
+                                    changed={changed}
+                                    onSelect={setActive}
+                                    onRename={(name) => patchSelected({ name })}
+                                />
+                                <Button disabled={!canSave} onClick={() => void save()}>
+                                    <Save />
+                                    Speichern
+                                </Button>
+                                <Button variant="secondary" onClick={addPreset}>
                                     <Plus />
                                     Neu
                                 </Button>
@@ -459,22 +524,14 @@ export function NameRulesDialog({ rows }: { rows: Row[] }) {
                                     size="icon"
                                     onClick={removeSelected}
                                     disabled={!selected}
-                                    aria-label="Regelsatz löschen"
+                                    aria-label="Preset löschen"
                                 >
                                     <Trash2 />
                                 </Button>
                             </div>
-                            {selected && (
-                                <Input
-                                    aria-label="Name des Regelsatzes"
-                                    placeholder="Name des Regelsatzes"
-                                    value={selected.name}
-                                    onChange={(event) => patchSelected({ name: event.target.value })}
-                                />
-                            )}
                         </section>
 
-                        {selected && (
+                        {selected ? (
                             <section className="flex flex-col gap-2">
                                 <h3 className="text-sm font-medium">Schritte</h3>
                                 <StepList steps={selected.steps} onChange={(steps) => patchSelected({ steps })} />
@@ -497,46 +554,38 @@ export function NameRulesDialog({ rows }: { rows: Row[] }) {
                                     wird es wieder eingesetzt.
                                 </p>
                             </section>
+                        ) : (
+                            <p className="text-sm text-muted-foreground">
+                                {draft.length > 0
+                                    ? 'Wähle oben ein Preset zum Ausprobieren oder lege mit „Neu“ ein weiteres an.'
+                                    : 'Noch keine Presets. Lege mit „Neu“ das erste an.'}
+                            </p>
                         )}
-
-                        <section className="flex flex-col gap-2">
-                            <h3 className="text-sm font-medium">Ordner zuweisen</h3>
-                            {folders.map(({ folder, count }) => (
-                                <div key={folder} className="flex items-center gap-2">
-                                    <span className="min-w-0 flex-1 truncate text-sm" title={folder}>
-                                        {folder}
-                                        <span className="ml-1.5 text-xs text-muted-foreground">
-                                            ({count} {count === 1 ? 'Datei' : 'Dateien'})
-                                        </span>
-                                    </span>
-                                    <Select
-                                        aria-label={`Regelsatz für ${folder}`}
-                                        className="w-56 shrink-0"
-                                        value={draft.folderRuleSets[folder] ?? ''}
-                                        onChange={(event) => assign(folder, event.target.value)}
-                                    >
-                                        <option value="">Keiner</option>
-                                        {draft.nameRuleSets.map((set) => (
-                                            <option key={set.id} value={set.id}>
-                                                {set.name || 'Ohne Namen'}
-                                            </option>
-                                        ))}
-                                    </Select>
-                                </div>
-                            ))}
-                            {folders.length === 0 && <p className="text-xs text-muted-foreground">Keine Dateien in der Liste</p>}
-                        </section>
                     </div>
 
-                    <Preview rows={rows} rules={draft} selectedId={selectedId} />
+                    <Preview rows={rows} steps={selected?.steps ?? NO_STEPS} />
                 </div>
 
-                <DialogFooter>
-                    <Button variant="ghost" onClick={() => setOpen(false)}>
-                        Abbrechen
-                    </Button>
-                    <Button onClick={() => void save()}>Speichern</Button>
-                </DialogFooter>
+                {confirmClose && dirty ? (
+                    <div className="flex items-center justify-end gap-2">
+                        <span className="mr-auto text-sm text-warning">Es gibt ungespeicherte Änderungen.</span>
+                        <Button variant="ghost" onClick={() => setConfirmClose(false)}>
+                            Weiter bearbeiten
+                        </Button>
+                        <Button variant="outline" onClick={discard}>
+                            Verwerfen
+                        </Button>
+                        <Button disabled={!canSave} onClick={() => void saveAndClose()}>
+                            Speichern und schließen
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="flex justify-end">
+                        <Button variant="secondary" onClick={() => onOpenChange(false)}>
+                            Schließen
+                        </Button>
+                    </div>
+                )}
             </DialogContent>
         </Dialog>
     )

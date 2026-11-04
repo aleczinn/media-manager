@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { findConflicts, type Conflict } from '@shared/conflicts'
 import { subtitleTrackId } from '@shared/external-subs'
 import { anchorFile, episodeKey, findEpisodeGaps, interleaveMissing, missingEpisodeStem, type TableEntry } from '@shared/missing'
-import { youtubeStem } from '@shared/name-rules'
+import { applyNameRules } from '@shared/name-rules'
 import { fileKey, peakKey, type ScanRequest, type ScanStatus } from '@shared/peak'
 import { hasUncountedSubtitles, planTracks, withSubtitleCounts, type TrackPlan } from '@shared/pipeline'
 import { buildTargetStem, parseEpisode, sourceFolders } from '@shared/rename'
@@ -10,6 +10,7 @@ import { detect3D, formatFromVideo, stereoWarning, with3DTag, withResolution, ty
 import { estimateRequiredBytes } from '@shared/space'
 import { episodeRefFromName, findEpisode, sanitizeTitle, tmdbImageUrl, type EpisodeRef } from '@shared/tmdb-match'
 import type { ApplyFileResult, ApplyJob, ArtworkJob, FileAnalysis, SubtitleOverride, TmdbEpisode } from '@shared/types'
+import { cleanYoutubeName } from '@shared/youtube'
 import { useStore, type FileEntry, type StereoContentState } from './store'
 
 export interface Row {
@@ -133,6 +134,7 @@ export function useDerived(): Derived {
     const files = useStore((s) => s.files)
     const excluded = useStore((s) => s.excluded)
     const overrides = useStore((s) => s.overrides)
+    const activeRuleSetId = useStore((s) => s.activeRuleSetId)
     const stereoOverrides = useStore((s) => s.stereoOverrides)
     const stereoContent = useStore((s) => s.stereoContent)
     const typeOverrides = useStore((s) => s.typeOverrides)
@@ -169,6 +171,7 @@ export function useDerived(): Derived {
         const youtube = settings.mode === 'youtube'
         const tmdbEpisodes = youtube ? [] : showEpisodes
         const movie = youtube ? null : assignedMovie
+        const nameSteps = settings.nameRuleSets.find((set) => set.id === activeRuleSetId)?.steps ?? []
 
         // Bei einem Film bekommt nur die größte Datei ohne Episodenangabe den Filmnamen, Extras behalten ihren
         const movieMainId = movie
@@ -195,7 +198,7 @@ export function useDerived(): Derived {
             const autoStem = !settings.pipeline.renameFile
                 ? entry.file.name
                 : youtube
-                  ? youtubeStem(entry.file, settings)
+                  ? applyNameRules(cleanYoutubeName(entry.file.name), nameSteps)
                   : with3DTag(buildTargetStem(entry.file, settings.defaultSource, title, movieName), stereo.format)
             const override = overrides[entry.file.id]
             const key = fileKey({ inputPath: entry.file.fullPath, size: entry.file.size })
@@ -331,6 +334,7 @@ export function useDerived(): Derived {
         files,
         excluded,
         overrides,
+        activeRuleSetId,
         stereoOverrides,
         stereoContent,
         typeOverrides,

@@ -1,6 +1,3 @@
-import { sourceFolders } from './rename'
-import { cleanYoutubeName } from './youtube'
-
 /** Ein Schritt der Umbenennung; Text wird ohne Rücksicht auf Groß- und Kleinschreibung gesucht */
 export type NameStep = { id: string } & (
     | { type: 'replace'; find: string; replacement: string; regex: boolean }
@@ -16,12 +13,6 @@ export interface NameRuleSet {
     id: string
     name: string
     steps: NameStep[]
-}
-
-export interface NameRules {
-    nameRuleSets: NameRuleSet[]
-    /** Innerster Quellordner → ID des Regelsatzes */
-    folderRuleSets: Record<string, string>
 }
 
 export const NAME_STEP_LABELS: Record<NameStepType, string> = {
@@ -108,19 +99,4 @@ export function applyNameRules(name: string, steps: NameStep[]): string {
     const result = steps.reduce(applyStep, name)
     if (result === name) return name
     return result.replace(/\s+/g, ' ').trim() || name
-}
-
-/** Ordner, dem eine Datei zugeordnet wird: der innerste Quellordner */
-export function ruleFolder(file: { fullPath: string; relativePath: string }): string {
-    return sourceFolders(file)[0] ?? ''
-}
-
-export function ruleSetOfFolder(rules: NameRules, folder: string): NameRuleSet | null {
-    const id = rules.folderRuleSets[folder]
-    return rules.nameRuleSets.find((set) => set.id === id) ?? null
-}
-
-/** Zielname im YouTube-Modus: Name ohne JDownloader-Zusätze, danach die Regeln des Ordners */
-export function youtubeStem(file: { name: string; fullPath: string; relativePath: string }, rules: NameRules): string {
-    return applyNameRules(cleanYoutubeName(file.name), ruleSetOfFolder(rules, ruleFolder(file))?.steps ?? [])
 }

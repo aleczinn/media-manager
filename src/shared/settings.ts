@@ -25,7 +25,6 @@ export const DEFAULT_SETTINGS: Settings = {
     fanartApiKey: '',
     showMissingEpisodes: true,
     nameRuleSets: [],
-    folderRuleSets: {},
     pipeline: {
         filterLanguages: true,
         sortTracks: true,

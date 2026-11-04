@@ -105,6 +105,8 @@ interface State {
     excluded: Record<string, boolean>
     /** Vom Nutzer bearbeitete Zielnamen (ohne .mkv) */
     overrides: Record<string, string>
+    /** YouTube-Modus: Preset für die aktuellen Dateien; wird nicht gespeichert und fällt bei einem anderen Input-Ordner weg */
+    activeRuleSetId: string | null
     /** Manuell gewähltes 3D-Format je Datei; `none` = bewusst kein 3D */
     stereoOverrides: Record<string, Stereo3D | 'none'>
     /** Inhaltserkennung (SSIM der Bildhälften) je Datei (`fileKey()`), bleibt bis zum Programmende */
@@ -152,6 +154,7 @@ interface State {
     toggleExcluded(id: string): void
     setAllExcluded(excluded: boolean): void
     setOverride(id: string, stem: string | null): void
+    setActiveRuleSet(id: string | null): void
     /** `undefined` = zurück auf die Erkennung aus dem Namen */
     setStereo3D(fileId: string, value: Stereo3D | 'none' | undefined): void
     /** Vergleicht die Bildhälften einiger Frames; `force` misst auch nach einem Fehler erneut */
@@ -208,6 +211,7 @@ export const useStore = create<State>()((set, get) => ({
     scannedDir: null,
     excluded: {},
     overrides: {},
+    activeRuleSetId: null,
     stereoOverrides: {},
     stereoContent: {},
     typeOverrides: {},
@@ -318,6 +322,7 @@ export const useStore = create<State>()((set, get) => ({
                       files: [],
                       excluded: {},
                       overrides: {},
+                      activeRuleSetId: null,
                       stereoOverrides: {},
                       typeOverrides: {},
                       expanded: {},
@@ -377,6 +382,10 @@ export const useStore = create<State>()((set, get) => ({
     setAllExcluded(excluded) {
         set((state) => ({ excluded: Object.fromEntries(state.files.map((entry) => [entry.file.id, excluded])) }))
         forgetResults(get().files.map((entry) => entry.file.id))
+    },
+
+    setActiveRuleSet(id) {
+        set({ activeRuleSetId: id })
     },
 
     setOverride(id, stem) {

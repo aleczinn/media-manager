@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyNameRules, ruleFolder, stepError, youtubeStem, type NameStep } from '../src/shared/name-rules'
+import { applyNameRules, stepError, type NameStep } from '../src/shared/name-rules'
 import { mergeSettings } from '../src/shared/settings'
 
 const STEPS: NameStep[] = [
@@ -75,31 +75,8 @@ describe('stepError beim Muster', () => {
     })
 })
 
-describe('Regelsatz je Ordner', () => {
-    const file = {
-        name: 'OUTLAST [HD+] #018 - Titel ★ Lets Play (1080p_30fps_H264-128kbit_AAC)',
-        fullPath: 'C:\\in\\Gronkh - Outlast\\datei.mkv',
-        relativePath: 'Gronkh - Outlast\\datei.mkv'
-    }
-    const nameRuleSets = [{ id: 'a', name: 'Outlast', steps: STEPS }]
-
-    it('nimmt den innersten Ordner, bei Dateien direkt im Input dessen Namen', () => {
-        expect(ruleFolder(file)).toBe('Gronkh - Outlast')
-        expect(ruleFolder({ fullPath: 'C:\\in\\datei.mkv', relativePath: 'datei.mkv' })).toBe('in')
-    })
-
-    it('wendet nur den zugewiesenen Regelsatz an', () => {
-        expect(youtubeStem(file, { nameRuleSets, folderRuleSets: { 'Gronkh - Outlast': 'a' } })).toBe('#018 - Titel')
-        expect(youtubeStem(file, { nameRuleSets, folderRuleSets: {} })).toBe('OUTLAST [HD+] #018 - Titel ★ Lets Play')
-        // Zuordnung zu einem gelöschten Regelsatz
-        expect(youtubeStem(file, { nameRuleSets: [], folderRuleSets: { 'Gronkh - Outlast': 'a' } })).toBe(
-            'OUTLAST [HD+] #018 - Titel ★ Lets Play'
-        )
-    })
-
-    it('ergänzt bestehende Einstellungen um leere Regeln', () => {
-        const settings = mergeSettings({ inputDir: 'C:\\in' })
-        expect(settings.nameRuleSets).toEqual([])
-        expect(settings.folderRuleSets).toEqual({})
+describe('Einstellungen', () => {
+    it('ergänzt bestehende Einstellungen um eine leere Preset-Liste', () => {
+        expect(mergeSettings({ inputDir: 'C:\\in' }).nameRuleSets).toEqual([])
     })
 })
