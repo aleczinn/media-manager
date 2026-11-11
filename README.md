@@ -1,6 +1,6 @@
 # Media Manager
 
-[![Version](https://img.shields.io/badge/Media_Manager-1.0.9-8B7CFF?style=flat-square)](package.json)
+[![Version](https://img.shields.io/badge/Media_Manager-1.0.10-8B7CFF?style=flat-square)](package.json)
 [![Electron](https://img.shields.io/badge/Electron-45-47848F?style=flat-square&logo=electron)](https://www.electronjs.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
@@ -88,7 +88,7 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
   - Container- und Videotitel werden geleert, eine gleichnamige `.txt` neben der Datei (auch `… (Beschreibung).txt`) wird als Beschreibung übernommen
 - ⚡ **Ausführung**
   - Mehrere Dateien gleichzeitig, einstellbar von 1 bis 4 (Standard 2; für normale Festplatten 1)
-  - Fortschritt pro Datei und gesamt mit Restzeit, jederzeit abbrechbar
+  - Fortschritt pro Datei und gesamt mit Restzeit, jederzeit abbrechbar; der Gesamtbalken läuft flüssig, zählt Analyse und Schreiben und gewichtet die Dateien nach Größe
   - Jede Datei wird erst als `.partial` geschrieben und nach Erfolg umbenannt; Fehler betreffen nur die eine Datei
   - Speicherplatz-Warnung über dem Anwenden-Knopf: gelb, wenn nach dem Export weniger als die Warnschwelle frei bliebe, rot, wenn der Platz nicht reicht
 - ⚙️ **Einstellungen**
@@ -164,6 +164,13 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 - `scripts/corruption-checker.ts`: der Corruption-Checker
 
 ## Changelog
+
+1.0.10 | Flüssiger Fortschrittsbalken
+
+- Der Gesamtbalken beim Anwenden läuft jetzt flüssig zwischen den Meldungen von ffmpeg weiter, statt pro Datei nur am Anfang und am Ende zu springen
+- Peak-Analyse und Untertitel-Zählung zählen mit zum Fortschritt; schon im Hintergrund erledigte Scans kosten keinen Anteil
+- Große Dateien zählen entsprechend ihrer Größe mehr als kleine
+- Die Restzeit richtet sich nach der Geschwindigkeit der letzten 30 Sekunden statt nach dem Schnitt seit dem Start und bleibt am Ende nicht mehr bei wenigen Sekunden hängen
 
 1.0.9 | Namensregeln im YouTube-Modus, keine Anhänge mehr
 
