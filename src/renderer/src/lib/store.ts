@@ -25,6 +25,7 @@ import type {
     TmdbEpisodeGroup,
     TmdbMovie,
     TmdbSeasonSummary,
+    TmdbImage,
     TmdbShow,
     VideoFrame
 } from '@shared/types'
@@ -100,6 +101,11 @@ const emptyMedia = {
     seasonOverlays: {}
 }
 
+export type StillImagesState = { status: 'loading' } | { status: 'done'; images: TmdbImage[] } | { status: 'error' }
+
+/** Schlüssel der Bildliste: Serie und Folge der Ausstrahlung (so fragt TMDB die Bilder ab) */
+export const stillImagesKey = (showId: number, ref: { season: number; episode: number }) => `${showId}:${ref.season}x${ref.episode}`
+
 export type VideoFramesState = { status: 'loading' } | { status: 'done'; frames: VideoFrame[] } | { status: 'error'; error: string }
 
 export type StereoContentState =
@@ -146,6 +152,8 @@ interface State {
     stereoOverrides: Record<string, Stereo3D | 'none'>
     /** Inhaltserkennung (SSIM der Bildhälften) je Datei (`fileKey()`), bleibt bis zum Programmende */
     stereoContent: Record<string, StereoContentState>
+    /** Bildliste (mit Größen) je TMDB-Episode (`stillImagesKey`), um zu kleine Standardbilder zu ersetzen */
+    stillImages: Record<string, StillImagesState>
     /** Standbilder aus dem Video je Datei (`fileKey()`), Ersatz für fehlende TMDB-Bilder; bleibt bis zum Programmende */
     videoFrames: Record<string, VideoFramesState>
     /** Manuelle Untertitel-Wahl (Typ oder entfernt) je Datei und Spur (`subtitleTrackId`) */
@@ -196,6 +204,8 @@ interface State {
     setStereo3D(fileId: string, value: Stereo3D | 'none' | undefined): void
     /** Vergleicht die Bildhälften einiger Frames; `force` misst auch nach einem Fehler erneut */
     detectStereoContent(file: { inputPath: string; size: number; durationSec: number }, force?: boolean): Promise<void>
+    /** Lädt die Bildliste einer Episode von TMDB (einmal je Episode; nach einem Fehler nicht erneut) */
+    loadStillImages(showId: number, ref: { season: number; episode: number }): Promise<void>
     /** Zieht Standbilder aus dem Video (einmal je Datei; nach einem Fehler nur mit `force`) */
     loadFrames(file: { inputPath: string; size: number; durationSec: number }, force?: boolean): Promise<void>
     setTypeOverride(fileId: string, trackId: string, type: SubtitleOverride | null): void
@@ -270,6 +280,7 @@ export const useStore = create<State>()((set, get) => ({
     stereoOverrides: {},
     stereoContent: {},
     videoFrames: {},
+    stillImages: {},
     typeOverrides: {},
     expanded: {},
     outputNames: [],
@@ -482,6 +493,16 @@ export const useStore = create<State>()((set, get) => ({
                 ...state.stereoContent,
                 [key]: result.ok ? { status: 'done', result: result.data } : { status: 'error', error: result.error }
             }
+        }))
+    },
+
+    async loadStillImages(showId, ref) {
+        const key = stillImagesKey(showId, ref)
+        if (get().stillImages[key]) return
+        set((state) => ({ stillImages: { ...state.stillImages, [key]: { status: 'loading' } } }))
+        const result = await window.api.tmdbEpisodeImages(showId, ref.season, ref.episode)
+        set((state) => ({
+            stillImages: { ...state.stillImages, [key]: result.ok ? { status: 'done', images: result.data } : { status: 'error' } }
         }))
     },
 

@@ -3,6 +3,7 @@ import fsp from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileKey } from '../shared/peak'
+import { readJpegSize } from '../shared/stills'
 import type { Settings, VideoFrame } from '../shared/types'
 import { resolveBinaries, runProcess } from './ffmpeg'
 import { allowLocalImage } from './local-images'
@@ -49,14 +50,16 @@ async function extract(settings: Settings, file: { inputPath: string; size: numb
                 '-frames:v',
                 '1',
                 '-vf',
-                'scale=1280:-2',
+                // Nur verkleinern: ein Standbild aus einem SD-Video soll nicht als HD durchgehen
+                "scale=w='min(1280,iw)':h=-2",
                 '-q:v',
                 '3',
                 target
             ])
             if (code !== 0) throw new Error(stderrTail.slice(-3).join('\n') || `ffmpeg beendet mit Code ${code}`)
             allowLocalImage(target)
-            return { position, path: target }
+            const size = readJpegSize(await fsp.readFile(target)) ?? { width: 0, height: 0 }
+            return { position, path: target, ...size }
         })
     )
 }

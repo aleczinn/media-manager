@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { localImageUrl } from '@shared/local-image'
 import { fileKey } from '@shared/peak'
+import { isHd, sortByResolution } from '@shared/stills'
 import { formatEpisodeRef, tmdbImageUrl } from '@shared/tmdb-match'
 import type { TmdbEpisode } from '@shared/types'
 import { useStore } from '@/lib/store'
@@ -73,12 +74,19 @@ export function StillPickerDialog({
                   id: frame.path,
                   previewUrl: localImageUrl(frame.path),
                   badges: [`Video · ${Math.round(frame.position * 100)} %`],
-                  measure: true
+                  width: frame.width,
+                  height: frame.height
               }))
             : []
     const framesPending = !!file && (!frames || frames.status === 'loading')
     // Warten, bis beide Quellen da sind, damit das Raster nicht springt
-    const images = tmdbImages === null || framesPending ? null : [...tmdbImages, ...frameImages]
+    // HD-Bilder von TMDB, dann HD-Standbilder, kleine Bilder am Ende und markiert
+    const images =
+        tmdbImages === null || framesPending
+            ? null
+            : sortByResolution(
+                  [...tmdbImages, ...frameImages].map((image) => ({ width: 0, height: 0, ...image }))
+              ).map((image) => (image.width > 0 && !isHd(image) ? { ...image, warning: 'geringe Auflösung' } : image))
     const frameError = frames?.status === 'error' ? `Standbilder aus dem Video: ${frames.error}` : null
 
     return (

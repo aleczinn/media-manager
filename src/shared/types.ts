@@ -233,6 +233,9 @@ export interface VideoFrame {
     position: number
     /** Lokaler Pfad des JPGs */
     path: string
+    /** Tatsächliche Größe (nur verkleinert, nie hochskaliert) */
+    width: number
+    height: number
 }
 
 /** Andere Episodenreihenfolge einer Serie bei TMDB („Episode Group“), z. B. DVD oder absolut */
