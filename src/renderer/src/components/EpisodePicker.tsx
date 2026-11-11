@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { AlertTriangle, ChevronDown, ImageOff } from 'lucide-react'
 import { localImageUrl } from '@shared/local-image'
-import { episodeRefFromName, formatEpisodeRef, tmdbImageUrl } from '@shared/tmdb-match'
+import { episodeRefFromFile, formatEpisodeRef, tmdbImageUrl } from '@shared/tmdb-match'
 import type { TmdbEpisode } from '@shared/types'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { overlayUrl } from '@/lib/artwork'
@@ -27,7 +27,7 @@ export function EpisodePicker({ row, disabled }: { row: Row; disabled: boolean }
     const onChange = (value: string) => {
         if (!value) return setEpisode(fileId, null)
         const [season, episode] = value.split(':').map(Number)
-        const auto = episodeRefFromName(row.entry.file.name)
+        const auto = episodeRefFromFile(row.entry.file)
         // Wählt man wieder die automatisch erkannte Folge, gilt die Zuordnung als automatisch
         setEpisode(fileId, auto && auto.season === season && auto.episode === episode ? undefined : { season, episode })
     }

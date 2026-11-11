@@ -28,6 +28,18 @@ export function parseEpisode(name: string): ParsedEpisode | null {
     return { season: null, episode: Number(match[5]), series }
 }
 
+/**
+ * Episode einer Datei: zuerst aus dem Dateinamen, sonst aus dem Release-Ordner direkt darüber, z. B.
+ * `Big.Time.Rush.S04E01.German…\tvs-btr-…-401.mkv`. Beim Ordner zählt nur ein eindeutiges SxxEyy,
+ * damit Staffel-Packs wie `Show.S04.German…` keine Folge vortäuschen.
+ */
+export function parseFileEpisode(file: { name: string; fullPath: string; relativePath?: string }): ParsedEpisode | null {
+    const fromName = parseEpisode(file.name)
+    if (fromName) return fromName
+    const folder = sourceFolders(file)[0]
+    return folder && /[Ss]\d+[Ee]\d+/.test(folder) ? parseEpisode(folder) : null
+}
+
 export function detectEdition(fileName: string): string | null {
     const name = fileName.toLowerCase()
     const extended = name.includes('extended')
@@ -108,7 +120,7 @@ export function buildTargetStem(
 ): string {
     if (isAlreadyFormatted(file.name)) return file.name
 
-    const parsed = parseEpisode(file.name)
+    const parsed = parseFileEpisode(file)
     if (!parsed && !movie) return file.name
 
     const edition = detectEdition(file.name)

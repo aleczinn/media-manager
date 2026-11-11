@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, Film, Loader2, ListOrdered, Star, Tv, X } from 'lucide-react'
 import { EPISODE_GROUP_TYPES } from '@shared/episode-order'
-import { parseEpisode } from '@shared/rename'
-import { episodeRefFromName, movieQueryFromFile, seriesQueryFromFile, tmdbImageUrl } from '@shared/tmdb-match'
+import { parseFileEpisode } from '@shared/rename'
+import { episodeRefFromFile, movieQueryFromFile, seriesQueryFromFile, tmdbImageUrl } from '@shared/tmdb-match'
 import { Button } from '@/components/ui/button'
 import type { TmdbEpisodeGroup } from '@shared/types'
 import type { Derived } from '@/lib/rows'
@@ -27,14 +27,14 @@ export function SeriesBar({ derived }: { derived: Derived }) {
     const [open, setOpen] = useState(false)
 
     const activeRows = derived.rows.filter((row) => !row.excluded)
-    const episodeRows = activeRows.filter((row) => episodeRefFromName(row.entry.file.name))
+    const episodeRows = activeRows.filter((row) => episodeRefFromFile(row.entry.file))
     const matched = episodeRows.filter((row) => row.episode).length
     const movieMain = derived.rows.find((row) => row.movieMain)
 
     // Suchbegriffe aus der ersten Folge bzw. der größten Datei ohne Episodenangabe (Ordner- bzw. Dateiname)
     const firstEpisode = episodeRows[0]?.entry.file
     const largestOther = activeRows
-        .filter((row) => !parseEpisode(row.entry.file.name))
+        .filter((row) => !parseFileEpisode(row.entry.file))
         .reduce<(typeof activeRows)[number] | null>(
             (largest, row) => (!largest || row.entry.file.size > largest.entry.file.size ? row : largest),
             null

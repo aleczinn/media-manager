@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildTargetStem, detectEdition, detectSource, parseEpisode, sourceFolders, validateStem } from '../src/shared/rename'
+import { buildTargetStem, detectEdition, detectSource, parseEpisode, parseFileEpisode, sourceFolders, validateStem } from '../src/shared/rename'
 
 const file = (name: string, dir = 'C:\\in') => ({ name, fullPath: `${dir}\\${name}.mkv` })
 
@@ -71,6 +71,25 @@ describe('Quellerkennung über Ordnernamen', () => {
         expect(detectSource('Show.S01E01.WEB', 'x', 'TV', ['Show.S01.BluRay'])).toBe('Web')
         expect(detectSource('Show.S01E01', 'x', 'TV', ['Show.S01E01.WEB-DL', 'Show.S01.BluRay'])).toBe('Web')
         expect(detectSource('Show.S01E01', 'x', 'TV', ['Show.S01.UHD.Upscale'])).toBe('BluRay')
+    })
+
+    it('nimmt die Folge aus dem Release-Ordner, wenn der Dateiname keine enthält', () => {
+        const btr = {
+            name: 'tvs-btr-dd20-ded-dl-18p-ithd-avc-401',
+            fullPath:
+                'C:\\Loki\\INPUT\\Big.Time.Rush.S04E01.Big.Time.Invasion.German.DD20.Dubbed.DL.1080p.iTunesHD.AVC-TVS\\tvs-btr-dd20-ded-dl-18p-ithd-avc-401.mkv',
+            relativePath: 'Big.Time.Rush.S04E01.Big.Time.Invasion.German.DD20.Dubbed.DL.1080p.iTunesHD.AVC-TVS\\tvs-btr-dd20-ded-dl-18p-ithd-avc-401.mkv'
+        }
+        expect(parseFileEpisode(btr)).toMatchObject({ season: 4, episode: 1, series: 'Big Time Rush' })
+        expect(buildTargetStem(btr, 'Web', 'Big Time Invasion')).toBe('S04e01 - Big Time Invasion {source-Web}')
+    })
+
+    it('nimmt aus dem Ordner nur ein eindeutiges SxxEyy, keine Staffel-Packs', () => {
+        const pack = { name: 'clip-07', fullPath: 'C:\\in\\Show.S04.German.DL\\clip-07.mkv', relativePath: 'Show.S04.German.DL\\clip-07.mkv' }
+        expect(parseFileEpisode(pack)).toBeNull()
+        // Der Dateiname hat Vorrang vor dem Ordner
+        const both = { name: 'Show.S01E03', fullPath: 'C:\\in\\Show.S01E02\\Show.S01E03.mkv', relativePath: 'Show.S01E02\\Show.S01E03.mkv' }
+        expect(parseFileEpisode(both)).toMatchObject({ season: 1, episode: 3 })
     })
 
     it('ignoriert Ordner oberhalb des Input-Ordners', () => {

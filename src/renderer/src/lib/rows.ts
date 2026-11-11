@@ -5,10 +5,10 @@ import { anchorFile, episodeKey, findEpisodeGaps, interleaveMissing, missingEpis
 import { applyNameRules } from '@shared/name-rules'
 import { fileKey, peakKey, type ScanRequest, type ScanStatus } from '@shared/peak'
 import { hasUncountedSubtitles, planTracks, withSubtitleCounts, type TrackPlan } from '@shared/pipeline'
-import { buildTargetStem, parseEpisode, sourceFolders } from '@shared/rename'
+import { buildTargetStem, parseFileEpisode, sourceFolders } from '@shared/rename'
 import { detect3D, formatFromVideo, stereoWarning, with3DTag, withResolution, type Stereo3D } from '@shared/stereo3d'
 import { estimateRequiredBytes } from '@shared/space'
-import { episodeRefFromName, findEpisode, sanitizeTitle, tmdbImageUrl, type EpisodeRef } from '@shared/tmdb-match'
+import { episodeRefFromFile, findEpisode, sanitizeTitle, tmdbImageUrl, type EpisodeRef } from '@shared/tmdb-match'
 import type { ApplyFileResult, ApplyJob, ArtworkJob, FileAnalysis, SubtitleOverride, TmdbEpisode } from '@shared/types'
 import { cleanYoutubeName } from '@shared/youtube'
 import { useStore, type FileEntry, type StereoContentState } from './store'
@@ -176,7 +176,7 @@ export function useDerived(): Derived {
         // Bei einem Film bekommt nur die größte Datei ohne Episodenangabe den Filmnamen, Extras behalten ihren
         const movieMainId = movie
             ? files
-                  .filter((entry) => !excluded[entry.file.id] && !parseEpisode(entry.file.name))
+                  .filter((entry) => !excluded[entry.file.id] && !parseFileEpisode(entry.file))
                   .reduce<FileEntry | null>((largest, entry) => (!largest || entry.file.size > largest.file.size ? entry : largest), null)
                   ?.file.id
             : undefined
@@ -184,7 +184,7 @@ export function useDerived(): Derived {
         const base = files.map((entry) => {
             const movieMain = entry.file.id === movieMainId
             const episodeManual = entry.file.id in episodeOverrides
-            const ref = episodeManual ? episodeOverrides[entry.file.id] : episodeRefFromName(entry.file.name)
+            const ref = episodeManual ? episodeOverrides[entry.file.id] : episodeRefFromFile(entry.file)
             const episode = tmdbEpisodes.length > 0 ? findEpisode(tmdbEpisodes, ref) : null
             const title = episode ? sanitizeTitle(episode.title) : ''
             const movieName = movieMain && movie ? { title: sanitizeTitle(movie.name), year: movie.year } : null
