@@ -41,17 +41,33 @@ const OPTIONS: { key: keyof Options; label: string; hint: string }[] = [
     {
         key: 'saveThumbnails',
         label: 'Vorschaubild speichern',
-        hint: 'Episodenbild von TMDB als <Zielname>-thumb.jpg neben der Datei speichern, höchstens 1920×1080 (nur mit zugeordneter Serie)'
+        hint:
+            'Episodenbild von TMDB (ohne eines ein Standbild aus dem Video) als <Zielname>-thumb.jpg neben der Datei speichern, ' +
+            'höchstens 1920×1080 (nur mit zugeordneter Serie)'
     },
     {
         key: 'saveArtwork',
         label: 'Bilder speichern',
         hint: 'Cover, Staffelposter, Logo, Backdrop und Landscape aus dem Bilder-Tab in den Output-Ordner schreiben'
+    },
+    {
+        key: 'saveNfo',
+        label: 'NFO speichern',
+        hint:
+            'Titel, Inhalt, Staffel und Folge als <Zielname>.nfo für Jellyfin neben die Datei schreiben (Folgen und Filme mit TMDB-Zuordnung). ' +
+            'Geteilte oder umsortierte Folgen werden gesperrt, damit Jellyfin sie nicht per TMDB überschreibt'
+    },
+    {
+        key: 'nfoFileDescription',
+        label: 'Beschreibung aus Datei',
+        hint:
+            'Für die NFO: Hat TMDB keine deutsche Beschreibung, die aus den Metadaten der Datei übernehmen (bei geteilten Folgen zuerst diese). ' +
+            'Ohne sie wird die englische von TMDB genommen und die Datei markiert'
     }
 ]
 
 /** Im YouTube-Modus gibt es keine TMDB-Bilder */
-const MEDIA_ONLY: (keyof Options)[] = ['saveThumbnails', 'saveArtwork']
+const MEDIA_ONLY: (keyof Options)[] = ['saveThumbnails', 'saveArtwork', 'saveNfo', 'nfoFileDescription']
 
 const YOUTUBE_HINTS: Partial<Record<keyof Options, string>> = {
     renameFile: 'Qualitätsangaben wie (1080p_60fps_…), (Beschreibung) und (BQ) aus dem Namen entfernen'

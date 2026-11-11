@@ -147,6 +147,10 @@ export interface PipelineOptions {
     saveThumbnails: boolean
     /** Cover, Staffelposter, Logo, Backdrop und Landscape aus dem Bilder-Tab in den Output-Ordner schreiben */
     saveArtwork: boolean
+    /** `<Zielname>.nfo` für Jellyfin neben die Datei schreiben (Folgen und Filme mit TMDB-Zuordnung) */
+    saveNfo: boolean
+    /** NFO: ohne deutsche TMDB-Beschreibung die aus den Metadaten der Datei übernehmen (vor der englischen) */
+    nfoFileDescription: boolean
 }
 
 /** `media`: Filme und Serien, `youtube`: Downloads von JDownloader */
@@ -189,6 +193,8 @@ export interface Settings {
     nameRuleSets: NameRuleSet[]
     /** Gewählte Episodenreihenfolge (TMDB Episode Group) je Serie (TMDB-ID); fehlt = Ausstrahlung */
     episodeOrders: Record<string, string>
+    /** Geteilte Folgen je Serie (TMDB-ID): Folge der Ausstrahlung (`2x8`) → Anzahl Teile */
+    episodeSplits: Record<string, Record<string, number>>
     pipeline: PipelineOptions
 }
 
@@ -213,6 +219,23 @@ export interface TmdbEpisode {
     airDate: string | null
     /** Staffel und Folge in der Ausstrahlungsreihenfolge, falls eine andere Reihenfolge (z. B. DVD) gewählt ist */
     aired?: { season: number; episode: number }
+    /** Inhaltsangabe auf Deutsch, leer wenn TMDB keine Übersetzung hat */
+    overview: string
+    /** Englische Inhaltsangabe, nur geladen, wenn die deutsche fehlt (letzter Ersatz für die NFO) */
+    overviewEn?: string
+    /** Teil einer bei TMDB zusammengefassten Folge, z. B. Teil 2 von 2 */
+    part?: { index: number; count: number }
+}
+
+/** Standbild aus einer Videodatei */
+export interface VideoFrame {
+    /** Stelle als Anteil der Laufzeit (0–1) */
+    position: number
+    /** Lokaler Pfad des JPGs */
+    path: string
+    /** Tatsächliche Größe (nur verkleinert, nie hochskaliert) */
+    width: number
+    height: number
 }
 
 /** Andere Episodenreihenfolge einer Serie bei TMDB („Episode Group“), z. B. DVD oder absolut */
@@ -230,7 +253,15 @@ export interface TmdbEpisodeGroupDetails {
     groups: {
         name: string
         order: number
-        episodes: { order: number; season: number; episode: number; title: string; stillPath: string | null; airDate: string | null }[]
+        episodes: {
+            order: number
+            season: number
+            episode: number
+            title: string
+            overview: string
+            stillPath: string | null
+            airDate: string | null
+        }[]
     }[]
 }
 
@@ -345,6 +376,8 @@ export interface ApplyJob {
     copySidecars?: boolean
     /** 3D-Format, landet als `stereo_mode` in der Videospur */
     stereo3d?: Stereo3D
+    /** Inhalt der `<Zielname>.nfo` für Jellyfin */
+    nfo?: string
 }
 
 export type ApplyPhase = 'analyze' | 'build'
@@ -390,6 +423,7 @@ export interface MediaManagerApi {
     tmdbSeasons(showId: number): Promise<TmdbResult<TmdbSeasonSummary[]>>
     tmdbSeason(showId: number, season: number): Promise<TmdbResult<TmdbEpisode[]>>
     tmdbEpisodeImages(showId: number, season: number, episode: number): Promise<TmdbResult<TmdbImage[]>>
+    extractFrames(file: { inputPath: string; size: number; durationSec: number }): Promise<TmdbResult<VideoFrame[]>>
     tmdbEpisodeGroups(showId: number): Promise<TmdbResult<TmdbEpisodeGroup[]>>
     tmdbEpisodeGroup(groupId: string): Promise<TmdbResult<TmdbEpisodeGroupDetails>>
     tmdbDetails(kind: 'tv' | 'movie', id: number): Promise<TmdbResult<TmdbDetails>>

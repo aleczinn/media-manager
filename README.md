@@ -1,6 +1,6 @@
 # Media Manager
 
-[![Version](https://img.shields.io/badge/Media_Manager-1.0.10-8B7CFF?style=flat-square)](package.json)
+[![Version](https://img.shields.io/badge/Media_Manager-1.1.0-8B7CFF?style=flat-square)](package.json)
 [![Electron](https://img.shields.io/badge/Electron-45-47848F?style=flat-square&logo=electron)](https://www.electronjs.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
@@ -11,7 +11,7 @@
 
 Eine Desktop-App für Windows, die Serien- und Filmdateien für die eigene Mediathek aufbereitet. Sie liest einen Input-Ordner ein, schlägt für jede Datei einen einheitlichen Namen vor und baut daraus eine neue MKV im Output-Ordner: mit sortierten und sauber benannten Ton- und Untertitelspuren, einer lautstärke-normalisierten Tonspur und eingebundenen externen Untertiteln. Die Quelldateien bleiben dabei unverändert.
 
-![Media Manager](docs/1.0.3.jpg)
+![Media Manager](docs/1.1.0_2.jpg)
 
 Links stehen die gefundenen Dateien, rechts die Zielnamen. Jede Datei lässt sich ausschließen, jeder Name bearbeiten, und pro Datei zeigt eine aufklappbare Übersicht, welche Spuren vorher da sind und welche in der fertigen Datei landen. Ein Klick auf **Anwenden** verarbeitet alles.
 
@@ -57,9 +57,13 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
   - Jede Folge bekommt per Staffel und Folge ihren Titel, auf Deutsch und ohne Übersetzung auf Englisch
   - Pro Datei lässt sich die Episode per Dropdown umstellen, z. B. wenn TMDB eine Doppelfolge als eine Episode führt; Rechtsklick aufs Dropdown setzt wieder die erkannte Folge
   - Andere Episodenreihenfolgen von TMDB (DVD, absolut, digital, Handlungsbogen …) per Dropdown in der TMDB-Leiste; Staffel und Folge im Dateinamen werden dann in dieser Reihenfolge gesucht, Titel und Bilder bleiben deutsch. Die Wahl wird je Serie gespeichert
+  - **Folgen teilen**: Führt TMDB eine Folge als eine lange, die als Teil 1 und Teil 2 vorliegt (z. B. „Big Time - Weihnachten“), wird sie im Dialog neben der Reihenfolge in 2–4 Teile geteilt. Die Teile heißen „… (Teil 1)“, „… (Teil 2)“, alle späteren Folgen der Staffel rücken nach; die Teilung gilt auch mit einer anderen Reihenfolge und wird je Serie gespeichert
   - Links neben dem Zielnamen steht das Episodenbild, beim Überfahren groß (520 px)
   - Viele Folgen haben bei TMDB mehrere Bilder: Klick aufs Episodenbild öffnet die Auswahl mit allen Bildern der Folge, Rechtsklick stellt das Standardbild wieder her; manuell gewählte Bilder sind orange umrandet
+  - Die Auswahl bietet zusätzlich fünf Standbilder aus dem Video an (bei 20, 33, 50, 65 und 80 % der Laufzeit, nur verkleinert auf höchstens 1280 px Breite, nie hochskaliert). Hat eine Folge bei TMDB kein Bild, z. B. Teil 2 einer geteilten Folge, ist das Standbild bei einem Drittel automatisch das Standardbild
+  - Vorschaubilder sollen mindestens HD sein (1280 breit oder 720 hoch): Ist das TMDB-Standardbild kleiner, wird es automatisch durch ein Standbild aus dem Video ersetzt (ohne HD-Standbild durch ein anderes HD-Bild von TMDB); ein blaues ⓘ auf dem Bild sagt beim Überfahren „Thumbnail wurde wegen zu geringer Auflösung bei TMDB (666×375) … ersetzt“. Bleibt ein Bild unter HD, z. B. bei SD-Videos oder manueller Wahl, zeigt ein gelbes ⚠ „Thumbnail-Auflösung gering“. In der Auswahl stehen kleine Bilder am Ende und sind markiert
   - Optional wird das gewählte Episodenbild als `<Zielname>-thumb.jpg` neben der Datei gespeichert (wie es Jellyfin, Emby und Kodi erwarten), größere Bilder verkleinert auf höchstens 1920×1080
+  - Mit **NFO speichern** kommt eine `<Zielname>.nfo` für Jellyfin dazu: bei Folgen Titel, Serie, Staffel, Folge, Inhalt (deutsch von TMDB, sonst aus den Metadaten der Datei, zuletzt englisch mit Hinweis) und Ausstrahlung, bei Filmen Titel, Jahr, Inhalt, Genres und TMDB-ID. Weicht die Nummer von TMDB ab (geteilt, andere Reihenfolge, manuell zugeordnet), sperrt die NFO die Daten (`lockdata`), damit Jellyfin sie nicht mit der falschen TMDB-Folge überschreibt. In Jellyfin muss dafür in der Bibliothek der Metadatenleser „Nfo“ aktiv sein (Standard)
 - 🧩 **Fehlende Folgen**
   - Die Episodenliste von TMDB wird mit den Dateien abgeglichen, nur für die Staffeln, die in den Dateien vorkommen; im Kopf der Liste steht z. B. „2 Folgen fehlen“ (die Folgen im Tooltip)
   - Doppelte Zuordnungen fallen auf: „S02E03 doppelt“ im Kopf und ein Warnsymbol an den betroffenen Dateien (abgewählte Dateien zählen dabei nicht)
@@ -166,6 +170,18 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 - `scripts/corruption-checker.ts`: der Corruption-Checker
 
 ## Changelog
+
+1.1.0 | Folgen teilen, Standbilder aus dem Video, HD-Vorschaubilder und NFO für Jellyfin
+
+- **Folgen teilen** für Folgen, die TMDB als eine lange führt, die aber als Teil 1 und Teil 2 vorliegen (z. B. Big Time Rush 2x8 „Weihnachten“). Die Teile bekommen „(Teil 1)“, „(Teil 2)“ im Titel, alle späteren Folgen der Staffel rücken nach (Guru wird 2x10); gilt auch mit einer anderen Reihenfolge und wird je Serie gespeichert
+- Folgen ohne TMDB-Bild (z. B. Teil 2) bekommen automatisch ein Standbild aus dem Video bei einem Drittel der Laufzeit; die Bildauswahl zeigt neben den TMDB-Bildern fünf Standbilder aus dem Video zur Auswahl
+- Vorschaubilder mindestens in HD: Ein TMDB-Standardbild unter 1280×720 (z. B. 666×375) wird automatisch durch ein Standbild aus dem Video ersetzt, mit Hinweis auf dem Bild; bleibt ein Bild unter HD, warnt „Thumbnail-Auflösung gering“. Die Bildauswahl sortiert kleine Bilder ans Ende und markiert sie; Standbilder werden nicht mehr hochskaliert
+- Neue Option **NFO speichern** (standardmäßig an): `<Zielname>.nfo` mit Titel, Inhalt, Staffel, Folge und Ausstrahlung bzw. bei Filmen mit Jahr, Genres und TMDB-ID, damit Jellyfin alles ohne Nacharbeit übernimmt; bei geteilten oder umsortierten Folgen mit `lockdata`, damit Jellyfin sie nicht per TMDB überschreibt
+- Beschreibung in der NFO möglichst deutsch: zuerst die deutsche von TMDB, dann die aus den Metadaten der Datei (`DESCRIPTION`, neue Option **Beschreibung aus Datei**, standardmäßig an), zuletzt die englische von TMDB; bei geteilten Folgen zuerst die der Datei, weil TMDB die ganze Doppelfolge beschreibt. Englische oder fehlende Beschreibungen markiert die Zeile mit „Beschreibung englisch“ bzw. „keine Beschreibung“; die Spurübersicht zeigt unter „Nachher“, woher der NFO-Inhalt kommt
+
+![Folgen teilen](docs/1.1.0_1.jpg)
+
+![Neuzuweisung der Folgen](docs/1.1.0_2.jpg)
 
 1.0.10 | Flüssiger Fortschrittsbalken, Episodenreihenfolgen, Folgen aus dem Ordnernamen, Datei-Metadaten
 

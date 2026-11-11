@@ -14,6 +14,8 @@ export interface PickerImage {
     height?: number
     /** Größe unbekannt: nach dem Laden ausmessen (nur wenn `previewUrl` das Original ist) */
     measure?: boolean
+    /** Gelber Hinweis unter dem Bild, z. B. „geringe Auflösung“ */
+    warning?: string
 }
 
 export type PickerShape = 'landscape' | 'poster' | 'logo'
@@ -67,6 +69,9 @@ function PickerTile({
                             {badge}
                         </span>
                     ))}
+                    {image.warning && (
+                        <span className="rounded bg-warning/15 px-1.5 py-px text-[10px] text-warning">{image.warning}</span>
+                    )}
                 </span>
             )}
         </button>

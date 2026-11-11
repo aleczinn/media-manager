@@ -49,6 +49,7 @@ interface RawEpisode {
     season_number: number
     episode_number: number
     name?: string
+    overview?: string
     still_path?: string | null
     air_date?: string | null
 }
@@ -190,7 +191,8 @@ export function getSeason(apiKey: string, showId: number, season: number): Promi
 
         const episodes = (await load(LANGUAGE)).episodes ?? []
         let fallback: RawEpisode[] = []
-        if (episodes.some((episode) => isPlaceholderTitle(episode.name))) {
+        // Englisch nur nachladen, wenn Titel oder Beschreibung fehlen
+        if (episodes.some((episode) => isPlaceholderTitle(episode.name) || !episode.overview?.trim())) {
             fallback = (await load(FALLBACK_LANGUAGE)).episodes ?? []
         }
 
@@ -201,6 +203,9 @@ export function getSeason(apiKey: string, showId: number, season: number): Promi
                 season: episode.season_number,
                 episode: episode.episode_number,
                 title,
+                // Deutsch; die englische nur als letzter Ersatz (nach der Beschreibung aus der Datei)
+                overview: episode.overview?.trim() ?? '',
+                overviewEn: english?.overview?.trim() || undefined,
                 stillPath: episode.still_path ?? english?.still_path ?? null,
                 airDate: episode.air_date || null
             }
@@ -239,6 +244,7 @@ export function getEpisodeGroup(apiKey: string, groupId: string): Promise<TmdbRe
                     season: episode.season_number,
                     episode: episode.episode_number,
                     title: episode.name ?? '',
+                    overview: episode.overview?.trim() ?? '',
                     stillPath: episode.still_path ?? null,
                     airDate: episode.air_date || null
                 }))

@@ -4,6 +4,7 @@ import path from 'node:path'
 import { app } from 'electron'
 import { landscapeCandidates, sortCandidates } from '../shared/artwork'
 import { overlayFiles } from '../shared/overlays'
+import { isLocalImagePath } from '../shared/tmdb-match'
 import type {
     ArtworkCandidate,
     ArtworkCandidates,
@@ -108,7 +109,8 @@ export async function renderImage(
     const tempPath = `${targetPath}.partial`
     const workDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'media-manager-image-'))
     try {
-        const source = await downloadImage(url)
+        // Standbilder aus dem Video liegen schon lokal, alles andere kommt von TMDB oder Fanart.tv
+        const source = isLocalImagePath(url) ? await fsp.readFile(url) : await downloadImage(url)
         if (kind === 'logo') {
             await fsp.writeFile(tempPath, source)
         } else {

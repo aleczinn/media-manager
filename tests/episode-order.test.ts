@@ -7,7 +7,8 @@ const aired = (season: number, episode: number, title: string): TmdbEpisode => (
     episode,
     title,
     stillPath: `/s${season}e${episode}.jpg`,
-    airDate: '2002-09-20'
+    airDate: '2002-09-20',
+    overview: 'Inhalt'
 })
 
 const entry = (order: number, season: number, episode: number, title = 'English') => ({
@@ -16,7 +17,8 @@ const entry = (order: number, season: number, episode: number, title = 'English'
     episode,
     title,
     stillPath: null,
-    airDate: null
+    airDate: null,
+    overview: ''
 })
 
 describe('applyEpisodeGroup', () => {

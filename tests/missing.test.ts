@@ -7,7 +7,8 @@ const episode = (season: number, number: number): TmdbEpisode => ({
     episode: number,
     title: `Folge ${number}`,
     stillPath: null,
-    airDate: null
+    airDate: null,
+    overview: ''
 })
 const ref = (season: number, number: number) => ({ season, episode: number })
 const file = (season: number, number: number, excluded = false) => ({ ref: ref(season, number), excluded })

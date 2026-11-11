@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, Film, Loader2, ListOrdered, Star, Tv, X } from 'lucide-react'
+import { ChevronDown, Film, Loader2, ListOrdered, Scissors, Star, Tv, X } from 'lucide-react'
 import { EPISODE_GROUP_TYPES } from '@shared/episode-order'
 import { parseFileEpisode } from '@shared/rename'
 import { episodeRefFromFile, movieQueryFromFile, seriesQueryFromFile, tmdbImageUrl } from '@shared/tmdb-match'
@@ -8,6 +8,7 @@ import type { TmdbEpisodeGroup } from '@shared/types'
 import type { Derived } from '@/lib/rows'
 import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
+import { EpisodeSplitDialog } from './EpisodeSplitDialog'
 import { SeriesDialog } from './SeriesDialog'
 
 /** „DVD · Name (24 Folgen)“; der Typ entfällt, wenn der Name ihn schon nennt */
@@ -25,10 +26,13 @@ export function SeriesBar({ derived }: { derived: Derived }) {
     const clearShow = useStore((s) => s.clearShow)
     const setEpisodeOrder = useStore((s) => s.setEpisodeOrder)
     const [open, setOpen] = useState(false)
+    const [splitOpen, setSplitOpen] = useState(false)
 
     const activeRows = derived.rows.filter((row) => !row.excluded)
     const episodeRows = activeRows.filter((row) => episodeRefFromFile(row.entry.file))
     const matched = episodeRows.filter((row) => row.episode).length
+    const fileSeasons = [...new Set(episodeRows.map((row) => episodeRefFromFile(row.entry.file)!.season))]
+    const splitCount = Object.keys(tmdb.splits).length
     const movieMain = derived.rows.find((row) => row.movieMain)
 
     // Suchbegriffe aus der ersten Folge bzw. der größten Datei ohne Episodenangabe (Ordner- bzw. Dateiname)
@@ -113,6 +117,19 @@ export function SeriesBar({ derived }: { derived: Derived }) {
                             <ChevronDown className="pointer-events-none absolute right-1.5 size-3 text-muted-foreground" />
                         </div>
                     )}
+                    {tmdb.show && !tmdb.loading && tmdb.episodes.length > 0 && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className={cn('h-6 shrink-0 px-2 text-xs', splitCount > 0 ? 'text-primary' : 'text-muted-foreground')}
+                            onClick={() => setSplitOpen(true)}
+                            disabled={running}
+                            title="Folgen, die TMDB als eine führt, in Teil 1 und Teil 2 aufteilen; spätere Folgen rücken nach"
+                        >
+                            <Scissors className="size-3.5" />
+                            {splitCount > 0 ? `${splitCount} ${splitCount === 1 ? 'Folge' : 'Folgen'} geteilt` : 'Folgen teilen'}
+                        </Button>
+                    )}
                     {tmdb.genres.length > 0 && (
                         <span className="ml-4 flex min-w-0 items-center gap-1 overflow-hidden" title={tmdb.genres.join(', ')}>
                             {tmdb.genres.map((genre) => (
@@ -159,6 +176,7 @@ export function SeriesBar({ derived }: { derived: Derived }) {
                 </Button>
             </div>
 
+            <EpisodeSplitDialog open={splitOpen} onOpenChange={setSplitOpen} fileSeasons={fileSeasons} />
             <SeriesDialog
                 open={open}
                 onOpenChange={setOpen}
