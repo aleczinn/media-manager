@@ -3,7 +3,7 @@ import path from 'node:path'
 import mediaInfoFactory, { type MediaInfo } from 'mediainfo.js'
 import { subtitleHintsFromFilename } from '../shared/external-subs'
 import { analysisKey } from '../shared/peak'
-import type { AudioTrackInfo, FileAnalysis, MediaFile, SubtitleTrackInfo, VideoTrackInfo } from '../shared/types'
+import type { AttachmentInfo, AudioTrackInfo, FileAnalysis, MediaFile, SubtitleTrackInfo, VideoTrackInfo } from '../shared/types'
 import { runProcess } from './ffmpeg'
 
 interface FfprobeStream {
@@ -173,7 +173,15 @@ export async function analyzeFile(file: MediaFile, ffprobe: string): Promise<Fil
         durationSec: parseFloat(probe.format?.duration ?? '0') || 0,
         video: [],
         audio: [],
-        subtitle: []
+        subtitle: [],
+        attachments: (probe.streams ?? [])
+            .filter((stream) => stream.codec_type === 'attachment')
+            .map((stream, index): AttachmentInfo => ({
+                index,
+                fileName: str(stream.tags?.filename),
+                mimeType: str(stream.tags?.mimetype),
+                codec: str(stream.codec_name)
+            }))
     }
     const typeCounters = { video: 0, audio: 0, subtitle: 0 }
 

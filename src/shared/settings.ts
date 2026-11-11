@@ -24,6 +24,7 @@ export const DEFAULT_SETTINGS: Settings = {
     tmdbApiKey: '',
     fanartApiKey: '',
     showMissingEpisodes: true,
+    nameRuleSets: [],
     pipeline: {
         filterLanguages: true,
         sortTracks: true,
