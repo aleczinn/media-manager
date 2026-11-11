@@ -1,3 +1,4 @@
+import { localImageUrl } from './local-image'
 import { parseEpisode, parseFileEpisode, sourceFolders } from './rename'
 import { strip3D } from './stereo3d'
 import type { TmdbEpisode } from './types'
@@ -17,6 +18,16 @@ const YEAR = /\b(19\d{2}|20\d{2})\b/g
 
 export function tmdbImageUrl(path: string, size: 'w92' | 'w185' | 'w300' | 'w780' | 'w1280' | 'original' = 'original'): string {
     return `https://image.tmdb.org/t/p/${size}${path}`
+}
+
+/** Lokaler Bildpfad (z. B. Standbild aus dem Video) statt TMDB-Pfad wie `/abc.jpg` */
+export function isLocalImagePath(path: string): boolean {
+    return /^[a-z]:[\\/]/i.test(path) || path.startsWith('\\\\')
+}
+
+/** Anzeige-Adresse eines Episodenbilds: TMDB-Pfad oder lokales Standbild */
+export function stillImageUrl(path: string, size: Parameters<typeof tmdbImageUrl>[1] = 'original'): string {
+    return isLocalImagePath(path) ? localImageUrl(path) : tmdbImageUrl(path, size)
 }
 
 /** Trennt eine Jahreszahl ab: „The Expanse 2015“ → „The Expanse“ + 2015 (nur plausible Jahre) */

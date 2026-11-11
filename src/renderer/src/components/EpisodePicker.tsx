@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { AlertTriangle, ChevronDown, ImageOff } from 'lucide-react'
 import { localImageUrl } from '@shared/local-image'
-import { episodeRefFromFile, formatEpisodeRef, tmdbImageUrl } from '@shared/tmdb-match'
+import { episodeRefFromFile, formatEpisodeRef, stillImageUrl } from '@shared/tmdb-match'
 import type { TmdbEpisode } from '@shared/types'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { overlayUrl } from '@/lib/artwork'
@@ -17,6 +17,7 @@ export function EpisodePicker({ row, disabled }: { row: Row; disabled: boolean }
     const episodes = useStore((s) => s.tmdb.episodes)
     const seasons = useStore((s) => s.tmdb.seasons)
     const setEpisode = useStore((s) => s.setEpisode)
+    const saveNfo = useStore((s) => !!s.settings?.pipeline.saveNfo)
     const fileId = row.entry.file.id
 
     const bySeason = new Map<number, TmdbEpisode[]>()
@@ -72,6 +73,21 @@ export function EpisodePicker({ row, disabled }: { row: Row; disabled: boolean }
                 <ChevronDown className="pointer-events-none absolute top-1/2 right-1.5 size-3 -translate-y-1/2 text-muted-foreground" />
             </div>
             {row.episodeManual && <span className="shrink-0 text-[10px] text-warning">manuell</span>}
+            {saveNfo && row.plot && (row.plot.source === 'tmdb-en' || !row.plot.source) && (
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <span className="flex shrink-0 items-center gap-1 text-[10px] text-warning">
+                            <AlertTriangle className="size-3.5" />
+                            {row.plot.source ? 'Beschreibung englisch' : 'keine Beschreibung'}
+                        </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-sm">
+                        {row.plot.source
+                            ? 'TMDB hat keine deutsche Beschreibung und aus der Datei wird keine übernommen; die NFO bekommt die englische von TMDB'
+                            : 'Weder TMDB noch die Datei haben eine Beschreibung; die NFO bekommt keinen Inhalt'}
+                    </TooltipContent>
+                </Tooltip>
+            )}
             {row.duplicate && (
                 <Tooltip>
                     <TooltipTrigger asChild>
@@ -90,12 +106,14 @@ export function EpisodePicker({ row, disabled }: { row: Row; disabled: boolean }
  */
 export function EpisodeThumbnail({ row, disabled }: { row: Row; disabled: boolean }) {
     const setStill = useStore((s) => s.setStill)
-    const fileId = row.entry.file.id
+    const { id: fileId, fullPath, size } = row.entry.file
     return (
         <StillThumbnail
             episode={row.episode}
             stillPath={row.stillPath}
             stillManual={row.stillManual}
+            defaultPath={row.defaultStillPath}
+            file={row.analysis ? { inputPath: fullPath, size, durationSec: row.analysis.durationSec } : undefined}
             disabled={disabled}
             onChange={(path) => setStill(fileId, path)}
         />
@@ -152,11 +170,17 @@ export function StillThumbnail({
     stillManual,
     disabled,
     onChange,
-    missing = false
+    missing = false,
+    defaultPath,
+    file
 }: {
     episode: TmdbEpisode | null
     stillPath: string | null
     stillManual: boolean
+    /** Standardbild (sonst das TMDB-Bild der Episode); dessen Auswahl gilt als „zurück auf Standard“ */
+    defaultPath?: string | null
+    /** Video der Zeile: die Bildauswahl bietet dann auch Standbilder daraus an */
+    file?: { inputPath: string; size: number; durationSec: number }
     disabled: boolean
     onChange: (path: string | null) => void
     /** Fehlende Folge: Vorschau schwarz-weiß mit Vignette */
@@ -190,7 +214,7 @@ export function StillThumbnail({
             aria-label="Anderes Bild wählen"
         >
             {stillPath ? (
-                <StillImage src={tmdbImageUrl(stillPath, 'w300')} missing={missing} className="size-full object-cover" />
+                <StillImage src={stillImageUrl(stillPath, 'w300')} missing={missing} className="size-full object-cover" />
             ) : (
                 <ImageOff className="size-4 text-muted-foreground/60" />
             )}
@@ -204,7 +228,7 @@ export function StillThumbnail({
                     <TooltipTrigger asChild>{thumbnail}</TooltipTrigger>
                     <TooltipContent side="left" className="max-w-none p-1.5">
                         <StillImage
-                            src={tmdbImageUrl(stillPath, 'w1280')}
+                            src={stillImageUrl(stillPath, 'w1280')}
                             missing={missing}
                             className="aspect-video w-[520px] rounded object-cover"
                         />
@@ -225,7 +249,8 @@ export function StillThumbnail({
                 onOpenChange={setPickerOpen}
                 episode={episode}
                 selectedPath={stillPath}
-                onSelect={(path) => onChange(path === episode.stillPath ? null : path)}
+                file={file}
+                onSelect={(path) => onChange(path === (defaultPath ?? episode.stillPath) ? null : path)}
             />
         </>
     )

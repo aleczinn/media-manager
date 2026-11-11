@@ -107,10 +107,15 @@ export function App() {
     }, [])
 
     // Peak-Analyse und Untertitel-Zählung schon während der Durchsicht im Hintergrund starten (der Main-Prozess ignoriert bekannte)
-    const { scanRequests, rows } = derived
+    const { scanRequests, frameRequests, rows } = derived
     useEffect(() => {
         if (scanRequests.length > 0) void window.api.prefetchScans(scanRequests)
     }, [scanRequests])
+
+    // Folgen ohne TMDB-Bild (z. B. Teil 2 einer geteilten Folge): Standbilder aus dem Video ziehen (der Store merkt sich alles)
+    useEffect(() => {
+        for (const file of frameRequests) void useStore.getState().loadFrames(file)
+    }, [frameRequests])
 
     // „3D“ im Namen ohne Format: Anordnung am Bildinhalt erkennen (eine Datei nach der anderen, der Store merkt sich Ergebnisse)
     useEffect(() => {

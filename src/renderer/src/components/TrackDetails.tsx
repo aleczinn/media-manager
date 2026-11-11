@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { AudioLines, Captions, FileText, Film, Image as ImageIcon, Info, Paperclip, Sparkles } from 'lucide-react'
 import { getAudioTrackName, getAudioType } from '@shared/audio-names'
 import { describeContainerTags } from '@shared/container-tags'
+import type { NfoPlot } from '@shared/nfo'
 import { subtitleTrackId } from '@shared/external-subs'
 import { normalizeLanguage } from '@shared/languages'
 import {
@@ -78,6 +79,12 @@ function TagLine({ label, children, title }: { label: string; children: ReactNod
             <span className="min-w-0 truncate">{children}</span>
         </li>
     )
+}
+
+const PLOT_SOURCES: Record<NonNullable<NfoPlot['source']>, string> = {
+    tmdb: 'TMDB',
+    file: 'aus der Datei',
+    'tmdb-en': 'TMDB englisch'
 }
 
 const STATE_LABELS: Record<SubtitleOverride, string> = { removed: 'Entfernt', normal: 'Normal', forced: 'Forced', sdh: 'SDH', cc: 'CC' }
@@ -237,7 +244,8 @@ export function TrackDetails({
     analysis,
     plan,
     peakKey,
-    countsPending
+    countsPending,
+    plot
 }: {
     file: MediaFile
     /** Zielname ohne Endung */
@@ -247,6 +255,8 @@ export function TrackDetails({
     plan: TrackPlan
     peakKey: string | null
     countsPending: boolean
+    /** Beschreibung für die NFO; `null` ohne zugeordnete Episode */
+    plot?: NfoPlot | null
 }) {
     const unknownLanguage = useStore((s) => s.settings?.unknownLanguage ?? 'und')
     const settings = useStore((s) => s.settings)
@@ -260,6 +270,7 @@ export function TrackDetails({
     const containerTags = describeContainerTags(analysis.tags)
     const sourceTitle = analysis.tags?.title
     const cleanMetadata = !!settings?.pipeline.cleanMetadata
+    const nfoPlot = settings?.pipeline.saveNfo && settings.mode !== 'youtube' ? plot : null
 
     const audioMeta = (track: FileAnalysis['audio'][number]) =>
         `${getAudioTrackName(getAudioType(track)) ?? track.codecId} · ${track.channels} ch`
@@ -322,9 +333,24 @@ export function TrackDetails({
 
             <div className="flex flex-col gap-3">
                 <div className="text-xs font-semibold text-muted-foreground">Nachher</div>
-                {sourceTitle && (
+                {(sourceTitle || nfoPlot) && (
                     <Section icon={Info} label="Datei">
-                        {cleanMetadata ? (
+                        {nfoPlot &&
+                            (nfoPlot.source ? (
+                                <TagLine label="NFO-Inhalt" title={nfoPlot.text}>
+                                    <span
+                                        className={cn('mr-2 text-xs', nfoPlot.source === 'tmdb-en' ? 'text-warning' : 'text-muted-foreground')}
+                                    >
+                                        {PLOT_SOURCES[nfoPlot.source]}
+                                    </span>
+                                    {nfoPlot.text}
+                                </TagLine>
+                            ) : (
+                                <TagLine label="NFO-Inhalt" title="Weder TMDB noch die Datei haben eine Beschreibung; die NFO bekommt keinen Inhalt">
+                                    <span className="text-warning">keine Beschreibung gefunden</span>
+                                </TagLine>
+                            ))}
+                        {!sourceTitle ? null : cleanMetadata ? (
                             <TagLine label="Titel" title="„Metadaten bereinigen“ leert den Titel des Containers">
                                 <span className="text-muted-foreground line-through opacity-60">{sourceTitle}</span>
                                 <span className="ml-2 text-xs text-muted-foreground">entfernt</span>

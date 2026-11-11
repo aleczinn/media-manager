@@ -26,6 +26,7 @@ export const DEFAULT_SETTINGS: Settings = {
     showMissingEpisodes: true,
     nameRuleSets: [],
     episodeOrders: {},
+    episodeSplits: {},
     pipeline: {
         filterLanguages: true,
         sortTracks: true,
@@ -37,7 +38,9 @@ export const DEFAULT_SETTINGS: Settings = {
         cleanMetadata: true,
         encodeVideo: false,
         saveThumbnails: true,
-        saveArtwork: true
+        saveArtwork: true,
+        saveNfo: true,
+        nfoFileDescription: true
     }
 }
 

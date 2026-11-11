@@ -3,12 +3,13 @@ import { findConflicts, type Conflict } from '@shared/conflicts'
 import { subtitleTrackId } from '@shared/external-subs'
 import { anchorFile, episodeKey, findEpisodeGaps, interleaveMissing, missingEpisodeStem, type TableEntry } from '@shared/missing'
 import { applyNameRules } from '@shared/name-rules'
+import { buildEpisodeNfo, buildMovieNfo, chooseEpisodePlot, type NfoPlot } from '@shared/nfo'
 import { fileKey, peakKey, type ScanRequest, type ScanStatus } from '@shared/peak'
 import { hasUncountedSubtitles, planTracks, withSubtitleCounts, type TrackPlan } from '@shared/pipeline'
 import { buildTargetStem, parseFileEpisode, sourceFolders } from '@shared/rename'
 import { detect3D, formatFromVideo, stereoWarning, with3DTag, withResolution, type Stereo3D } from '@shared/stereo3d'
 import { estimateRequiredBytes } from '@shared/space'
-import { episodeRefFromFile, findEpisode, sanitizeTitle, tmdbImageUrl, type EpisodeRef } from '@shared/tmdb-match'
+import { episodeRefFromFile, findEpisode, isLocalImagePath, sanitizeTitle, tmdbImageUrl, type EpisodeRef } from '@shared/tmdb-match'
 import type { ApplyFileResult, ApplyJob, ArtworkJob, FileAnalysis, SubtitleOverride, TmdbEpisode } from '@shared/types'
 import { cleanYoutubeName } from '@shared/youtube'
 import { useStore, type FileEntry, type StereoContentState } from './store'
@@ -35,6 +36,10 @@ export interface Row {
     /** Episodenbild für Anzeige und -thumb.jpg (manuell gewählt oder Standardbild der Episode) */
     stillPath: string | null
     stillManual: boolean
+    /** Beschreibung für die NFO (TMDB auf Deutsch oder aus den Datei-Metadaten); `null` ohne zugeordnete Episode */
+    plot: NfoPlot | null
+    /** Standardbild: TMDB-Bild der Episode, ohne eines (z. B. Teil 2 einer geteilten Folge) ein Standbild aus dem Video */
+    defaultStillPath: string | null
     /** Hauptdatei des zugeordneten Films (bekommt den Filmnamen) */
     movieMain: boolean
     /** Mehrere angehakte Dateien sind derselben Folge zugeordnet */
@@ -120,6 +125,8 @@ export interface Derived {
     jobs: ApplyJob[]
     /** Hintergrund-Scans (Peak und/oder Untertitel-Zählung), die schon vor dem Anwenden laufen können */
     scanRequests: ScanRequest[]
+    /** Dateien, deren Folge kein TMDB-Bild hat: Standbilder aus dem Video ziehen */
+    frameRequests: { inputPath: string; size: number; durationSec: number }[]
     /** Fortschritt der Hintergrund-Scans über alle aktiven Dateien */
     scanProgress: { done: number; total: number }
     activeCount: number
@@ -145,9 +152,12 @@ export function useDerived(): Derived {
     const showEpisodes = useStore((s) => s.tmdb.episodes)
     const episodeOverrides = useStore((s) => s.episodeOverrides)
     const stillOverrides = useStore((s) => s.stillOverrides)
+    const videoFrames = useStore((s) => s.videoFrames)
     const missingSelected = useStore((s) => s.missingSelected)
     const missingStills = useStore((s) => s.missingStills)
     const assignedMovie = useStore((s) => s.tmdb.movie)
+    const assignedShow = useStore((s) => s.tmdb.show)
+    const genres = useStore((s) => s.tmdb.genres)
 
     return useMemo(() => {
         if (!settings) {
@@ -159,6 +169,7 @@ export function useDerived(): Derived {
                 missingJobs: [],
                 jobs: [],
                 scanRequests: [],
+                frameRequests: [],
                 scanProgress: { done: 0, total: 0 },
                 activeCount: 0,
                 pendingAnalysis: 0,
@@ -206,6 +217,10 @@ export function useDerived(): Derived {
             const counted = entry.analysis ? withSubtitleCounts(entry.analysis, counts) : null
             const analysis = counted ? applyTypeOverrides(counted, typeOverrides[entry.file.id]) : null
             const plan = analysis ? planTracks(analysis, settings) : null
+            const frames = videoFrames[key]
+            const defaultStillPath = episode
+                ? (episode.stillPath ?? (frames?.status === 'done' ? (frames.frames[0]?.path ?? null) : null))
+                : null
             return {
                 entry,
                 analysis,
@@ -221,8 +236,15 @@ export function useDerived(): Derived {
                     : null,
                 episode,
                 episodeManual,
-                stillPath: episode ? (stillOverrides[entry.file.id] ?? episode.stillPath) : null,
+                stillPath: episode ? (stillOverrides[entry.file.id] ?? defaultStillPath) : null,
                 stillManual: !!episode && entry.file.id in stillOverrides,
+                defaultStillPath,
+                plot: episode
+                    ? chooseEpisodePlot(episode, entry.analysis?.tags, {
+                          isPart: !!episode.part,
+                          useFile: settings.pipeline.nfoFileDescription
+                      })
+                    : null,
                 movieMain,
                 stereo,
                 result: results[entry.file.id]
@@ -266,6 +288,35 @@ export function useDerived(): Derived {
             duplicate: !row.excluded && !!fileRefs[index] && duplicateKeys.has(episodeKey(fileRefs[index])),
             conflict: conflicts.get(row.entry.file.id) ?? null
         }))
+        /** NFO für Jellyfin: Folgen mit zugeordneter TMDB-Episode und die Hauptdatei eines Films */
+        const buildNfo = (row: Row): string | null => {
+            if (row.episode && assignedShow) {
+                const { episode } = row
+                // Nummer wie im Zielnamen (aus dem Dateinamen), ersatzweise die der zugeordneten Folge
+                const ref = episodeRefFromFile(row.entry.file) ?? { season: episode.season, episode: episode.episode }
+                const tmdb = episode.aired ?? episode
+                return buildEpisodeNfo({
+                    showTitle: assignedShow.name,
+                    season: ref.season,
+                    episode: ref.episode,
+                    title: episode.title,
+                    plot: row.plot?.text ?? '',
+                    aired: episode.airDate,
+                    lock: !!episode.part || ref.season !== tmdb.season || ref.episode !== tmdb.episode
+                })
+            }
+            if (row.movieMain && movie) {
+                return buildMovieNfo({
+                    title: movie.name,
+                    originalTitle: movie.originalName,
+                    year: movie.year,
+                    plot: movie.overview,
+                    genres,
+                    tmdbId: movie.id
+                })
+            }
+            return null
+        }
         const runnable = rows.filter(
             (row) => !row.excluded && row.result?.status !== 'ok' && !row.conflict && row.entry.status === 'done' && row.analysis
         )
@@ -298,9 +349,16 @@ export function useDerived(): Derived {
                 size: row.entry.file.size,
                 targetName: `${row.stem}.mkv`,
                 analysis: row.analysis!,
-                thumbUrl: settings.pipeline.saveThumbnails && row.stillPath ? tmdbImageUrl(row.stillPath) : undefined,
+                // Lokale Standbilder gehen als Pfad an den Main-Prozess, TMDB-Bilder als Adresse
+                thumbUrl:
+                    settings.pipeline.saveThumbnails && row.stillPath
+                        ? isLocalImagePath(row.stillPath)
+                            ? row.stillPath
+                            : tmdbImageUrl(row.stillPath)
+                        : undefined,
                 descriptionPath: row.entry.file.description?.path,
                 stereo3d: row.stereo.format ?? undefined,
+                nfo: settings.pipeline.saveNfo && !youtube ? (buildNfo(row) ?? undefined) : undefined,
                 ...(youtube && { imagePath: row.entry.file.image ?? undefined, copySidecars: true })
             })),
             // Auch Dateien mit Namenskonflikt vorab scannen, der Konflikt wird meist noch behoben.
@@ -314,6 +372,16 @@ export function useDerived(): Derived {
                     peakTrackIndex: row.plan?.normalize?.source.index ?? null,
                     countSubtitles: row.countsPending
                 })),
+            frameRequests: rows
+                .filter(
+                    (row) =>
+                        !row.excluded &&
+                        row.episode &&
+                        !row.episode.stillPath &&
+                        row.analysis &&
+                        !videoFrames[fileKey({ inputPath: row.entry.file.fullPath, size: row.entry.file.size })]
+                )
+                .map((row) => ({ inputPath: row.entry.file.fullPath, size: row.entry.file.size, durationSec: row.analysis!.durationSec })),
             scanProgress: {
                 total: active.filter((row) => row.scanStatus).length,
                 done: active.filter((row) => row.scanStatus === 'done' || row.scanStatus === 'error').length
@@ -345,9 +413,12 @@ export function useDerived(): Derived {
         showEpisodes,
         episodeOverrides,
         stillOverrides,
+        videoFrames,
         missingSelected,
         missingStills,
-        assignedMovie
+        assignedMovie,
+        assignedShow,
+        genres
     ])
 }
 

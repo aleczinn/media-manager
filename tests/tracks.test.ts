@@ -137,7 +137,9 @@ describe('planTracks', () => {
                 cleanMetadata: false,
                 encodeVideo: false,
                 saveThumbnails: false,
-                saveArtwork: false
+                saveArtwork: false,
+                saveNfo: false,
+                nfoFileDescription: false
             }
         })
         expect(plan.audio.map((t) => [t.source.index, t.title])).toEqual([

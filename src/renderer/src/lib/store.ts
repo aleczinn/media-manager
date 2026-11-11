@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { ArtworkSlot } from '@shared/artwork'
-import { applyEpisodeGroup, compareEpisodes } from '@shared/episode-order'
+import { applyEpisodeGroup, compareEpisodes, splitEpisodes } from '@shared/episode-order'
 import type { OverlayId } from '@shared/overlays'
 import { analysisKey, fileKey, type PeakState, type ScanStatus } from '@shared/peak'
 import type { Stereo3D } from '@shared/stereo3d'
@@ -25,7 +25,8 @@ import type {
     TmdbEpisodeGroup,
     TmdbMovie,
     TmdbSeasonSummary,
-    TmdbShow
+    TmdbShow,
+    VideoFrame
 } from '@shared/types'
 
 interface TmdbState {
@@ -37,6 +38,10 @@ interface TmdbState {
     episodes: TmdbEpisode[]
     /** Staffeln und Episoden in Ausstrahlungsreihenfolge (Grundlage für andere Reihenfolgen und Staffelposter) */
     aired: { seasons: TmdbSeasonSummary[]; episodes: TmdbEpisode[] }
+    /** Staffeln und Episoden in der gewählten Reihenfolge, noch ohne geteilte Folgen */
+    ordered: { seasons: TmdbSeasonSummary[]; episodes: TmdbEpisode[] }
+    /** Geteilte Folgen: Folge der Ausstrahlung (`2x8`) → Anzahl Teile */
+    splits: Record<string, number>
     /** Andere Reihenfolgen der Serie (DVD, absolut, …) */
     orders: TmdbEpisodeGroup[]
     /** Gewählte Reihenfolge, `null` = Ausstrahlung */
@@ -56,6 +61,8 @@ const emptyTmdb: TmdbState = {
     seasons: [],
     episodes: [],
     aired: { seasons: [], episodes: [] },
+    ordered: { seasons: [], episodes: [] },
+    splits: {},
     orders: [],
     orderId: null,
     orderLoading: false,
@@ -92,6 +99,8 @@ const emptyMedia = {
     coverOverlays: null,
     seasonOverlays: {}
 }
+
+export type VideoFramesState = { status: 'loading' } | { status: 'done'; frames: VideoFrame[] } | { status: 'error'; error: string }
 
 export type StereoContentState =
     { status: 'running' } | { status: 'done'; result: StereoContentResult } | { status: 'error'; error: string }
@@ -137,6 +146,8 @@ interface State {
     stereoOverrides: Record<string, Stereo3D | 'none'>
     /** Inhaltserkennung (SSIM der Bildhälften) je Datei (`fileKey()`), bleibt bis zum Programmende */
     stereoContent: Record<string, StereoContentState>
+    /** Standbilder aus dem Video je Datei (`fileKey()`), Ersatz für fehlende TMDB-Bilder; bleibt bis zum Programmende */
+    videoFrames: Record<string, VideoFramesState>
     /** Manuelle Untertitel-Wahl (Typ oder entfernt) je Datei und Spur (`subtitleTrackId`) */
     typeOverrides: Record<string, Record<string, SubtitleOverride>>
     expanded: Record<string, boolean>
@@ -185,10 +196,14 @@ interface State {
     setStereo3D(fileId: string, value: Stereo3D | 'none' | undefined): void
     /** Vergleicht die Bildhälften einiger Frames; `force` misst auch nach einem Fehler erneut */
     detectStereoContent(file: { inputPath: string; size: number; durationSec: number }, force?: boolean): Promise<void>
+    /** Zieht Standbilder aus dem Video (einmal je Datei; nach einem Fehler nur mit `force`) */
+    loadFrames(file: { inputPath: string; size: number; durationSec: number }, force?: boolean): Promise<void>
     setTypeOverride(fileId: string, trackId: string, type: SubtitleOverride | null): void
     assignShow(show: TmdbShow): Promise<void>
     /** `null` = Ausstrahlungsreihenfolge; die Wahl wird je Serie gespeichert */
     setEpisodeOrder(orderId: string | null): Promise<void>
+    /** Teilt eine Folge (Schlüssel der Ausstrahlung, z. B. `2x8`) in so viele Teile; 1 = nicht geteilt. Wird je Serie gespeichert */
+    setEpisodeSplit(key: string, parts: number): void
     assignMovie(movie: TmdbMovie): void
     /** Entfernt Serie bzw. Film */
     clearShow(): void
@@ -254,6 +269,7 @@ export const useStore = create<State>()((set, get) => ({
     activeRuleSetId: null,
     stereoOverrides: {},
     stereoContent: {},
+    videoFrames: {},
     typeOverrides: {},
     expanded: {},
     outputNames: [],
@@ -469,6 +485,20 @@ export const useStore = create<State>()((set, get) => ({
         }))
     },
 
+    async loadFrames(file, force = false) {
+        const key = fileKey(file)
+        const current = get().videoFrames[key]
+        if (current && (current.status !== 'error' || !force)) return
+        set((state) => ({ videoFrames: { ...state.videoFrames, [key]: { status: 'loading' } } }))
+        const result = await window.api.extractFrames(file)
+        set((state) => ({
+            videoFrames: {
+                ...state.videoFrames,
+                [key]: result.ok ? { status: 'done', frames: result.data } : { status: 'error', error: result.error }
+            }
+        }))
+    },
+
     setTypeOverride(fileId, trackId, type) {
         set((state) => {
             const forFile = { ...state.typeOverrides[fileId] }
@@ -503,14 +533,17 @@ export const useStore = create<State>()((set, get) => ({
         const orders = await ordersRequest
         if (!isCurrent()) return
 
+        const aired = { seasons: seasons.data, episodes }
+        const splits = get().settings?.episodeSplits[show.id] ?? {}
         set((state) => ({
             tmdb: {
                 ...state.tmdb,
                 show,
                 movie: null,
-                seasons: seasons.data,
-                episodes,
-                aired: { seasons: seasons.data, episodes },
+                ...splitEpisodes(episodes, seasons.data, splits),
+                aired,
+                ordered: aired,
+                splits,
                 orders: orders.ok ? orders.data : [],
                 loading: false,
                 error: failed && !failed.ok ? failed.error : null
@@ -537,7 +570,10 @@ export const useStore = create<State>()((set, get) => ({
         }
 
         if (orderId === null) {
-            set((state) => ({ ...reset, tmdb: { ...state.tmdb, orderId: null, seasons: aired.seasons, episodes: aired.episodes } }))
+            set((state) => ({
+                ...reset,
+                tmdb: { ...state.tmdb, orderId: null, ordered: aired, ...splitEpisodes(aired.episodes, aired.seasons, state.tmdb.splits) }
+            }))
             remember()
             return
         }
@@ -549,9 +585,41 @@ export const useStore = create<State>()((set, get) => ({
             set((state) => ({ tmdb: { ...state.tmdb, orderLoading: false, error: result.error } }))
             return
         }
-        const { seasons, episodes } = applyEpisodeGroup(result.data, aired.episodes)
-        set((state) => ({ ...reset, tmdb: { ...state.tmdb, orderId, orderLoading: false, seasons, episodes, error: null } }))
+        const ordered = applyEpisodeGroup(result.data, aired.episodes)
+        set((state) => ({
+            ...reset,
+            tmdb: {
+                ...state.tmdb,
+                orderId,
+                orderLoading: false,
+                ordered,
+                ...splitEpisodes(ordered.episodes, ordered.seasons, state.tmdb.splits),
+                error: null
+            }
+        }))
         remember()
+    },
+
+    setEpisodeSplit(key, parts) {
+        const { show, ordered, splits: current } = get().tmdb
+        if (!show || (current[key] ?? 1) === parts) return
+        const splits = { ...current }
+        if (parts > 1) splits[key] = parts
+        else delete splits[key]
+        // Die Nummern ab der geteilten Folge ändern sich, manuelle Zuordnungen passen danach nicht mehr
+        set((state) => ({
+            episodeOverrides: {},
+            stillOverrides: {},
+            missingSelected: {},
+            missingStills: {},
+            tmdb: { ...state.tmdb, splits, ...splitEpisodes(ordered.episodes, ordered.seasons, splits) }
+        }))
+        const settings = get().settings
+        if (!settings) return
+        const episodeSplits = { ...settings.episodeSplits }
+        if (Object.keys(splits).length > 0) episodeSplits[show.id] = splits
+        else delete episodeSplits[show.id]
+        void get().updateSettings({ episodeSplits })
     },
 
     assignMovie(movie) {

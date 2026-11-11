@@ -231,6 +231,16 @@ export class Runner {
                 }
             }
 
+            if (job.nfo) {
+                // Wie beim Vorschaubild: Eine fehlende NFO macht die fertige Datei nicht kaputt
+                try {
+                    await fsp.writeFile(targetPath.replace(/\.mkv$/i, '') + '.nfo', job.nfo, 'utf8')
+                    notes.push('NFO gespeichert')
+                } catch (error) {
+                    notes.push(`NFO nicht gespeichert: ${error instanceof Error ? error.message : String(error)}`)
+                }
+            }
+
             return { fileId: job.fileId, status: 'ok', message: notes.join(' · ') || undefined }
         } catch (error) {
             await fsp.rm(tempPath, { force: true }).catch(() => undefined)

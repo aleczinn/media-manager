@@ -294,6 +294,7 @@ function FileRow({ row }: { row: Row }) {
                     plan={row.plan}
                     peakKey={row.peakKey}
                     countsPending={row.countsPending}
+                    plot={row.plot}
                 />
             )}
         </div>
