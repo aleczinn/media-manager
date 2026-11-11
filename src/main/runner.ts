@@ -17,6 +17,11 @@ export interface RunnerEvents {
 
 class CancelledError extends Error {}
 
+/** Peak-Analyse/Zählung liest die ganze Datei, ist aber ohne Schreiben etwas schneller als der Remux */
+const ANALYZE_SHARE = 0.4
+/** Der Rest nach ffmpeg (Umbenennen, Begleitdateien, Vorschaubild) gilt erst mit `fileDone` als erledigt */
+const BUILD_SHARE = 0.97
+
 /** Arbeitet die Dateien mit mehreren gleichzeitigen Jobs ab. Quelldateien werden nie verändert. */
 export class Runner {
     private children = new Set<ChildProcess>()
@@ -57,8 +62,8 @@ export class Runner {
                     const { fileId } = job
                     const result: ApplyFileResult = this.cancelled
                         ? { fileId, status: 'cancelled' }
-                        : await this.processJob(job, outputDir, settings, (phase, percent, etaSec) =>
-                              events.progress({ fileId, phase, percent, etaSec })
+                        : await this.processJob(job, outputDir, settings, (phase, percent, etaSec, fraction) =>
+                              events.progress({ fileId, phase, percent, etaSec, fraction })
                           )
                     summary[result.status]++
                     events.fileDone(result)
@@ -81,8 +86,20 @@ export class Runner {
         job: ApplyJob,
         outputDir: string,
         settings: Settings,
-        report: (phase: ApplyPhase, percent: number, etaSec: number | null) => void
+        emit: (phase: ApplyPhase, percent: number, etaSec: number | null, fraction: number) => void
     ): Promise<ApplyFileResult> {
+        // Anteil der Analyse an der ganzen Datei; wird beim Start festgelegt, sobald klar ist, ob gescannt werden muss
+        let analyzeShare = 0
+        let fraction = 0
+        const report = (phase: ApplyPhase, percent: number, etaSec: number | null) => {
+            const phaseFraction = Math.min(1, Math.max(0, percent / 100))
+            const next =
+                phase === 'analyze' ? analyzeShare * phaseFraction : analyzeShare + (1 - analyzeShare) * BUILD_SHARE * phaseFraction
+            // Ein zweiter Scan (andere Tonspur nach der Zählung) darf den Balken nicht zurückwerfen
+            fraction = Math.max(fraction, next)
+            emit(phase, percent, etaSec, fraction)
+        }
+
         const targetPath = path.join(outputDir, job.targetName)
         const tempPath = `${targetPath}.partial`
 
@@ -102,7 +119,10 @@ export class Runner {
             const peakTrack = planTracks(job.analysis, settings).normalize?.source.index ?? null
             const needsCounts = hasUncountedSubtitles(job.analysis)
             if (needsCounts || peakTrack !== null) {
-                this.scans.prefetch([{ ...file, peakTrackIndex: peakTrack, countSubtitles: needsCounts }])
+                const request = { ...file, peakTrackIndex: peakTrack, countSubtitles: needsCounts }
+                // Schon im Hintergrund erledigte Scans kosten nichts, dann gehört der ganze Balken dem Schreiben
+                if (this.scans.isPending(request)) analyzeShare = ANALYZE_SHARE
+                this.scans.prefetch([request])
             }
 
             let analysis = job.analysis

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { buildArtworkJobs, type ArtworkPlanInput } from '@shared/artwork'
 import { overlaysFromNames, toggleOverlay, type OverlayId } from '@shared/overlays'
 import { sourceFolders } from '@shared/rename'
-import { episodeRefFromName } from '@shared/tmdb-match'
+import { episodeRefFromFile } from '@shared/tmdb-match'
 import type { ArtworkJob } from '@shared/types'
 import type { Row } from './rows'
 import { useStore } from './store'
@@ -59,7 +59,8 @@ export interface ArtworkPlan {
 export function useArtworkPlan(rows: Row[]): ArtworkPlan {
     const show = useStore((s) => s.tmdb.show)
     const movie = useStore((s) => s.tmdb.movie)
-    const tmdbSeasons = useStore((s) => s.tmdb.seasons)
+    // Staffelposter gibt es nur für die Staffeln der Ausstrahlung
+    const tmdbSeasons = useStore((s) => s.tmdb.aired.seasons)
     const candidates = useStore((s) => s.artwork.candidates)
     const selection = useStore((s) => s.artworkSelection)
     const enabled = useStore((s) => s.artworkEnabled)
@@ -75,7 +76,7 @@ export function useArtworkPlan(rows: Row[]): ArtworkPlan {
             ? [
                   ...new Set(
                       active
-                          .map((row) => row.episode?.season ?? episodeRefFromName(row.entry.file.name)?.season)
+                          .map((row) => row.episode?.season ?? episodeRefFromFile(row.entry.file)?.season)
                           .filter((season) => season !== undefined)
                   )
               ]

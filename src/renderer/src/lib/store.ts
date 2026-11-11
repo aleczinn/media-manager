@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { ArtworkSlot } from '@shared/artwork'
+import { applyEpisodeGroup, compareEpisodes } from '@shared/episode-order'
 import type { OverlayId } from '@shared/overlays'
 import { analysisKey, fileKey, type PeakState, type ScanStatus } from '@shared/peak'
 import type { Stereo3D } from '@shared/stereo3d'
@@ -21,6 +22,7 @@ import type {
     SubtitleOverride,
     TmdbDetails,
     TmdbEpisode,
+    TmdbEpisodeGroup,
     TmdbMovie,
     TmdbSeasonSummary,
     TmdbShow
@@ -30,9 +32,16 @@ interface TmdbState {
     show: TmdbShow | null
     /** Zugeordneter Film (statt einer Serie, ein Film pro Lauf) */
     movie: TmdbMovie | null
+    /** Staffeln und Episoden in der gewählten Reihenfolge; Episoden nach Staffel und Folge sortiert */
     seasons: TmdbSeasonSummary[]
-    /** Alle Episoden der Serie, nach Staffel und Folge sortiert */
     episodes: TmdbEpisode[]
+    /** Staffeln und Episoden in Ausstrahlungsreihenfolge (Grundlage für andere Reihenfolgen und Staffelposter) */
+    aired: { seasons: TmdbSeasonSummary[]; episodes: TmdbEpisode[] }
+    /** Andere Reihenfolgen der Serie (DVD, absolut, …) */
+    orders: TmdbEpisodeGroup[]
+    /** Gewählte Reihenfolge, `null` = Ausstrahlung */
+    orderId: string | null
+    orderLoading: boolean
     /** Genres laut TMDB (auf Deutsch), zum Einsortieren */
     genres: string[]
     /** Bewertung bei TMDB */
@@ -41,7 +50,20 @@ interface TmdbState {
     error: string | null
 }
 
-const emptyTmdb: TmdbState = { show: null, movie: null, seasons: [], episodes: [], genres: [], rating: null, loading: false, error: null }
+const emptyTmdb: TmdbState = {
+    show: null,
+    movie: null,
+    seasons: [],
+    episodes: [],
+    aired: { seasons: [], episodes: [] },
+    orders: [],
+    orderId: null,
+    orderLoading: false,
+    genres: [],
+    rating: null,
+    loading: false,
+    error: null
+}
 
 interface ArtworkState {
     /** Vorschläge von TMDB und Fanart.tv, `null` solange nichts geladen ist */
@@ -90,6 +112,10 @@ interface RunState {
     total: number
     done: number
     startedAt: number
+    /** Gewicht pro Datei (Größe in Bytes), damit große Dateien im Gesamtfortschritt mehr zählen */
+    weights: Record<string, number>
+    totalWeight: number
+    doneWeight: number
     results: Record<string, ApplyFileResult>
     summary: ApplySummary | null
 }
@@ -161,6 +187,8 @@ interface State {
     detectStereoContent(file: { inputPath: string; size: number; durationSec: number }, force?: boolean): Promise<void>
     setTypeOverride(fileId: string, trackId: string, type: SubtitleOverride | null): void
     assignShow(show: TmdbShow): Promise<void>
+    /** `null` = Ausstrahlungsreihenfolge; die Wahl wird je Serie gespeichert */
+    setEpisodeOrder(orderId: string | null): Promise<void>
     assignMovie(movie: TmdbMovie): void
     /** Entfernt Serie bzw. Film */
     clearShow(): void
@@ -187,7 +215,19 @@ interface State {
     cancel(): Promise<void>
 }
 
-const emptyRun: RunState = { running: false, cancelling: false, active: {}, total: 0, done: 0, startedAt: 0, results: {}, summary: null }
+const emptyRun: RunState = {
+    running: false,
+    cancelling: false,
+    active: {},
+    total: 0,
+    done: 0,
+    startedAt: 0,
+    weights: {},
+    totalWeight: 0,
+    doneWeight: 0,
+    results: {},
+    summary: null
+}
 
 /**
  * Ab- oder Anwählen vergisst das Ergebnis des letzten Laufs (z. B. „fertig“) und liest den Output-Ordner neu ein.
@@ -247,7 +287,13 @@ export const useStore = create<State>()((set, get) => ({
                     const active = { ...state.run.active }
                     delete active[result.fileId]
                     return {
-                        run: { ...state.run, active, done: state.run.done + 1, results: { ...state.run.results, [result.fileId]: result } }
+                        run: {
+                            ...state.run,
+                            active,
+                            done: state.run.done + 1,
+                            doneWeight: state.run.doneWeight + (state.run.weights[result.fileId] ?? 0),
+                            results: { ...state.run.results, [result.fileId]: result }
+                        }
                     }
                 })
             ),
@@ -444,16 +490,18 @@ export const useStore = create<State>()((set, get) => ({
             return
         }
         // Bilder schon laden, während die Episoden noch kommen; dafür werden die Staffeln gebraucht
-        set((state) => ({ tmdb: { ...state.tmdb, seasons: seasons.data } }))
+        set((state) => ({ tmdb: { ...state.tmdb, seasons: seasons.data, aired: { ...state.tmdb.aired, seasons: seasons.data } } }))
         void get().loadArtwork()
+        // Andere Reihenfolgen sind optional, Fehler bleiben still
+        const ordersRequest = window.api.tmdbEpisodeGroups(show.id)
 
         // Alle Staffeln laden, damit jede Folge im Dropdown frei gewählt werden kann (Specials = Staffel 0 ans Ende)
         const results = await Promise.all(seasons.data.map((season) => window.api.tmdbSeason(show.id, season.season)))
         if (!isCurrent()) return
         const failed = results.find((result) => !result.ok)
-        const episodes = results
-            .flatMap((result) => (result.ok ? result.data : []))
-            .sort((a, b) => (a.season || 999) - (b.season || 999) || a.episode - b.episode)
+        const episodes = results.flatMap((result) => (result.ok ? result.data : [])).sort(compareEpisodes)
+        const orders = await ordersRequest
+        if (!isCurrent()) return
 
         set((state) => ({
             tmdb: {
@@ -462,10 +510,48 @@ export const useStore = create<State>()((set, get) => ({
                 movie: null,
                 seasons: seasons.data,
                 episodes,
+                aired: { seasons: seasons.data, episodes },
+                orders: orders.ok ? orders.data : [],
                 loading: false,
                 error: failed && !failed.ok ? failed.error : null
             }
         }))
+
+        // Zuletzt für diese Serie gewählte Reihenfolge wiederherstellen, sofern es sie noch gibt
+        const saved = get().settings?.episodeOrders[show.id]
+        if (saved && orders.ok && orders.data.some((order) => order.id === saved)) await get().setEpisodeOrder(saved)
+    },
+
+    async setEpisodeOrder(orderId) {
+        const { show, aired } = get().tmdb
+        if (!show || get().tmdb.orderLoading) return
+        // Manuelle Zuordnungen beziehen sich auf die alte Nummerierung und gelten danach nicht mehr
+        const reset = { episodeOverrides: {}, stillOverrides: {}, missingSelected: {}, missingStills: {} }
+        const remember = () => {
+            const settings = get().settings
+            if (!settings || (settings.episodeOrders[show.id] ?? null) === orderId) return
+            const episodeOrders = { ...settings.episodeOrders }
+            if (orderId === null) delete episodeOrders[show.id]
+            else episodeOrders[show.id] = orderId
+            void get().updateSettings({ episodeOrders })
+        }
+
+        if (orderId === null) {
+            set((state) => ({ ...reset, tmdb: { ...state.tmdb, orderId: null, seasons: aired.seasons, episodes: aired.episodes } }))
+            remember()
+            return
+        }
+
+        set((state) => ({ tmdb: { ...state.tmdb, orderLoading: true } }))
+        const result = await window.api.tmdbEpisodeGroup(orderId)
+        if (get().tmdb.show !== show) return
+        if (!result.ok) {
+            set((state) => ({ tmdb: { ...state.tmdb, orderLoading: false, error: result.error } }))
+            return
+        }
+        const { seasons, episodes } = applyEpisodeGroup(result.data, aired.episodes)
+        set((state) => ({ ...reset, tmdb: { ...state.tmdb, orderId, orderLoading: false, seasons, episodes, error: null } }))
+        remember()
     },
 
     assignMovie(movie) {
@@ -495,7 +581,7 @@ export const useStore = create<State>()((set, get) => ({
         const isCurrent = () => (get().tmdb.show ?? get().tmdb.movie) === target
 
         // Staffelposter für alle Staffeln; angehakt sind später nur die aus den Dateien
-        const seasons = get().tmdb.seasons.map((season) => season.season)
+        const seasons = get().tmdb.aired.seasons.map((season) => season.season)
         set((state) => ({ artwork: { ...state.artwork, loading: true, error: null, warnings: [] } }))
         const result = await window.api.artworkCandidates({ kind: show ? 'tv' : 'movie', tmdbId: target.id, seasons: show ? seasons : [] })
         if (!isCurrent()) return
@@ -594,8 +680,18 @@ export const useStore = create<State>()((set, get) => ({
         const outputDir = get().settings?.outputDir
         if (!outputDir || jobs.length === 0 || get().run.running) return
 
+        const weights = Object.fromEntries(jobs.map((job) => [job.fileId, Math.max(1, job.size)]))
+        const totalWeight = Object.values(weights).reduce((sum, weight) => sum + weight, 0)
         set((state) => ({
-            run: { ...emptyRun, running: true, total: jobs.length, startedAt: Date.now(), results: state.run.results }
+            run: {
+                ...emptyRun,
+                running: true,
+                total: jobs.length,
+                startedAt: Date.now(),
+                weights,
+                totalWeight,
+                results: state.run.results
+            }
         }))
         try {
             const summary = await window.api.apply(jobs, outputDir, artwork)

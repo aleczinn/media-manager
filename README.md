@@ -1,6 +1,6 @@
 # Media Manager
 
-[![Version](https://img.shields.io/badge/Media_Manager-1.0.9-8B7CFF?style=flat-square)](package.json)
+[![Version](https://img.shields.io/badge/Media_Manager-1.0.10-8B7CFF?style=flat-square)](package.json)
 [![Electron](https://img.shields.io/badge/Electron-45-47848F?style=flat-square&logo=electron)](https://www.electronjs.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
@@ -23,13 +23,14 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
   - Rekursiver Scan nach `.mkv`, `.mp4` und `.avi`; Dateien mit `sample` im Namen werden ignoriert
   - Dateien per Checkbox ausschließen, einzeln oder alle auf einmal
   - Aufklappbare Spurübersicht vorher → nachher, inklusive Peak-Wert der Tonspur und Anzahl der Untertitel-Einträge
+  - Abschnitt **Datei** in der Spurübersicht mit den Metadaten des Containers (Titel, Serie, Staffel, Beschreibung, Encoder …); den Titel, den z. B. VLC als Fenstertitel zeigt, gibt es zusätzlich als kleine Zeile unter dem Dateinamen
   - Die Liste steht nach wenigen Sekunden, auch bei einer ganzen Staffel: Beim Einlesen werden nur die Kopfdaten gelesen
   - **Aktualisieren** liest den Input-Ordner neu ein und behält Abwahl, eigene Namen, Untertitel-Wahl und die TMDB-Zuordnung; bekannte Dateien stehen sofort da, analysiert werden nur neue oder geänderte (die Analysen bleiben bis zum Beenden im Speicher). Ein anderer Input-Ordner beginnt von vorn
   - Was die ganze Datei braucht (Peak-Analyse und Untertitel-Zählung), läuft danach im Hintergrund in einem gemeinsamen Durchgang pro Datei; Uhr = wartet, Spinner = läuft, der Fortschritt steht in der Kopfzeile der Tabelle. Anwenden geht schon vorher, fehlende Scans werden dann vorgezogen
 - ✏️ **Renaming**
   - Schema `S01e02 - Titel {edition-…} {source-…}.mkv`, Staffel und Folge zweistellig; ohne Titel steht `Unknown`
   - Filme: `Titel (Jahr) {edition-…} {source-…}.mkv` für die größte Datei ohne Episodenangabe, Extras behalten ihren Namen
-  - Erkennt `S01E02`, `1x02` und alleinstehende `E01`
+  - Erkennt `S01E02`, `1x02` und alleinstehende `E01`; steht im Dateinamen keine Folge (z. B. `tvs-btr-…-401.mkv`), zählt ein eindeutiges `S04E01` im Release-Ordner direkt darüber
   - Edition aus dem Dateinamen: Extended, Upscale, Extended-Upscale, Director's Cut
   - Quelle aus dem Dateinamen, ersatzweise aus den Ordnernamen innerhalb des Input-Ordners: Disney+, Amazon, Netflix, ATVP, RTL+, Web, UHD, BluRay
   - 3D-Filme bekommen die Kennung, die Jellyfin erwartet, ans Ende: `Titel (Jahr) {source-…} 3D.HTAB.mkv`. Erkannt wird das Format am Datei- oder Ordnernamen (`3D.HOU`, `3dhou`, `3D.HTB`, `3D.Half-SBS` …; HOU/OU/HTB wird zu HTAB, SBS zu HSBS), sonst an der Datei selbst (vorhandenes `stereo_mode`, MVC-Spur laut MediaInfo-Profil „Stereo High“). Steht nur „3D“ im Namen, vergleicht die App in sechs Frames die linke mit der rechten und die obere mit der unteren Bildhälfte (SSIM, entscheidend ist der Abstand der beiden Werte); per Knopf **Inhalt prüfen** in der Spurübersicht geht das für jede Datei. Half oder Full ergibt sich aus der Auflösung (3840×1080 → FSBS, 1920×2160 → FTAB), passt ein Format nicht zur Auflösung, gibt es einen gelben Hinweis. Ein Chip „3D · HTAB“ in der Zeile und ein Dropdown unter dem Zielnamen zeigen das Format (manuell änderbar, Rechtsklick setzt auf die Erkennung zurück; in der Spurübersicht auch für Dateien ohne 3D im Namen). Zusätzlich wird `stereo_mode` in die Videospur geschrieben
@@ -55,6 +56,7 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
   - Die TMDB-Leiste zeigt neben dem Titel die Genres (auf Deutsch) und die Bewertung, z. B. „★ 8,1/10 TMDB“ (Anzahl der Stimmen im Tooltip), als Hilfe beim Einsortieren
   - Jede Folge bekommt per Staffel und Folge ihren Titel, auf Deutsch und ohne Übersetzung auf Englisch
   - Pro Datei lässt sich die Episode per Dropdown umstellen, z. B. wenn TMDB eine Doppelfolge als eine Episode führt; Rechtsklick aufs Dropdown setzt wieder die erkannte Folge
+  - Andere Episodenreihenfolgen von TMDB (DVD, absolut, digital, Handlungsbogen …) per Dropdown in der TMDB-Leiste; Staffel und Folge im Dateinamen werden dann in dieser Reihenfolge gesucht, Titel und Bilder bleiben deutsch. Die Wahl wird je Serie gespeichert
   - Links neben dem Zielnamen steht das Episodenbild, beim Überfahren groß (520 px)
   - Viele Folgen haben bei TMDB mehrere Bilder: Klick aufs Episodenbild öffnet die Auswahl mit allen Bildern der Folge, Rechtsklick stellt das Standardbild wieder her; manuell gewählte Bilder sind orange umrandet
   - Optional wird das gewählte Episodenbild als `<Zielname>-thumb.jpg` neben der Datei gespeichert (wie es Jellyfin, Emby und Kodi erwarten), größere Bilder verkleinert auf höchstens 1920×1080
@@ -88,7 +90,7 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
   - Container- und Videotitel werden geleert, eine gleichnamige `.txt` neben der Datei (auch `… (Beschreibung).txt`) wird als Beschreibung übernommen
 - ⚡ **Ausführung**
   - Mehrere Dateien gleichzeitig, einstellbar von 1 bis 4 (Standard 2; für normale Festplatten 1)
-  - Fortschritt pro Datei und gesamt mit Restzeit, jederzeit abbrechbar
+  - Fortschritt pro Datei und gesamt mit Restzeit, jederzeit abbrechbar; der Gesamtbalken läuft flüssig, zählt Analyse und Schreiben und gewichtet die Dateien nach Größe
   - Jede Datei wird erst als `.partial` geschrieben und nach Erfolg umbenannt; Fehler betreffen nur die eine Datei
   - Speicherplatz-Warnung über dem Anwenden-Knopf: gelb, wenn nach dem Export weniger als die Warnschwelle frei bliebe, rot, wenn der Platz nicht reicht
 - ⚙️ **Einstellungen**
@@ -164,6 +166,19 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 - `scripts/corruption-checker.ts`: der Corruption-Checker
 
 ## Changelog
+
+1.0.10 | Flüssiger Fortschrittsbalken, Episodenreihenfolgen, Folgen aus dem Ordnernamen, Datei-Metadaten
+
+- Der Gesamtbalken beim Anwenden läuft jetzt flüssig zwischen den Meldungen von ffmpeg weiter, statt pro Datei nur am Anfang und am Ende zu springen
+- Peak-Analyse und Untertitel-Zählung zählen mit zum Fortschritt; schon im Hintergrund erledigte Scans kosten keinen Anteil
+- Große Dateien zählen entsprechend ihrer Größe mehr als kleine
+- Die Restzeit richtet sich nach der Geschwindigkeit der letzten 30 Sekunden statt nach dem Schnitt seit dem Start und bleibt am Ende nicht mehr bei wenigen Sekunden hängen
+- Neues Dropdown **Episodenreihenfolge** in der TMDB-Leiste: Neben der Ausstrahlung lassen sich die Reihenfolgen von TMDB wählen, z. B. DVD oder absolut. Jede Gruppe wird eine Staffel (Specials = Staffel 0), die Folgen zählen darin ab 1
+- Titel und Bilder kommen weiter aus den deutschen Staffeldaten, die Bildauswahl fragt TMDB mit der ursprünglichen Nummer ab; die gewählte Reihenfolge wird je Serie gespeichert und beim nächsten Zuordnen wiederhergestellt
+- Beim Wechsel der Reihenfolge werden manuell gewählte Folgen und Bilder zurückgesetzt, weil sie sich auf die alte Nummerierung beziehen
+- Folgen werden auch erkannt, wenn nur der Release-Ordner Staffel und Folge enthält, z. B. `Big.Time.Rush.S04E01.German…/tvs-btr-…-401.mkv`; Staffel-Packs wie `Show.S04.German…` zählen dabei nicht
+- Neuer Abschnitt **Datei** in der Spurübersicht: zeigt die Metadaten des Containers wie Titel, Serie, Staffel, Episode, Datum, Beschreibung und Encoder, bekannte Angaben auf Deutsch; technische MP4-Angaben und doppelte Texte fallen weg
+- Der Titel aus den Metadaten (z. B. der Folgentitel, den VLC als Fenstertitel zeigt) steht zusätzlich als kleine Zeile unter dem Dateinamen; unter „Nachher“ ist zu sehen, ob „Metadaten bereinigen“ ihn entfernt
 
 1.0.9 | Namensregeln im YouTube-Modus, keine Anhänge mehr
 

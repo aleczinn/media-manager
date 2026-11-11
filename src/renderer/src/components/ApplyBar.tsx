@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
 import type { ArtworkJob } from '@shared/types'
 import type { Derived } from '@/lib/rows'
+import { useSmoothProgress } from '@/lib/smooth-progress'
 import { useStore } from '@/lib/store'
 import { cn, formatDuration } from '@/lib/utils'
 
@@ -58,6 +59,12 @@ function RunProgress() {
     const run = useStore((s) => s.run)
     const active = Object.values(run.active)
 
+    // Analyse und Schreiben zählen beide, große Dateien entsprechend ihrer Größe mehr
+    const inProgress = active.reduce((sum, progress) => sum + progress.fraction * (run.weights[progress.fileId] ?? 0), 0)
+    const target = run.totalWeight > 0 ? Math.min(1, (run.doneWeight + inProgress) / run.totalWeight) : 0
+    const { value: fraction, etaSec } = useSmoothProgress(target, run.startedAt)
+    const analyzing = active.filter((progress) => progress.phase === 'analyze').length
+
     if (run.total === 0) {
         return (
             <div className="flex flex-1 items-center gap-2 text-sm text-muted-foreground">
@@ -66,13 +73,6 @@ function RunProgress() {
             </div>
         )
     }
-
-    // Nur der Schreib-Durchgang zählt als Fortschritt, die Peak-Analyse ist im Vergleich kurz
-    const building = active.reduce((sum, progress) => sum + (progress.phase === 'build' ? progress.percent / 100 : 0), 0)
-    const fraction = Math.min(1, (run.done + building) / run.total)
-    const elapsedSec = (Date.now() - run.startedAt) / 1000
-    const etaSec = fraction > 0.02 ? (elapsedSec * (1 - fraction)) / fraction : null
-    const analyzing = active.filter((progress) => progress.phase === 'analyze').length
 
     return (
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -94,7 +94,8 @@ function RunProgress() {
                     {etaSec !== null && `noch ca. ${formatDuration(etaSec)} · `}gesamt {Math.floor(fraction * 100)}%
                 </span>
             </div>
-            <Progress value={fraction * 100} />
+            {/* Der Wert wird schon pro Frame geglättet, eine CSS-Transition würde nur nachziehen */}
+            <Progress value={fraction * 100} indicatorClassName="transition-none" />
         </div>
     )
 }

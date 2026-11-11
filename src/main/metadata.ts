@@ -22,7 +22,7 @@ interface FfprobeStream {
 
 interface FfprobeResult {
     streams?: FfprobeStream[]
-    format?: { duration?: string }
+    format?: { duration?: string; tags?: Record<string, string> }
 }
 
 type MediaInfoTrack = Record<string, unknown> & { '@type': string; StreamOrder?: string }
@@ -132,6 +132,16 @@ function isMvc(info: MediaInfoTrack | undefined): boolean {
     return Number(info.MultiView_Count) >= 2 && !str(info.MultiView_Layout)
 }
 
+/** Container-Tags mit kleingeschriebenen Schlüsseln, leere Werte fallen weg */
+function containerTags(tags: Record<string, string> | undefined): Record<string, string> {
+    const result: Record<string, string> = {}
+    for (const [key, value] of Object.entries(tags ?? {})) {
+        const text = str(value)
+        if (text) result[key.toLowerCase()] = text
+    }
+    return result
+}
+
 const analyses = new Map<string, Promise<FileAnalysis>>()
 
 /**
@@ -171,6 +181,7 @@ export async function analyzeFile(file: MediaFile, ffprobe: string): Promise<Fil
 
     const analysis: FileAnalysis = {
         durationSec: parseFloat(probe.format?.duration ?? '0') || 0,
+        tags: containerTags(probe.format?.tags),
         video: [],
         audio: [],
         subtitle: [],

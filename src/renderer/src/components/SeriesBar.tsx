@@ -1,11 +1,21 @@
 import { useMemo, useState } from 'react'
-import { Film, Loader2, Star, Tv, X } from 'lucide-react'
-import { parseEpisode } from '@shared/rename'
-import { episodeRefFromName, movieQueryFromFile, seriesQueryFromFile, tmdbImageUrl } from '@shared/tmdb-match'
+import { ChevronDown, Film, Loader2, ListOrdered, Star, Tv, X } from 'lucide-react'
+import { EPISODE_GROUP_TYPES } from '@shared/episode-order'
+import { parseFileEpisode } from '@shared/rename'
+import { episodeRefFromFile, movieQueryFromFile, seriesQueryFromFile, tmdbImageUrl } from '@shared/tmdb-match'
 import { Button } from '@/components/ui/button'
+import type { TmdbEpisodeGroup } from '@shared/types'
 import type { Derived } from '@/lib/rows'
 import { useStore } from '@/lib/store'
+import { cn } from '@/lib/utils'
 import { SeriesDialog } from './SeriesDialog'
+
+/** „DVD · Name (24 Folgen)“; der Typ entfällt, wenn der Name ihn schon nennt */
+function orderLabel(order: TmdbEpisodeGroup): string {
+    const type = EPISODE_GROUP_TYPES[order.type]
+    const name = type && !order.name.toLowerCase().includes(type.toLowerCase()) ? `${type} · ${order.name}` : order.name
+    return `${name} (${order.episodeCount} Folgen)`
+}
 
 /** Leiste über der Tabelle: zugeordnete TMDB-Serie bzw. Film und Knöpfe zum Zuordnen/Entfernen */
 export function SeriesBar({ derived }: { derived: Derived }) {
@@ -13,17 +23,18 @@ export function SeriesBar({ derived }: { derived: Derived }) {
     const tmdb = useStore((s) => s.tmdb)
     const running = useStore((s) => s.run.running)
     const clearShow = useStore((s) => s.clearShow)
+    const setEpisodeOrder = useStore((s) => s.setEpisodeOrder)
     const [open, setOpen] = useState(false)
 
     const activeRows = derived.rows.filter((row) => !row.excluded)
-    const episodeRows = activeRows.filter((row) => episodeRefFromName(row.entry.file.name))
+    const episodeRows = activeRows.filter((row) => episodeRefFromFile(row.entry.file))
     const matched = episodeRows.filter((row) => row.episode).length
     const movieMain = derived.rows.find((row) => row.movieMain)
 
     // Suchbegriffe aus der ersten Folge bzw. der größten Datei ohne Episodenangabe (Ordner- bzw. Dateiname)
     const firstEpisode = episodeRows[0]?.entry.file
     const largestOther = activeRows
-        .filter((row) => !parseEpisode(row.entry.file.name))
+        .filter((row) => !parseFileEpisode(row.entry.file))
         .reduce<(typeof activeRows)[number] | null>(
             (largest, row) => (!largest || row.entry.file.size > largest.entry.file.size ? row : largest),
             null
@@ -71,6 +82,36 @@ export function SeriesBar({ derived }: { derived: Derived }) {
                         <span className="truncate text-xs text-muted-foreground">
                             Film{movieMain ? ` · Hauptdatei ${movieMain.entry.file.name}` : ' · keine Datei ohne Episodenangabe'}
                         </span>
+                    )}
+                    {tmdb.show && !tmdb.loading && tmdb.orders.length > 0 && (
+                        <div className="relative ml-2 flex shrink-0 items-center">
+                            {tmdb.orderLoading ? (
+                                <Loader2 className="pointer-events-none absolute left-1.5 size-3.5 animate-spin text-muted-foreground" />
+                            ) : (
+                                <ListOrdered className="pointer-events-none absolute left-1.5 size-3.5 text-muted-foreground" />
+                            )}
+                            <select
+                                value={tmdb.orderId ?? ''}
+                                onChange={(event) => void setEpisodeOrder(event.target.value || null)}
+                                disabled={running || tmdb.orderLoading}
+                                title={
+                                    'Episodenreihenfolge laut TMDB, z. B. DVD statt Ausstrahlung\n' +
+                                    'Staffel und Folge im Dateinamen werden in dieser Reihenfolge gesucht; die Wahl wird je Serie gespeichert'
+                                }
+                                className={cn(
+                                    'h-6 max-w-64 appearance-none truncate rounded border bg-transparent pr-6 pl-6 text-xs outline-none disabled:opacity-50 [&>option]:bg-popover',
+                                    tmdb.orderId ? 'border-primary/50 text-foreground' : 'border-input text-muted-foreground'
+                                )}
+                            >
+                                <option value="">Ausstrahlung</option>
+                                {tmdb.orders.map((order) => (
+                                    <option key={order.id} value={order.id}>
+                                        {orderLabel(order)}
+                                    </option>
+                                ))}
+                            </select>
+                            <ChevronDown className="pointer-events-none absolute right-1.5 size-3 text-muted-foreground" />
+                        </div>
                     )}
                     {tmdb.genres.length > 0 && (
                         <span className="ml-4 flex min-w-0 items-center gap-1 overflow-hidden" title={tmdb.genres.join(', ')}>

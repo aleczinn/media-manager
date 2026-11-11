@@ -112,6 +112,8 @@ export interface FileAnalysis {
     subtitle: SubtitleTrackInfo[]
     /** Anhänge in der Datei (Schriften, Cover, eingebettete .nfo …) */
     attachments?: AttachmentInfo[]
+    /** Metadaten des Containers (Titel, Kommentar, Encoder …), Schlüssel kleingeschrieben */
+    tags?: Record<string, string>
 }
 
 export interface AttachmentInfo {
@@ -185,6 +187,8 @@ export interface Settings {
     showMissingEpisodes: boolean
     /** YouTube-Modus: gespeicherte Presets für den Zielnamen */
     nameRuleSets: NameRuleSet[]
+    /** Gewählte Episodenreihenfolge (TMDB Episode Group) je Serie (TMDB-ID); fehlt = Ausstrahlung */
+    episodeOrders: Record<string, string>
     pipeline: PipelineOptions
 }
 
@@ -207,6 +211,27 @@ export interface TmdbEpisode {
     stillPath: string | null
     /** Erstausstrahlung laut TMDB (YYYY-MM-DD) */
     airDate: string | null
+    /** Staffel und Folge in der Ausstrahlungsreihenfolge, falls eine andere Reihenfolge (z. B. DVD) gewählt ist */
+    aired?: { season: number; episode: number }
+}
+
+/** Andere Episodenreihenfolge einer Serie bei TMDB („Episode Group“), z. B. DVD oder absolut */
+export interface TmdbEpisodeGroup {
+    id: string
+    name: string
+    /** 1 Erstausstrahlung, 2 absolut, 3 DVD, 4 digital, 5 Handlungsbogen, 6 Produktion, 7 TV */
+    type: number
+    episodeCount: number
+    groupCount: number
+}
+
+/** Inhalt einer Episodenreihenfolge: Gruppen (meist Staffeln) mit Verweisen auf die Episoden der Ausstrahlung */
+export interface TmdbEpisodeGroupDetails {
+    groups: {
+        name: string
+        order: number
+        episodes: { order: number; season: number; episode: number; title: string; stillPath: string | null; airDate: string | null }[]
+    }[]
 }
 
 /** Zusatzinfos zur zugeordneten Serie bzw. zum Film */
@@ -327,8 +352,11 @@ export type ApplyPhase = 'analyze' | 'build'
 export interface ApplyProgress {
     fileId: string
     phase: ApplyPhase
+    /** Fortschritt der aktuellen Phase (0–100) */
     percent: number
     etaSec: number | null
+    /** Fortschritt der ganzen Datei über alle Phasen (0–1), steigt nie */
+    fraction: number
 }
 
 export type ApplyStatus = 'ok' | 'skipped' | 'error' | 'cancelled'
@@ -362,6 +390,8 @@ export interface MediaManagerApi {
     tmdbSeasons(showId: number): Promise<TmdbResult<TmdbSeasonSummary[]>>
     tmdbSeason(showId: number, season: number): Promise<TmdbResult<TmdbEpisode[]>>
     tmdbEpisodeImages(showId: number, season: number, episode: number): Promise<TmdbResult<TmdbImage[]>>
+    tmdbEpisodeGroups(showId: number): Promise<TmdbResult<TmdbEpisodeGroup[]>>
+    tmdbEpisodeGroup(groupId: string): Promise<TmdbResult<TmdbEpisodeGroupDetails>>
     tmdbDetails(kind: 'tv' | 'movie', id: number): Promise<TmdbResult<TmdbDetails>>
     tmdbTest(apiKey: string): Promise<TmdbResult<true>>
     detectStereo(file: { inputPath: string; size: number; durationSec: number }): Promise<TmdbResult<StereoContentResult>>

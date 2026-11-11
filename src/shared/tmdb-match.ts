@@ -1,4 +1,4 @@
-import { parseEpisode, sourceFolders } from './rename'
+import { parseEpisode, parseFileEpisode, sourceFolders } from './rename'
 import { strip3D } from './stereo3d'
 import type { TmdbEpisode } from './types'
 
@@ -87,6 +87,12 @@ export function movieQueryFromFile(
 /** Episode, die laut Dateiname (SxxEyy) zur Datei gehört */
 export function episodeRefFromName(name: string): EpisodeRef | null {
     const parsed = parseEpisode(name)
+    return parsed ? { season: parsed.season ?? 1, episode: parsed.episode } : null
+}
+
+/** Episode einer Datei laut Dateiname oder, falls dort nichts steht, laut Release-Ordner */
+export function episodeRefFromFile(file: { name: string; fullPath: string; relativePath?: string }): EpisodeRef | null {
+    const parsed = parseFileEpisode(file)
     return parsed ? { season: parsed.season ?? 1, episode: parsed.episode } : null
 }
 
