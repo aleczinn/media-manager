@@ -27,7 +27,9 @@ export function StillPickerDialog({
         let cancelled = false
         setImages(null)
         setError(null)
-        void window.api.tmdbEpisodeImages(showId, episode.season, episode.episode).then((result) => {
+        // Bilder hängen an der Nummer der Ausstrahlung, auch wenn eine andere Reihenfolge gewählt ist
+        const { season, episode: number } = episode.aired ?? episode
+        void window.api.tmdbEpisodeImages(showId, season, number).then((result) => {
             if (cancelled) return
             if (!result.ok) return setError(result.error)
             setImages(

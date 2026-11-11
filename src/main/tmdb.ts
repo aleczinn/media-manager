@@ -3,6 +3,8 @@ import type {
     ArtworkCandidate,
     TmdbDetails,
     TmdbEpisode,
+    TmdbEpisodeGroup,
+    TmdbEpisodeGroupDetails,
     TmdbImage,
     TmdbMovie,
     TmdbResult,
@@ -203,6 +205,45 @@ export function getSeason(apiKey: string, showId: number, season: number): Promi
                 airDate: episode.air_date || null
             }
         })
+    })
+}
+
+/** Andere Reihenfolgen der Serie (DVD, absolut, …) */
+export function getEpisodeGroups(apiKey: string, showId: number): Promise<TmdbResult<TmdbEpisodeGroup[]>> {
+    return wrap(async () => {
+        const data = await request<{
+            results?: { id: string; name: string; type: number; episode_count: number; group_count: number }[]
+        }>(apiKey, `/tv/${showId}/episode_groups`, { language: LANGUAGE })
+        return (data.results ?? []).map((group) => ({
+            id: group.id,
+            name: group.name,
+            type: group.type,
+            episodeCount: group.episode_count,
+            groupCount: group.group_count
+        }))
+    })
+}
+
+/** Gruppen einer Reihenfolge mit ihren Episoden in der dort vorgesehenen Abfolge */
+export function getEpisodeGroup(apiKey: string, groupId: string): Promise<TmdbResult<TmdbEpisodeGroupDetails>> {
+    return wrap(async () => {
+        const data = await request<{
+            groups?: { name: string; order: number; episodes?: (RawEpisode & { order: number })[] }[]
+        }>(apiKey, `/tv/episode_group/${groupId}`, { language: LANGUAGE })
+        return {
+            groups: (data.groups ?? []).map((group) => ({
+                name: group.name,
+                order: group.order,
+                episodes: (group.episodes ?? []).map((episode) => ({
+                    order: episode.order,
+                    season: episode.season_number,
+                    episode: episode.episode_number,
+                    title: episode.name ?? '',
+                    stillPath: episode.still_path ?? null,
+                    airDate: episode.air_date || null
+                }))
+            }))
+        }
     })
 }
 

@@ -59,7 +59,8 @@ export interface ArtworkPlan {
 export function useArtworkPlan(rows: Row[]): ArtworkPlan {
     const show = useStore((s) => s.tmdb.show)
     const movie = useStore((s) => s.tmdb.movie)
-    const tmdbSeasons = useStore((s) => s.tmdb.seasons)
+    // Staffelposter gibt es nur für die Staffeln der Ausstrahlung
+    const tmdbSeasons = useStore((s) => s.tmdb.aired.seasons)
     const candidates = useStore((s) => s.artwork.candidates)
     const selection = useStore((s) => s.artworkSelection)
     const enabled = useStore((s) => s.artworkEnabled)
