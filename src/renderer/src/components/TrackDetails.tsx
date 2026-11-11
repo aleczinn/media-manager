@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
-import { AudioLines, Captions, FileText, Film, Image as ImageIcon, Paperclip, Sparkles } from 'lucide-react'
+import { AudioLines, Captions, FileText, Film, Image as ImageIcon, Info, Paperclip, Sparkles } from 'lucide-react'
 import { getAudioTrackName, getAudioType } from '@shared/audio-names'
+import { describeContainerTags } from '@shared/container-tags'
 import { subtitleTrackId } from '@shared/external-subs'
 import { normalizeLanguage } from '@shared/languages'
 import {
@@ -66,6 +67,16 @@ function Section({ icon: Icon, label, children }: { icon: typeof Film; label: st
             </div>
             <ul className="text-[13px]">{children}</ul>
         </div>
+    )
+}
+
+/** Eine Metadaten-Zeile der Datei: Bezeichnung links, Wert daneben (lange Werte im Tooltip) */
+function TagLine({ label, children, title }: { label: string; children: ReactNode; title?: string }) {
+    return (
+        <li className="flex items-baseline gap-2 py-0.5" title={title}>
+            <span className="w-24 shrink-0 truncate text-xs text-muted-foreground">{label}</span>
+            <span className="min-w-0 truncate">{children}</span>
+        </li>
     )
 }
 
@@ -246,6 +257,10 @@ export function TrackDetails({
     const normalized = plan.normalize && peakInfo?.tone !== 'none' ? plan.normalize : null
     const keptAudio = new Set(plan.audio.map((track) => track.source.index))
 
+    const containerTags = describeContainerTags(analysis.tags)
+    const sourceTitle = analysis.tags?.title
+    const cleanMetadata = !!settings?.pipeline.cleanMetadata
+
     const audioMeta = (track: FileAnalysis['audio'][number]) =>
         `${getAudioTrackName(getAudioType(track)) ?? track.codecId} · ${track.channels} ch`
 
@@ -253,6 +268,14 @@ export function TrackDetails({
         <div className="grid grid-cols-2 gap-6 border-t bg-black/15 px-12 py-3">
             <div className="flex flex-col gap-3">
                 <div className="text-xs font-semibold text-muted-foreground">Vorher · Dauer {formatDuration(analysis.durationSec)}</div>
+                <Section icon={Info} label="Datei">
+                    {containerTags.length === 0 && <li className="text-muted-foreground">keine Metadaten</li>}
+                    {containerTags.map((tag) => (
+                        <TagLine key={tag.key} label={tag.label} title={`${tag.key}: ${tag.value}`}>
+                            {tag.value}
+                        </TagLine>
+                    ))}
+                </Section>
                 <Section icon={Film} label="Video">
                     {analysis.video.map((track) => (
                         <TrackLine
@@ -299,6 +322,20 @@ export function TrackDetails({
 
             <div className="flex flex-col gap-3">
                 <div className="text-xs font-semibold text-muted-foreground">Nachher</div>
+                {sourceTitle && (
+                    <Section icon={Info} label="Datei">
+                        {cleanMetadata ? (
+                            <TagLine label="Titel" title="„Metadaten bereinigen“ leert den Titel des Containers">
+                                <span className="text-muted-foreground line-through opacity-60">{sourceTitle}</span>
+                                <span className="ml-2 text-xs text-muted-foreground">entfernt</span>
+                            </TagLine>
+                        ) : (
+                            <TagLine label="Titel" title={sourceTitle}>
+                                {sourceTitle}
+                            </TagLine>
+                        )}
+                    </Section>
+                )}
                 <Section icon={Film} label="Video">
                     {plan.video.map((track) => (
                         <TrackLine key={track.source.index} lang={track.source.language} title={track.title} meta={track.source.codec} />

@@ -112,6 +112,8 @@ export interface FileAnalysis {
     subtitle: SubtitleTrackInfo[]
     /** Anhänge in der Datei (Schriften, Cover, eingebettete .nfo …) */
     attachments?: AttachmentInfo[]
+    /** Metadaten des Containers (Titel, Kommentar, Encoder …), Schlüssel kleingeschrieben */
+    tags?: Record<string, string>
 }
 
 export interface AttachmentInfo {

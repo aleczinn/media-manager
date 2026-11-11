@@ -10,6 +10,7 @@ import {
     FileX,
     FolderSearch,
     Image as ImageIcon,
+    Info,
     Loader2,
     RotateCcw,
     SkipForward,
@@ -182,6 +183,8 @@ function FileRow({ row }: { row: Row }) {
     const { toggleExcluded, toggleExpanded, setOverride } = useStore.getState()
     const { file } = row.entry
     const done = row.result?.status === 'ok'
+    // Titel aus den Container-Metadaten (z. B. Folgentitel, den VLC als Fenstertitel zeigt)
+    const containerTitle = row.entry.analysis?.tags?.title
     const folder = file.relativePath.slice(0, Math.max(0, file.relativePath.length - (file.name + file.extension).length - 1))
 
     return (
@@ -211,6 +214,12 @@ function FileRow({ row }: { row: Row }) {
                             <span className="text-muted-foreground">{file.extension}</span>
                         </div>
                         {folder && <div className="truncate text-xs text-muted-foreground">{folder}</div>}
+                        {containerTitle && (
+                            <div className="truncate text-xs text-muted-foreground/80" title={`Titel in den Metadaten: ${containerTitle}`}>
+                                <Info className="mr-1 inline size-3 -translate-y-px" />
+                                {containerTitle}
+                            </div>
+                        )}
                     </div>
                     <Stereo3DChip stereo={row.stereo} />
                     <TrackSummary row={row} />
