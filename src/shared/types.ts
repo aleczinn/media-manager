@@ -327,8 +327,11 @@ export type ApplyPhase = 'analyze' | 'build'
 export interface ApplyProgress {
     fileId: string
     phase: ApplyPhase
+    /** Fortschritt der aktuellen Phase (0–100) */
     percent: number
     etaSec: number | null
+    /** Fortschritt der ganzen Datei über alle Phasen (0–1), steigt nie */
+    fraction: number
 }
 
 export type ApplyStatus = 'ok' | 'skipped' | 'error' | 'cancelled'

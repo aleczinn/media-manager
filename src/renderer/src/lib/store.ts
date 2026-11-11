@@ -90,6 +90,10 @@ interface RunState {
     total: number
     done: number
     startedAt: number
+    /** Gewicht pro Datei (Größe in Bytes), damit große Dateien im Gesamtfortschritt mehr zählen */
+    weights: Record<string, number>
+    totalWeight: number
+    doneWeight: number
     results: Record<string, ApplyFileResult>
     summary: ApplySummary | null
 }
@@ -187,7 +191,19 @@ interface State {
     cancel(): Promise<void>
 }
 
-const emptyRun: RunState = { running: false, cancelling: false, active: {}, total: 0, done: 0, startedAt: 0, results: {}, summary: null }
+const emptyRun: RunState = {
+    running: false,
+    cancelling: false,
+    active: {},
+    total: 0,
+    done: 0,
+    startedAt: 0,
+    weights: {},
+    totalWeight: 0,
+    doneWeight: 0,
+    results: {},
+    summary: null
+}
 
 /**
  * Ab- oder Anwählen vergisst das Ergebnis des letzten Laufs (z. B. „fertig“) und liest den Output-Ordner neu ein.
@@ -247,7 +263,13 @@ export const useStore = create<State>()((set, get) => ({
                     const active = { ...state.run.active }
                     delete active[result.fileId]
                     return {
-                        run: { ...state.run, active, done: state.run.done + 1, results: { ...state.run.results, [result.fileId]: result } }
+                        run: {
+                            ...state.run,
+                            active,
+                            done: state.run.done + 1,
+                            doneWeight: state.run.doneWeight + (state.run.weights[result.fileId] ?? 0),
+                            results: { ...state.run.results, [result.fileId]: result }
+                        }
                     }
                 })
             ),
@@ -594,8 +616,18 @@ export const useStore = create<State>()((set, get) => ({
         const outputDir = get().settings?.outputDir
         if (!outputDir || jobs.length === 0 || get().run.running) return
 
+        const weights = Object.fromEntries(jobs.map((job) => [job.fileId, Math.max(1, job.size)]))
+        const totalWeight = Object.values(weights).reduce((sum, weight) => sum + weight, 0)
         set((state) => ({
-            run: { ...emptyRun, running: true, total: jobs.length, startedAt: Date.now(), results: state.run.results }
+            run: {
+                ...emptyRun,
+                running: true,
+                total: jobs.length,
+                startedAt: Date.now(),
+                weights,
+                totalWeight,
+                results: state.run.results
+            }
         }))
         try {
             const summary = await window.api.apply(jobs, outputDir, artwork)

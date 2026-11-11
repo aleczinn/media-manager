@@ -42,6 +42,7 @@ interface PeakEntry {
 
 interface CountEntry {
     key: string
+    done?: boolean
     result: Deferred<number[]>
     job: Job
 }
@@ -98,6 +99,14 @@ export class ScanService {
     getCounts(request: { inputPath: string; size: number; durationSec: number }, onProgress?: ProgressListener): Promise<number[]> {
         const { count } = this.ensure({ ...request, peakTrackIndex: null, countSubtitles: true })
         return this.wait(count!.job, count!.result.promise, onProgress)
+    }
+
+    /** Ob für die Anfrage noch gescannt werden muss (nichts bekannt, wartend oder laufend) */
+    isPending(request: ScanRequest): boolean {
+        const pKey = request.peakTrackIndex !== null ? peakKey({ ...request, trackIndex: request.peakTrackIndex }) : null
+        const peakPending = pKey !== null && this.peaks.get(pKey)?.state.status !== 'done'
+        const countPending = request.countSubtitles && !this.counts.get(fileKey(request))?.done
+        return peakPending || countPending
     }
 
     killAll(): void {
@@ -188,6 +197,7 @@ export class ScanService {
             if (job.count) {
                 const counts = outcome.subtitleCounts ?? []
                 this.onCounts({ fileKey: job.count.key, counts })
+                job.count.done = true
                 job.count.result.resolve(counts)
             }
             this.onStatus({ fileKey: key, status: 'done' })
