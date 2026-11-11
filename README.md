@@ -49,7 +49,7 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
   - Pro Spur ein Chip mit dem Typ: Entfernt, Normal, Forced, SDH oder CC. Blau = von der App erkannt, grau = laut Datei, orange = manuell überschrieben; Linksklick schaltet weiter, Rechtsklick zurück
   - Manuell gewählte Spuren kommen immer in die Datei, auch wenn ihre Sprache nicht in der Liste steht
   - Pro Sprache und Typ bleibt nur die bevorzugte Spur, nach einstellbarer Format-Reihenfolge
-  - Einheitliche Titel wie „Deutsch Erzwungen“ oder „English SDH“ mit passenden Markierungen; Schriften für ASS-Untertitel werden mitkopiert, MP4-Untertitel nach SRT umgewandelt
+  - Einheitliche Titel wie „Deutsch Erzwungen“ oder „English SDH“ mit passenden Markierungen; eingebettete Schriften werden nur mitkopiert, wenn ein ASS-Untertitel in der Datei bleibt; andere Anhänge wie Cover oder `.nfo` fallen weg. MP4-Untertitel werden nach SRT umgewandelt
 - 🎞️ **TMDB**
   - Serie oder Film einmal bei [TMDB](https://www.themoviedb.org) suchen und zuordnen; Suchbegriff und Jahr werden aus Ordner- und Dateiname vorbelegt
   - Die TMDB-Leiste zeigt neben dem Titel die Genres (auf Deutsch) und die Bewertung, z. B. „★ 8,1/10 TMDB“ (Anzahl der Stimmen im Tooltip), als Hilfe beim Einsortieren
@@ -165,13 +165,15 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 
 ## Changelog
 
-1.0.9 | Namensregeln im YouTube-Modus
+1.0.9 | Namensregeln im YouTube-Modus, keine Anhänge mehr
 
 - Neuer Editor **Namensregeln** im Kopf der Spalte Zielname: Gespeicherte Presets bringen uneinheitliche Videotitel in ein Format, z. B. „OUTLAST [HD+] #018 - Titel ★ Let's Play Outlast“ zu „#018 - Titel“
 - Schritte: alles davor oder danach entfernen, ersetzen (auch per Regex), Zeichen abschneiden und Muster umbauen, z. B. „{titel} 🈲 OUTLAST 2 [{nr}]“ zu „#{nr} - {titel}“; die Reihenfolge lässt sich per Drag & Drop ändern
 - Das gewählte Preset gilt sofort für alle aktuellen Dateien, so lassen sich Presets einfach durchprobieren; Schritte, die nicht passen, ändern nichts, von Hand eingetragene Namen haben Vorrang
 - Presets bleiben gespeichert; ein gemeinsames Feld zum Wählen und Umbenennen, Speichern ohne Schließen und Nachfrage beim Schließen mit ungespeicherten Änderungen
 - Live-Vorschau mit Vorher und Nachher samt Dateiendung, die Konflikte rot markiert; der Text lässt sich markieren und kopieren, z. B. um Sonderzeichen wie ★ in einen Schritt zu übernehmen
+- Anhänge der Quelldatei wie Cover oder eingebettete `.nfo` werden nicht mehr übernommen; Schriften bleiben nur, wenn ein ASS-Untertitel in der Datei bleibt
+- Behoben: Dateien mit eingebetteter `.nfo` brachen mit „Attachment stream has no mimetype tag“ ab, weil „Metadaten bereinigen“ auch den Dateityp des Anhangs entfernte
 
 1.0.8 | Bewertung, mehr Bilder und Neuprüfung
 

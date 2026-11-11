@@ -110,6 +110,16 @@ export interface FileAnalysis {
     video: VideoTrackInfo[]
     audio: AudioTrackInfo[]
     subtitle: SubtitleTrackInfo[]
+    /** Anhänge in der Datei (Schriften, Cover, eingebettete .nfo …) */
+    attachments?: AttachmentInfo[]
+}
+
+export interface AttachmentInfo {
+    /** Index unter den Anhängen (`0:t:<index>`) */
+    index: number
+    fileName: string
+    mimeType: string
+    codec: string
 }
 
 export interface PipelineOptions {

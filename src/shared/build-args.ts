@@ -1,6 +1,6 @@
-import type { TrackPlan } from './pipeline'
+import { getSubtitleFormat, type TrackPlan } from './pipeline'
 import { STEREO_MODE, type Stereo3D } from './stereo3d'
-import type { Settings } from './types'
+import type { AttachmentInfo, Settings } from './types'
 
 export interface BuildArgsInput {
     inputPath: string
@@ -13,6 +13,17 @@ export interface BuildArgsInput {
     description: string | null
     /** 3D-Format der Datei, `undefined` = kein 3D */
     stereo3d?: Stereo3D
+    /** Anhänge der Quelldatei; übernommen werden nur Schriften für ASS-Untertitel */
+    attachments?: AttachmentInfo[]
+}
+
+/** Schriftdatei (TTF/OTF), wie sie ASS-Untertitel brauchen */
+export function isFontAttachment(attachment: AttachmentInfo): boolean {
+    return (
+        /font|truetype|opentype/i.test(attachment.mimeType) ||
+        /^(ttf|otf)$/i.test(attachment.codec) ||
+        /\.(ttf|otf|ttc)$/i.test(attachment.fileName)
+    )
 }
 
 /** Untertitelformate, die sich nicht direkt in MKV kopieren lassen. */
@@ -27,7 +38,16 @@ export function formatGain(gainDb: number): string {
 }
 
 /** Baut die ffmpeg-Argumentliste für eine Datei (Port von `buildScript` aus dem alten Projekt). */
-export function buildFfmpegArgs({ inputPath, outputPath, plan, settings, gainDb, description, stereo3d }: BuildArgsInput): string[] {
+export function buildFfmpegArgs({
+    inputPath,
+    outputPath,
+    plan,
+    settings,
+    gainDb,
+    description,
+    stereo3d,
+    attachments = []
+}: BuildArgsInput): string[] {
     const { pipeline, unknownLanguage } = settings
     const args: string[] = ['-hide_banner', '-nostdin', '-y', '-fflags', '+genpts', '-i', inputPath]
 
@@ -125,8 +145,14 @@ export function buildFfmpegArgs({ inputPath, outputPath, plan, settings, gainDb,
         )
     })
 
-    // Anhänge (z. B. Schriften für ASS-Untertitel) mitnehmen, falls vorhanden
-    args.push('-map', '0:t?', '-c:t', 'copy')
+    // Anhänge (Cover, .nfo …) fallen weg; nur Schriften bleiben, und nur wenn ein ASS-Untertitel sie braucht
+    const keepsAss = plan.subtitle.some((track) => getSubtitleFormat(track.source) === 'ass')
+    const fonts = keepsAss ? attachments.filter(isFontAttachment) : []
+    fonts.forEach((font, i) => {
+        // Metadaten ausdrücklich übernehmen: Nach -map_metadata:s:v kopiert ffmpeg sie sonst nicht mehr,
+        // ohne mimetype lässt sich die MKV nicht schreiben
+        args.push('-map', `0:t:${font.index}`, `-c:t:${i}`, 'copy', `-map_metadata:s:t:${i}`, `0:s:t:${font.index}`)
+    })
 
     args.push('-max_interleave_delta', '0')
     if (pipeline.encodeVideo) args.push('-fps_mode', 'cfr')

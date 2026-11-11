@@ -157,7 +157,8 @@ export class Runner {
                 settings,
                 gainDb,
                 description,
-                stereo3d: job.stereo3d
+                stereo3d: job.stereo3d,
+                attachments: job.analysis.attachments ?? []
             })
 
             report('build', 0, null)
