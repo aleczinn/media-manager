@@ -1,6 +1,6 @@
 # Media Manager
 
-[![Version](https://img.shields.io/badge/Media_Manager-1.0.10-8B7CFF?style=flat-square)](package.json)
+[![Version](https://img.shields.io/badge/Media_Manager-1.1.0-8B7CFF?style=flat-square)](package.json)
 [![Electron](https://img.shields.io/badge/Electron-45-47848F?style=flat-square&logo=electron)](https://www.electronjs.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
@@ -11,7 +11,7 @@
 
 Eine Desktop-App für Windows, die Serien- und Filmdateien für die eigene Mediathek aufbereitet. Sie liest einen Input-Ordner ein, schlägt für jede Datei einen einheitlichen Namen vor und baut daraus eine neue MKV im Output-Ordner: mit sortierten und sauber benannten Ton- und Untertitelspuren, einer lautstärke-normalisierten Tonspur und eingebundenen externen Untertiteln. Die Quelldateien bleiben dabei unverändert.
 
-![Media Manager](docs/1.0.3.jpg)
+![Media Manager](docs/1.1.0_2.jpg)
 
 Links stehen die gefundenen Dateien, rechts die Zielnamen. Jede Datei lässt sich ausschließen, jeder Name bearbeiten, und pro Datei zeigt eine aufklappbare Übersicht, welche Spuren vorher da sind und welche in der fertigen Datei landen. Ein Klick auf **Anwenden** verarbeitet alles.
 
@@ -171,7 +171,19 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 
 ## Changelog
 
-1.0.10 | Flüssiger Fortschrittsbalken, Episodenreihenfolgen, Folgen teilen, NFO für Jellyfin, Folgen aus dem Ordnernamen, Datei-Metadaten
+1.1.0 | Folgen teilen, Standbilder aus dem Video, HD-Vorschaubilder und NFO für Jellyfin
+
+- **Folgen teilen** für Folgen, die TMDB als eine lange führt, die aber als Teil 1 und Teil 2 vorliegen (z. B. Big Time Rush 2x8 „Weihnachten“). Die Teile bekommen „(Teil 1)“, „(Teil 2)“ im Titel, alle späteren Folgen der Staffel rücken nach (Guru wird 2x10); gilt auch mit einer anderen Reihenfolge und wird je Serie gespeichert
+- Folgen ohne TMDB-Bild (z. B. Teil 2) bekommen automatisch ein Standbild aus dem Video bei einem Drittel der Laufzeit; die Bildauswahl zeigt neben den TMDB-Bildern fünf Standbilder aus dem Video zur Auswahl
+- Vorschaubilder mindestens in HD: Ein TMDB-Standardbild unter 1280×720 (z. B. 666×375) wird automatisch durch ein Standbild aus dem Video ersetzt, mit Hinweis auf dem Bild; bleibt ein Bild unter HD, warnt „Thumbnail-Auflösung gering“. Die Bildauswahl sortiert kleine Bilder ans Ende und markiert sie; Standbilder werden nicht mehr hochskaliert
+- Neue Option **NFO speichern** (standardmäßig an): `<Zielname>.nfo` mit Titel, Inhalt, Staffel, Folge und Ausstrahlung bzw. bei Filmen mit Jahr, Genres und TMDB-ID, damit Jellyfin alles ohne Nacharbeit übernimmt; bei geteilten oder umsortierten Folgen mit `lockdata`, damit Jellyfin sie nicht per TMDB überschreibt
+- Beschreibung in der NFO möglichst deutsch: zuerst die deutsche von TMDB, dann die aus den Metadaten der Datei (`DESCRIPTION`, neue Option **Beschreibung aus Datei**, standardmäßig an), zuletzt die englische von TMDB; bei geteilten Folgen zuerst die der Datei, weil TMDB die ganze Doppelfolge beschreibt. Englische oder fehlende Beschreibungen markiert die Zeile mit „Beschreibung englisch“ bzw. „keine Beschreibung“; die Spurübersicht zeigt unter „Nachher“, woher der NFO-Inhalt kommt
+
+![Folgen teilen](docs/1.1.0_1.jpg)
+
+![Neuzuweisung der Folgen](docs/1.1.0_2.jpg)
+
+1.0.10 | Flüssiger Fortschrittsbalken, Episodenreihenfolgen, Folgen aus dem Ordnernamen, Datei-Metadaten
 
 - Der Gesamtbalken beim Anwenden läuft jetzt flüssig zwischen den Meldungen von ffmpeg weiter, statt pro Datei nur am Anfang und am Ende zu springen
 - Peak-Analyse und Untertitel-Zählung zählen mit zum Fortschritt; schon im Hintergrund erledigte Scans kosten keinen Anteil
@@ -183,11 +195,6 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 - Folgen werden auch erkannt, wenn nur der Release-Ordner Staffel und Folge enthält, z. B. `Big.Time.Rush.S04E01.German…/tvs-btr-…-401.mkv`; Staffel-Packs wie `Show.S04.German…` zählen dabei nicht
 - Neuer Abschnitt **Datei** in der Spurübersicht: zeigt die Metadaten des Containers wie Titel, Serie, Staffel, Episode, Datum, Beschreibung und Encoder, bekannte Angaben auf Deutsch; technische MP4-Angaben und doppelte Texte fallen weg
 - Der Titel aus den Metadaten (z. B. der Folgentitel, den VLC als Fenstertitel zeigt) steht zusätzlich als kleine Zeile unter dem Dateinamen; unter „Nachher“ ist zu sehen, ob „Metadaten bereinigen“ ihn entfernt
-- Neu: **Folgen teilen** für Folgen, die TMDB als eine lange führt, die aber als Teil 1 und Teil 2 vorliegen (z. B. Big Time Rush 2x8 „Weihnachten“). Die Teile bekommen „(Teil 1)“, „(Teil 2)“ im Titel, alle späteren Folgen der Staffel rücken nach (Guru wird 2x10); gilt auch mit einer anderen Reihenfolge und wird je Serie gespeichert
-- Folgen ohne TMDB-Bild (z. B. Teil 2) bekommen automatisch ein Standbild aus dem Video bei einem Drittel der Laufzeit; die Bildauswahl zeigt neben den TMDB-Bildern fünf Standbilder aus dem Video zur Auswahl
-- Vorschaubilder mindestens in HD: Ein TMDB-Standardbild unter 1280×720 (z. B. 666×375) wird automatisch durch ein Standbild aus dem Video ersetzt, mit Hinweis auf dem Bild; bleibt ein Bild unter HD, warnt „Thumbnail-Auflösung gering“. Die Bildauswahl sortiert kleine Bilder ans Ende und markiert sie; Standbilder werden nicht mehr hochskaliert
-- Neue Option **NFO speichern** (standardmäßig an): `<Zielname>.nfo` mit Titel, Inhalt, Staffel, Folge und Ausstrahlung bzw. bei Filmen mit Jahr, Genres und TMDB-ID, damit Jellyfin alles ohne Nacharbeit übernimmt; bei geteilten oder umsortierten Folgen mit `lockdata`, damit Jellyfin sie nicht per TMDB überschreibt
-- Beschreibung in der NFO möglichst deutsch: zuerst die deutsche von TMDB, dann die aus den Metadaten der Datei (`DESCRIPTION`, neue Option **Beschreibung aus Datei**, standardmäßig an), zuletzt die englische von TMDB; bei geteilten Folgen zuerst die der Datei, weil TMDB die ganze Doppelfolge beschreibt. Englische oder fehlende Beschreibungen markiert die Zeile mit „Beschreibung englisch“ bzw. „keine Beschreibung“; die Spurübersicht zeigt unter „Nachher“, woher der NFO-Inhalt kommt
 
 1.0.9 | Namensregeln im YouTube-Modus, keine Anhänge mehr
 
