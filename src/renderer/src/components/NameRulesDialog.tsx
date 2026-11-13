@@ -3,7 +3,7 @@ import { closestCenter, DndContext, KeyboardSensor, PointerSensor, useSensor, us
 import { restrictToParentElement, restrictToVerticalAxis } from '@dnd-kit/modifiers'
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { ArrowRight, Check, ChevronDown, GripVertical, Plus, Replace, Save, Trash2, X } from 'lucide-react'
+import { ArrowRight, Check, ChevronDown, Copy, GripVertical, Plus, Replace, RotateCcw, Save, Trash2, X } from 'lucide-react'
 import { Popover } from 'radix-ui'
 import { findConflicts } from '@shared/conflicts'
 import { applyNameRules, NAME_STEP_LABELS, stepError, type NameRuleSet, type NameStep, type NameStepType } from '@shared/name-rules'
@@ -370,7 +370,7 @@ function PresetPicker({
             <Popover.Anchor asChild>
                 <div
                     className={cn(
-                        'flex h-9 min-w-0 flex-1 rounded-md border border-input bg-black/20 shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/40',
+                        'flex h-9 w-96 min-w-0 shrink rounded-md border border-input bg-black/20 shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/40',
                         selected && !selected.name.trim() && 'border-destructive'
                     )}
                 >
@@ -424,6 +424,16 @@ function newPresetName(presets: NameRuleSet[]): string {
     return `Preset ${number}`
 }
 
+/** Name der Kopie: „Gronkh 1 (Kopie)“, bei mehreren „(Kopie 2)“ usw. */
+function copyName(name: string, presets: NameRuleSet[]): string {
+    const names = new Set(presets.map((preset) => preset.name))
+    const base = `${name} (Kopie)`
+    if (!names.has(base)) return base
+    let number = 2
+    while (names.has(`${name} (Kopie ${number})`)) number++
+    return `${name} (Kopie ${number})`
+}
+
 const NO_STEPS: NameStep[] = []
 const NO_PRESETS: NameRuleSet[] = []
 
@@ -470,6 +480,29 @@ export function NameRulesDialog({ rows }: { rows: Row[] }) {
         const id = crypto.randomUUID()
         setDraft((current) => [...current, { id, name: newPresetName(current), steps: [] }])
         setActive(id)
+    }
+
+    /** Kopie des gewählten Presets (mit dem aktuellen Stand) direkt dahinter, sie wird gleich gewählt */
+    const duplicateSelected = () => {
+        if (!selected) return
+        const id = crypto.randomUUID()
+        const copy: NameRuleSet = {
+            id,
+            name: copyName(selected.name.trim() || 'Preset', draft),
+            steps: selected.steps.map((step) => ({ ...step, id: crypto.randomUUID() }))
+        }
+        setDraft((current) => {
+            const index = current.findIndex((set) => set.id === selected.id)
+            return [...current.slice(0, index + 1), copy, ...current.slice(index + 1)]
+        })
+        setActive(id)
+    }
+
+    /** Ungespeicherte Änderungen nur am gewählten Preset zurücknehmen */
+    const savedSelected = saved.find((set) => set.id === activeId) ?? null
+    const resetSelected = () => {
+        if (!savedSelected) return
+        setDraft((current) => current.map((set) => (set.id === savedSelected.id ? savedSelected : set)))
     }
 
     const removeSelected = () => {
@@ -520,38 +553,55 @@ export function NameRulesDialog({ rows }: { rows: Row[] }) {
                     </p>
                 )}
 
+                <section className="flex flex-col gap-2">
+                    <h3 className="text-sm font-medium">Preset</h3>
+                    <div className="flex items-center gap-2">
+                        <PresetPicker
+                            presets={draft}
+                            selected={selected}
+                            changed={changed}
+                            onSelect={setActive}
+                            onRename={(name) => patchSelected({ name })}
+                        />
+                        <Button variant="secondary" onClick={addPreset}>
+                            <Plus />
+                            Neu
+                        </Button>
+                        <Button
+                            variant="secondary"
+                            onClick={duplicateSelected}
+                            disabled={!selected}
+                            title="Gewähltes Preset als neues Preset kopieren"
+                            aria-label="Preset duplizieren"
+                        >
+                            <Copy />
+                            Duplizieren
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={resetSelected}
+                            disabled={!savedSelected || !changed.has(savedSelected.id)}
+                            title="Änderungen an diesem Preset zurücksetzen"
+                            aria-label="Preset zurücksetzen"
+                        >
+                            <RotateCcw />
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={removeSelected}
+                            disabled={!selected}
+                            aria-label="Preset löschen"
+                            title="Preset löschen"
+                        >
+                            <Trash2 />
+                        </Button>
+                    </div>
+                </section>
+
                 <div className="grid min-h-0 flex-1 grid-cols-2 gap-5">
                     <div className="flex min-h-0 flex-col gap-4 overflow-y-auto pr-1">
-                        <section className="flex flex-col gap-2">
-                            <h3 className="text-sm font-medium">Preset</h3>
-                            <div className="flex items-center gap-2">
-                                <PresetPicker
-                                    presets={draft}
-                                    selected={selected}
-                                    changed={changed}
-                                    onSelect={setActive}
-                                    onRename={(name) => patchSelected({ name })}
-                                />
-                                <Button disabled={!canSave} onClick={() => void save()}>
-                                    <Save />
-                                    Speichern
-                                </Button>
-                                <Button variant="secondary" onClick={addPreset}>
-                                    <Plus />
-                                    Neu
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={removeSelected}
-                                    disabled={!selected}
-                                    aria-label="Preset löschen"
-                                >
-                                    <Trash2 />
-                                </Button>
-                            </div>
-                        </section>
-
                         {selected ? (
                             <section className="flex flex-col gap-2">
                                 <h3 className="text-sm font-medium">Schritte</h3>
@@ -601,9 +651,14 @@ export function NameRulesDialog({ rows }: { rows: Row[] }) {
                         </Button>
                     </div>
                 ) : (
-                    <div className="flex justify-end">
+                    <div className="flex items-center justify-end gap-2">
+                        {dirty && <span className="mr-auto text-sm text-muted-foreground">Ungespeicherte Änderungen</span>}
                         <Button variant="secondary" onClick={() => onOpenChange(false)}>
                             Schließen
+                        </Button>
+                        <Button disabled={!canSave} onClick={() => void save()}>
+                            <Save />
+                            Speichern
                         </Button>
                     </div>
                 )}
