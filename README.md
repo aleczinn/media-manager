@@ -1,6 +1,6 @@
 # Media Manager
 
-[![Version](https://img.shields.io/badge/Media_Manager-1.1.0-8B7CFF?style=flat-square)](package.json)
+[![Version](https://img.shields.io/badge/Media_Manager-1.2.0-8B7CFF?style=flat-square)](package.json)
 [![Electron](https://img.shields.io/badge/Electron-45-47848F?style=flat-square&logo=electron)](https://www.electronjs.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
@@ -80,8 +80,15 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
   - Staffelposter haben standardmäßig keine Overlays, lassen sich aber einzeln setzen (Rechtsklick auf die Overlays entfernt sie wieder)
   - Backdrop und Landscape höchstens 1920×1080, Logos unverändert als PNG
   - Gespeichert wird beim Anwenden (Option **Bilder speichern**) oder über **Nur Bilder exportieren**, mit den Namen, die Jellyfin und Emby im Serien- bzw. Filmordner erwarten: `cover.jpg`, `season01-poster.jpg`, `season-specials-poster.jpg`, `logo.png`, `backdrop.jpg`, `landscape.jpg`
+- 📥 **YouTube-Download** (im YouTube-Modus)
+  - Lädt mit [yt-dlp](https://github.com/yt-dlp/yt-dlp): Die App holt sich beim ersten Start die aktuelle `yt-dlp.exe` nach `%APPDATA%\.media-managerin` und aktualisiert sie bei jedem Start im Hintergrund, damit Anpassungen an YouTube sofort ankommen (oder ein eigener Pfad in den Einstellungen). Die Version steht oben rechts
+  - An der Stelle der TMDB-Leiste: Link zu einem Video oder einer ganzen Playlist einfügen (mehrere nacheinander möglich), mit **Lesen** einlesen und das Format wählen. Der Schalter **Einzelvideo | Playlist** entscheidet bei einem Video aus einer Playlist (`watch?v=…&list=…`), ob nur das Video oder die ganze Playlist gelesen wird. Playlists mit mehr als 50 Videos kommen abgewählt an; die Formate eines Videos werden erst gelesen, wenn es ausgewählt ist. Die Videos stehen oben in der Dateiliste, mit Vorschaubild, Format und Zielname, und lassen sich wie Dateien einzeln abwählen
+  - Format für alle: **Video** mit Codec (AV1, VP9, H.264, mit Anzahl der Videos, die ihn anbieten), maximaler Auflösung und Tonspur (Opus, AAC) oder **Nur Audio** (Opus, AAC, MP3). Genommen wird die beste Auflösung bis zur Grenze; bietet der Codec sie nicht an, der nächstbeste mit Hinweis in der Zeile. Deutsche Tonspuren werden bevorzugt, sonst die Originalspur. Pro Video lässt sich per Klick aufs Format ein eigenes wählen
+  - **Anwenden** erledigt alles in einem Rutsch: Die Videos werden mit Vorschaubild und Beschreibung in einen Temp-Ordner im Output geladen, wie Dateien aus dem Input verarbeitet (Namen bereinigen, Namensregeln, Tonspur auf Deutsch, Normalisierung …) und danach gelöscht. Im Output landen `<Name>.mkv`, `<Name>.jpg` und `<Name>.txt`, bei Playlists zusätzlich `folder.jpg`; reines Audio kommt direkt in den Output
+  - Mehrere Downloads gleichzeitig (1–4), Fortschritt pro Video und gesamt mit Restzeit, einzeln oder alle abbrechbar. Verständliche Fehler (privat, altersbeschränkt, nicht im Land verfügbar, „kein Bot“-Abfrage, Netzwerk …) mit **Erneut versuchen**; Netzwerkfehler werden automatisch zweimal wiederholt
+  - Einstellungen unter **YouTube-Download**: gleichzeitige Downloads, Bandbreite, Cookies aus dem Browser (für altersbeschränkte Videos), Playlist-Nummer vor dem Namen und welche Begleitdateien geladen werden
 - 📺 **YouTube-Modus**
-  - Umschalter **Filme & Serien | YouTube** oben neben dem Titel (beim Start immer Filme & Serien), für Videos, die mit JDownloader heruntergeladen wurden (Video, `… (Beschreibung).txt` und `… (BQ).jpg`)
+  - Umschalter **Filme & Serien | YouTube** oben neben dem Titel (beim Start immer Filme & Serien). für Videos per Link (siehe oben) und für heruntergeladene Videos im Input (auch von JDownloader: Video, `… (Beschreibung).txt` und `… (BQ).jpg`)
   - Der Zielname ist der Videotitel ohne Qualitätsangabe wie `(2160p_60fps_AV1-128kbit_AAC)`; Emojis und Sonderzeichen bleiben
   - **Namensregeln** im Kopf der Spalte Zielname: Presets aus Schritten (alles davor oder danach entfernen, ersetzen, auch per Regex, Zeichen abschneiden, Muster umbauen wie `{titel} 🈲 OUTLAST 2 [{nr}]` → `#{nr} - {titel}`) kürzen die Namen. Das gewählte Preset gilt sofort für alle aktuellen Dateien, bei einem anderen Input-Ordner beginnt die Auswahl wieder bei „Keine Regeln“. Eine Live-Vorschau zeigt Vorher und Nachher samt Konflikten; Schritte, die nicht passen, ändern nichts, von Hand eingetragene Namen haben Vorrang
   - Ein Feld fürs Preset: Reinklicken benennt um, der Pfeil öffnet die Liste. **Speichern** ist nur bei Änderungen aktiv und lässt den Dialog offen; beim Schließen mit ungespeicherten Änderungen fragt die App nach (weiter bearbeiten, verwerfen oder speichern). Die Presets bleiben dauerhaft gespeichert, die Auswahl nur für die aktuellen Dateien
@@ -107,7 +114,7 @@ Die App ist der Nachfolger meiner früheren Konsolen-Version, in der alle Einste
 ## Bedienung
 
 1. **Input** und **Output** wählen. Beide Ordner werden gespeichert und beim nächsten Start wieder geöffnet.
-2. Oben neben dem Titel den Modus wählen: **Filme & Serien** (Standard) oder **YouTube** für Downloads von JDownloader.
+2. Oben neben dem Titel den Modus wählen: **Filme & Serien** (Standard) oder **YouTube**. Im YouTube-Modus lassen sich zusätzlich Links zu Videos und Playlists einfügen, die beim Anwenden heruntergeladen und gleich mitverarbeitet werden.
 3. Unter **Verarbeitung** die gewünschten Schritte an- oder abschalten.
 4. Links Dateien ausschließen, die nicht verarbeitet werden sollen. Über den Pfeil vor einer Datei öffnet sich die Spurübersicht; dort lassen sich Untertitel per Klick auf den Chip übernehmen, entfernen oder umtypisieren und bei 3D-Filmen das Format setzen.
 5. Über **Serie / Film zuordnen** die Serie oder den Film bei TMDB auswählen. Die Titel landen automatisch in den Zielnamen; bei Serien lässt sich unter jedem Namen die Episode umstellen und per Klick aufs Episodenbild ein anderes Bild wählen.
@@ -162,14 +169,31 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 
 ### Struktur
 
-- `src/shared/`: reine Logik ohne Electron (Spurplanung, Renaming, 3D-Erkennung und -Entscheidung, YouTube-Namen und Namensregeln, externe Untertitel, TMDB-Zuordnung, fehlende Folgen, Bilder und Overlays, ffmpeg-Argumente, Platzschätzung), getestet in `tests/`
-- `src/main/`: Electron-Main-Prozess (Ordner-Scan, ffprobe und MediaInfo, 3D-Inhaltserkennung, Hintergrund-Scan für Peak und Untertitel-Zählung, TMDB- und Fanart.tv-Abfragen, Bilder rendern, Ausführung, Einstellungen)
+- `src/shared/`: reine Logik ohne Electron (Spurplanung, Renaming, 3D-Erkennung und -Entscheidung, YouTube-Namen und Namensregeln, YouTube-Formate und Download-Namen, externe Untertitel, TMDB-Zuordnung, fehlende Folgen, Bilder und Overlays, ffmpeg-Argumente, Platzschätzung), getestet in `tests/`
+- `src/main/`: Electron-Main-Prozess (Ordner-Scan, ffprobe und MediaInfo, 3D-Inhaltserkennung, Hintergrund-Scan für Peak und Untertitel-Zählung, TMDB- und Fanart.tv-Abfragen, Bilder rendern, Ausführung, yt-dlp und Download-Warteschlange, Einstellungen)
 - `src/preload/`: typisierte Brücke `window.api` zwischen Oberfläche und Main-Prozess
 - `src/renderer/`: React-Oberfläche mit Tailwind CSS und shadcn/ui-Komponenten
 - `resources/overlays/`: die Overlay-PNGs (600×900) für Cover und Staffelposter sowie die Vignette (1920×1080) für die Bilder fehlender Folgen
 - `scripts/corruption-checker.ts`: der Corruption-Checker
 
 ## Changelog
+
+1.2.0 | YouTube-Download mit yt-dlp, Namensregeln für Links, Kleinigkeiten
+
+- **YouTube-Download** im YouTube-Modus: An der Stelle der TMDB-Leiste einen Link zu einem Video oder einer Playlist einfügen und mit **Lesen** einlesen. Die Videos stehen oben in der Dateiliste (Vorschaubild, Dauer, Format, geschätzte Größe, Zielname) und lassen sich wie Dateien einzeln abwählen
+- **Anwenden** erledigt alles in einem Rutsch: herunterladen in einen Temp-Ordner im Output, wie Dateien aus dem Input verarbeiten (Namen bereinigen, Namensregeln, Tonspur auf Deutsch, Normalisierung) und die Rohdateien danach löschen. Im Output landen `<Name>.mkv`, `<Name>.jpg` und `<Name>.txt`, bei Playlists zusätzlich `folder.jpg`; reines Audio kommt direkt in den Output
+- yt-dlp wird beim ersten Start automatisch geladen und bei jedem Start aktualisiert (Version oben rechts); als JS-Laufzeit für YouTube dient Electron selbst, ein eigener Pfad ist in den Einstellungen möglich
+- Format für alle: **Video** mit Codec (AV1, VP9, H.264, mit Anzahl der Videos, die ihn anbieten), maximaler Auflösung und Tonspur (Opus, AAC) oder **Nur Audio** (Opus, AAC, MP3). Genommen wird die beste Auflösung bis zur Grenze, sonst der nächstbeste Codec mit Hinweis; deutsche Tonspuren werden bevorzugt. Pro Video lässt sich per Klick aufs Format ein eigenes wählen
+- Schalter **Einzelvideo | Playlist** für Links wie `watch?v=…&list=…`; Playlists mit mehr als 50 Videos kommen abgewählt an, die Formate eines Videos werden erst gelesen, wenn es ausgewählt ist
+- Fortschritt pro Video und gesamt mit Restzeit, mehrere Downloads gleichzeitig (1–4), einzeln oder alle abbrechbar; verständliche Fehler (privat, altersbeschränkt, nicht im Land verfügbar, „kein Bot“-Abfrage, Netzwerk) mit **Erneut versuchen**, Netzwerkfehler werden automatisch zweimal wiederholt
+- „Benötigt ca.“ und die Speicherplatz-Warnung zählen die ausgewählten Videos mit (doppelt, weil Download und Ergebnis kurz gleichzeitig auf der Platte liegen)
+- Neue Einstellungen unter **YouTube-Download**: gleichzeitige Downloads, Bandbreite, Cookies aus dem Browser, Playlist-Nummer vor dem Namen und welche Begleitdateien geladen werden
+- **Namensregeln** zeigen die Videos aus den Links in der Vorschau; ihr Zielname lässt sich in der Tabelle von Hand ändern und gilt nach dem Download weiter. Presets lassen sich **duplizieren** und einzeln **zurücksetzen**, **Speichern** sitzt jetzt unten neben „Schließen“
+- Ein Klick auf den Namen der zugeordneten Serie bzw. des Films in der TMDB-Leiste kopiert ihn samt Jahr, z. B. „Avatar - Die sieben Häfen (2026)“
+- **NFO speichern** und **Beschreibung aus Datei** sind bei jedem Start aus und lassen sich pro Sitzung einschalten
+- Die TMDB-Leiste bricht bei langen Namen um, Genres, Bewertung und Knöpfe rutschen nicht mehr aus dem Bild
+
+![YouTube-Download](docs/1.2.0.jpg)
 
 1.1.0 | Folgen teilen, Standbilder aus dem Video, HD-Vorschaubilder und NFO für Jellyfin
 

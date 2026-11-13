@@ -1,4 +1,5 @@
 import type { Settings } from './types'
+import { DEFAULT_YT_SELECTION } from './youtube-dl'
 
 export const DEFAULT_SETTINGS: Settings = {
     mode: 'media',
@@ -41,6 +42,18 @@ export const DEFAULT_SETTINGS: Settings = {
         saveArtwork: true,
         saveNfo: false,
         nfoFileDescription: false
+    },
+    youtube: {
+        ytdlpPath: '',
+        concurrency: 2,
+        linkMode: 'video',
+        selection: DEFAULT_YT_SELECTION,
+        indexPrefix: true,
+        saveThumbnail: true,
+        saveDescription: true,
+        saveFolderImage: true,
+        cookiesFromBrowser: '',
+        rateLimit: ''
     }
 }
 
@@ -49,7 +62,12 @@ export function mergeSettings(stored: Partial<Settings> | null | undefined): Set
     return {
         ...DEFAULT_SETTINGS,
         ...stored,
-        pipeline: { ...DEFAULT_SETTINGS.pipeline, ...stored?.pipeline }
+        pipeline: { ...DEFAULT_SETTINGS.pipeline, ...stored?.pipeline },
+        youtube: {
+            ...DEFAULT_SETTINGS.youtube,
+            ...stored?.youtube,
+            selection: { ...DEFAULT_SETTINGS.youtube.selection, ...stored?.youtube?.selection }
+        }
     }
 }
 

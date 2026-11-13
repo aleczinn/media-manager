@@ -3,6 +3,7 @@ import { FolderInput, FolderOpen, FolderOutput, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useStore } from '@/lib/store'
+import { useYtStore } from '@/lib/yt-store'
 import { cn } from '@/lib/utils'
 
 function FolderField({
@@ -48,7 +49,9 @@ function FolderField({
 
 export function FolderBar() {
     const settings = useStore((s) => s.settings)
-    const running = useStore((s) => s.run.running)
+    // Während YouTube-Downloads liegt der Temp-Ordner im Output, die Ordner bleiben dann fest
+    const downloading = useYtStore((s) => s.phase !== 'idle')
+    const running = useStore((s) => s.run.running) || downloading
     const scanning = useStore((s) => s.scanning)
     const { selectInput, selectOutput, scan } = useStore.getState()
 

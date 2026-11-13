@@ -2,6 +2,7 @@ import type { NameRuleSet } from './name-rules'
 import type { OverlayId } from './overlays'
 import type { PeakUpdate, ScanRequest, ScanStatusUpdate, SubtitleCountsUpdate } from './peak'
 import type { Stereo3D, StereoLayout } from './stereo3d'
+import type { YtBinaryStatus, YtDownloadJob, YtItemResult, YtLinkMode, YtProgress, YtSelection, YtSource, YtVideo } from './youtube-dl'
 
 export interface MediaFile {
     id: string
@@ -196,6 +197,31 @@ export interface Settings {
     /** Geteilte Folgen je Serie (TMDB-ID): Folge der Ausstrahlung (`2x8`) → Anzahl Teile */
     episodeSplits: Record<string, Record<string, number>>
     pipeline: PipelineOptions
+    youtube: YoutubeSettings
+}
+
+/** YouTube-Download mit yt-dlp */
+export interface YoutubeSettings {
+    /** Leer = eigene, automatisch aktualisierte Kopie in den App-Daten */
+    ytdlpPath: string
+    /** Gleichzeitige Downloads (1–4) */
+    concurrency: number
+    /** Link mit Video und Playlist (`watch?v=…&list=…`): nur das Video oder die ganze Playlist lesen */
+    linkMode: YtLinkMode
+    /** Standard-Auswahl für neue Links */
+    selection: YtSelection
+    /** Playlist-Nummer vor den Dateinamen (`01 - Titel`) */
+    indexPrefix: boolean
+    /** Vorschaubild als `<Titel>.jpg` */
+    saveThumbnail: boolean
+    /** Beschreibung als `<Titel>.txt` */
+    saveDescription: boolean
+    /** Bild der Playlist als `folder.jpg` in den Output-Ordner */
+    saveFolderImage: boolean
+    /** Cookies aus diesem Browser (für altersbeschränkte Videos); leer = keine */
+    cookiesFromBrowser: string
+    /** Bandbreite begrenzen, z. B. `10M`; leer = unbegrenzt */
+    rateLimit: string
 }
 
 export interface TmdbShow {
@@ -444,4 +470,16 @@ export interface MediaManagerApi {
     onPeakUpdate(listener: (update: PeakUpdate) => void): () => void
     onSubtitleCounts(listener: (update: SubtitleCountsUpdate) => void): () => void
     onScanStatus(listener: (update: ScanStatusUpdate) => void): () => void
+    ytStatus(): Promise<YtBinaryStatus>
+    ytUpdate(): Promise<YtBinaryStatus>
+    ytAnalyze(url: string): Promise<TmdbResult<YtSource>>
+    ytVideo(id: string, url: string): Promise<TmdbResult<YtVideo>>
+    ytDownload(jobs: YtDownloadJob[]): Promise<void>
+    ytDropDetails(ids: string[]): Promise<void>
+    ytCancel(id?: string): Promise<void>
+    ytCleanup(files: string[], workDir: string): Promise<void>
+    ytDeliver(files: { path: string; targetStem: string }[], outputDir: string): Promise<YtItemResult[]>
+    onYtStatus(listener: (status: YtBinaryStatus) => void): () => void
+    onYtProgress(listener: (progress: YtProgress) => void): () => void
+    onYtItemDone(listener: (result: YtItemResult) => void): () => void
 }

@@ -13,6 +13,8 @@ export interface RunOptions {
     onStderrLine?: (line: string) => void
     /** Wird mit dem gestarteten Prozess aufgerufen (z. B. zum Abbrechen) */
     onSpawn?: (child: ChildProcess) => void
+    /** Zusätzliche Umgebungsvariablen für den Prozess */
+    env?: Record<string, string>
 }
 
 export interface RunResult {
@@ -33,7 +35,7 @@ function splitLines(onLine: (line: string) => void): (chunk: Buffer) => void {
 
 export function runProcess(bin: string, args: string[], options: RunOptions = {}): Promise<RunResult> {
     return new Promise((resolve, reject) => {
-        const child = spawn(bin, args, { windowsHide: true })
+        const child = spawn(bin, args, { windowsHide: true, env: options.env ? { ...process.env, ...options.env } : undefined })
         options.onSpawn?.(child)
 
         let stdout = ''

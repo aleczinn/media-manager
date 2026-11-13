@@ -4,6 +4,8 @@ import { registerIpc } from './ipc'
 import { handleLocalImages, registerLocalImageScheme } from './local-images'
 import type { Runner } from './runner'
 import type { ScanService } from './scan-service'
+import type { YoutubeService } from './youtube-download'
+import type { YtDlpBinary } from './ytdlp-binary'
 import { loadSettings, saveSettings } from './settings-store'
 
 // Fester Settings-Ordner, damit Dev-Start und gepackte .exe (anderer App-Name) dieselben Einstellungen nutzen
@@ -14,7 +16,7 @@ if (!app.commandLine.hasSwitch('user-data-dir')) {
 registerLocalImageScheme()
 
 let mainWindow: BrowserWindow | null = null
-let services: { runner: Runner; scans: ScanService } | null = null
+let services: { runner: Runner; scans: ScanService; youtube: YoutubeService; ytdlp: YtDlpBinary } | null = null
 
 function createWindow(): void {
     mainWindow = new BrowserWindow({
@@ -55,6 +57,9 @@ app.whenReady().then(() => {
     handleLocalImages()
     services = registerIpc(() => mainWindow)
     createWindow()
+    // yt-dlp beim Start laden bzw. aktualisieren (im Hintergrund, Fehler zeigt die Plakette)
+    const { ytdlp, youtube } = services
+    void ytdlp.refresh(() => !youtube.isRunning)
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -65,6 +70,7 @@ app.on('before-quit', () => {
     // Laufende ffmpeg-Prozesse beenden, die halben .partial-Dateien räumt der Runner weg
     if (services?.runner.isRunning) services.runner.cancel()
     services?.scans.killAll()
+    if (services?.youtube.isRunning) services.youtube.cancelAll()
 
     // Einstellungen werden bei jeder Änderung gespeichert; hier nur zur Sicherheit noch einmal
     try {

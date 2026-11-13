@@ -26,6 +26,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import type { Derived, MissingRow, Row } from '@/lib/rows'
 import { describePeak } from '@/lib/peak'
 import { useStore } from '@/lib/store'
+import { useYtStore } from '@/lib/yt-store'
+import { YoutubeRows } from '@/components/YoutubeRows'
 import { cn } from '@/lib/utils'
 import { EpisodePicker, EpisodeThumbnail, LocalThumbnail, StillThumbnail } from './EpisodePicker'
 import { NameRulesDialog } from './NameRulesDialog'
@@ -407,11 +409,18 @@ export function FileTable({ derived }: { derived: Derived }) {
     const setAllExcluded = useStore((s) => s.setAllExcluded)
     const hasShow = useStore((s) => s.tmdb.episodes.length > 0 && s.settings?.mode !== 'youtube')
     const youtube = useStore((s) => s.settings?.mode === 'youtube')
+    const hasLinks = useYtStore((s) => s.sources.length > 0) && youtube
     const { rows, missing, order, conflictCount, pendingAnalysis, scanProgress } = derived
 
-    const selectedCount = rows.filter((row) => !row.excluded).length
-    const allIncluded = rows.length > 0 && rows.every((row) => !row.excluded)
-    const noneIncluded = rows.every((row) => row.excluded)
+    // Videos aus YouTube-Links zählen mit und lassen sich ebenso an- und abwählen
+    const ytItems = useYtStore((s) => s.items)
+    const links = Object.values(ytItems).filter((item) => !item.detailError && item.status !== 'ok')
+    const ytLocked = useYtStore((s) => s.phase !== 'idle')
+    const linkItems = youtube ? links : []
+    const total = rows.length + linkItems.length
+    const selectedCount = rows.filter((row) => !row.excluded).length + linkItems.filter((item) => item.checked).length
+    const allIncluded = total > 0 && selectedCount === total
+    const noneIncluded = selectedCount === 0
 
     return (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border bg-card/40">
@@ -419,13 +428,16 @@ export function FileTable({ derived }: { derived: Derived }) {
                 <div className="flex items-center gap-2 px-3 py-2.5">
                     <Checkbox
                         checked={allIncluded ? true : noneIncluded ? false : 'indeterminate'}
-                        disabled={running || rows.length === 0}
-                        onCheckedChange={() => setAllExcluded(allIncluded)}
+                        disabled={running || ytLocked || total === 0}
+                        onCheckedChange={() => {
+                            setAllExcluded(allIncluded)
+                            if (youtube) useYtStore.getState().setAllChecked(!allIncluded)
+                        }}
                         aria-label="Alle auswählen"
                     />
                     <span>Quelldateien</span>
                     <span className="normal-case">
-                        ({selectedCount}/{rows.length} ausgewählt{pendingAnalysis > 0 && `, ${pendingAnalysis} in Analyse`})
+                        ({selectedCount}/{total} ausgewählt{pendingAnalysis > 0 && `, ${pendingAnalysis} in Analyse`})
                     </span>
                     {scanProgress.done < scanProgress.total && (
                         <WithTooltip
@@ -454,6 +466,7 @@ export function FileTable({ derived }: { derived: Derived }) {
             </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
+                {youtube && <YoutubeRows />}
                 {order.map((entry) =>
                     entry.type === 'file' ? (
                         <FileRow key={rows[entry.index].entry.file.id} row={rows[entry.index]} />
@@ -462,7 +475,7 @@ export function FileTable({ derived }: { derived: Derived }) {
                     )
                 )}
 
-                {rows.length === 0 && (
+                {rows.length === 0 && !hasLinks && (
                     <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
                         {scanning ? (
                             <>
@@ -473,6 +486,7 @@ export function FileTable({ derived }: { derived: Derived }) {
                             <>
                                 <FolderSearch className="size-10 opacity-60" />
                                 {inputDir ? 'Keine Mediendateien (.mkv, .mp4, .avi) gefunden' : 'Wähle oben einen Input-Ordner aus'}
+                                {youtube && <span className="text-xs">oder füge oben einen YouTube-Link ein</span>}
                             </>
                         )}
                     </div>
