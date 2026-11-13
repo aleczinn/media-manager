@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import type { Row } from '@/lib/rows'
+import { itemStem, useYtStore } from '@/lib/yt-store'
 import { useStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
 
@@ -240,27 +241,47 @@ interface PreviewRow {
 function usePreview(rows: Row[], steps: NameStep[]): PreviewRow[] {
     const overrides = useStore((s) => s.overrides)
     const outputNames = useStore((s) => s.outputNames)
+    const settings = useStore((s) => s.settings)
+    const ytItems = useYtStore((s) => s.items)
+    const ytSources = useYtStore((s) => s.sources)
 
     return useMemo(() => {
-        const stemOf = (row: Row) => overrides[row.entry.file.id] ?? applyNameRules(cleanYoutubeName(row.entry.file.name), steps)
+        // Videos aus YouTube-Links (noch nicht geladen) stehen wie in der Tabelle vor den Dateien
+        const links = settings
+            ? ytSources.flatMap((source) =>
+                  source.entries.flatMap((entry) => {
+                      const item = ytItems[`${source.url}|${entry.id}`]
+                      if (!item || item.status === 'ok' || item.detailError) return []
+                      return [{ id: item.key, name: itemStem(item, source, settings), excluded: !item.checked, done: false, manual: item.stemOverride }]
+                  })
+              )
+            : []
+        const files = rows.map((row) => ({
+            id: row.entry.file.id,
+            name: row.entry.file.name,
+            excluded: row.excluded,
+            done: row.result?.status === 'ok',
+            manual: overrides[row.entry.file.id]
+        }))
+        const entries = [...links, ...files]
+        const stemOf = (entry: (typeof entries)[number]) => entry.manual ?? applyNameRules(cleanYoutubeName(entry.name), steps)
         const conflicts = findConflicts(
-            rows.filter((row) => !row.excluded && row.result?.status !== 'ok').map((row) => ({ id: row.entry.file.id, stem: stemOf(row) })),
+            entries.filter((entry) => !entry.excluded && !entry.done).map((entry) => ({ id: entry.id, stem: stemOf(entry) })),
             outputNames
         )
-        return rows.map((row) => {
-            const { file } = row.entry
-            const before = cleanYoutubeName(file.name)
-            const after = stemOf(row)
+        return entries.map((entry) => {
+            const before = cleanYoutubeName(entry.name)
+            const after = stemOf(entry)
             return {
-                id: file.id,
+                id: entry.id,
                 before,
                 after,
                 changed: after !== before,
-                manual: overrides[file.id] !== undefined,
-                conflict: conflicts.get(file.id)?.message ?? null
+                manual: entry.manual !== undefined,
+                conflict: conflicts.get(entry.id)?.message ?? null
             }
         })
-    }, [rows, steps, overrides, outputNames])
+    }, [rows, steps, overrides, outputNames, settings, ytItems, ytSources])
 }
 
 function Preview({ rows, steps }: { rows: Row[]; steps: NameStep[] }) {

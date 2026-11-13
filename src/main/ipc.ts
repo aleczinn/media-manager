@@ -12,6 +12,9 @@ import { Runner } from './runner'
 import { findMediaFiles, listOutputNames } from './scanner'
 import { loadSettings, saveSettings } from './settings-store'
 import { testFanartKey } from './fanart'
+import { YoutubeService } from './youtube-download'
+import { YtDlpBinary } from './ytdlp-binary'
+import type { YtDownloadJob } from '../shared/youtube-dl'
 import {
     getDetails,
     getEpisodeGroup,
@@ -28,7 +31,12 @@ import {
 const ANALYZE_CONCURRENCY = 4
 
 /** Registriert alle IPC-Handler und gibt Runner und Scan-Dienst zurück (zum Aufräumen beim Beenden). */
-export function registerIpc(getWindow: () => BrowserWindow | null): { runner: Runner; scans: ScanService } {
+export function registerIpc(getWindow: () => BrowserWindow | null): {
+    runner: Runner
+    scans: ScanService
+    youtube: YoutubeService
+    ytdlp: YtDlpBinary
+} {
     const send = (channel: string, payload: unknown) => {
         const window = getWindow()
         if (window && !window.isDestroyed()) window.webContents.send(channel, payload)
@@ -41,6 +49,11 @@ export function registerIpc(getWindow: () => BrowserWindow | null): { runner: Ru
         (update) => send('scan:status', update)
     )
     const runner = new Runner(scans)
+    const ytdlp = new YtDlpBinary(loadSettings, (status) => send('yt:status', status))
+    const youtube = new YoutubeService(ytdlp, loadSettings, {
+        progress: (progress) => send('yt:progress', progress),
+        itemDone: (result) => send('yt:itemDone', result)
+    })
     let latestAnalyzeRequest = 0
 
     ipcMain.handle('dialog:selectFolder', async (_event, defaultPath?: string) => {
@@ -147,5 +160,17 @@ export function registerIpc(getWindow: () => BrowserWindow | null): { runner: Ru
     ipcMain.handle('artwork:candidates', (_event, request: ArtworkRequest) => loadArtworkCandidates(loadSettings(), request))
     ipcMain.handle('artwork:export', (_event, jobs: ArtworkJob[], outputDir: string) => exportArtwork(jobs, outputDir, loadSettings()))
 
-    return { runner, scans }
+    ipcMain.handle('yt:status', () => ytdlp.getStatus())
+    ipcMain.handle('yt:update', () => ytdlp.refresh(() => !youtube.isRunning))
+    ipcMain.handle('yt:analyze', (_event, url: string) => youtube.analyze(url))
+    ipcMain.handle('yt:video', (_event, id: string, url: string) => youtube.video(id, url))
+    ipcMain.handle('yt:dropDetails', (_event, ids: string[]) => youtube.dropDetails(ids))
+    ipcMain.handle('yt:download', (_event, jobs: YtDownloadJob[]) => youtube.enqueue(jobs))
+    ipcMain.handle('yt:deliver', (_event, files: { path: string; targetStem: string }[], outputDir: string) =>
+        youtube.deliver(files, outputDir)
+    )
+    ipcMain.handle('yt:cleanup', (_event, files: string[], workDir: string) => youtube.cleanup(files, workDir))
+    ipcMain.handle('yt:cancel', (_event, id?: string) => (id ? youtube.cancel(id) : youtube.cancelAll()))
+
+    return { runner, scans, youtube, ytdlp }
 }

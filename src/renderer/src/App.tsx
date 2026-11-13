@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Clapperboard, Files, Images, MonitorPlay } from 'lucide-react'
+import { AlertTriangle, Clapperboard, Files, Images, Loader2, MonitorPlay } from 'lucide-react'
 import { ApplyBar } from '@/components/ApplyBar'
 import { ArtworkPanel } from '@/components/ArtworkPanel'
 import { FileTable } from '@/components/FileTable'
@@ -9,9 +9,11 @@ import { SeriesBar } from '@/components/SeriesBar'
 import { SettingsDialog } from '@/components/SettingsDialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { YoutubeLinkBar } from '@/components/YoutubeLinkBar'
 import { useArtworkPlan } from '@/lib/artwork'
 import { useDerived } from '@/lib/rows'
 import { useStore } from '@/lib/store'
+import { useYtStore } from '@/lib/yt-store'
 import { cn } from '@/lib/utils'
 import type { AppMode } from '@shared/types'
 
@@ -29,14 +31,16 @@ const MODES: { mode: AppMode; label: string; icon: typeof Clapperboard; hint: st
         label: 'YouTube',
         icon: MonitorPlay,
         active: 'bg-[#ff0033] font-medium text-white',
-        hint: 'JDownloader-Downloads: Namen bereinigen, Tonspur auf Deutsch, Beschreibung (.txt) und Bild (.jpg) gleichnamig mitkopieren'
+        hint: 'Videos und Playlists per Link herunterladen (yt-dlp) oder Downloads aus dem Input verarbeiten: Namen bereinigen, Tonspur auf Deutsch, Beschreibung (.txt) und Bild (.jpg) gleichnamig mitkopieren'
     }
 ]
 
 /** Umschalter zwischen Filme & Serien und YouTube */
 function ModeSwitch() {
     const mode = useStore((s) => s.settings?.mode)
-    const running = useStore((s) => s.run.running)
+    const applying = useStore((s) => s.run.running)
+    const downloading = useYtStore((s) => s.phase !== 'idle')
+    const running = applying || downloading
     const updateSettings = useStore((s) => s.updateSettings)
     if (!mode) return null
 
@@ -81,6 +85,45 @@ function FfmpegBadge() {
     )
 }
 
+/** Version von yt-dlp (im YouTube-Modus); zeigt Download und Update beim Start */
+function YtDlpBadge() {
+    const status = useYtStore((s) => s.status)
+    if (!status) return null
+    if (status.state === 'error') {
+        return (
+            <span
+                className="flex items-center gap-1.5 rounded-full bg-destructive/15 px-3 py-1 text-xs text-destructive"
+                title={status.message}
+            >
+                <AlertTriangle className="size-3.5" />
+                yt-dlp nicht verfügbar
+            </span>
+        )
+    }
+    if (status.state !== 'ready') {
+        return (
+            <span className="flex items-center gap-1.5 rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">
+                <Loader2 className="size-3.5 animate-spin" />
+                {status.state === 'downloading'
+                    ? 'yt-dlp wird geladen …'
+                    : status.state === 'updating'
+                      ? 'yt-dlp wird aktualisiert …'
+                      : 'yt-dlp …'}
+            </span>
+        )
+    }
+    return (
+        <span
+            className={cn('rounded-full bg-secondary px-3 py-1 text-xs', status.message ? 'text-warning' : 'text-muted-foreground')}
+            title={[status.managed ? 'Wird bei jedem Start automatisch aktualisiert' : 'Eigener Pfad aus den Einstellungen', status.message]
+                .filter(Boolean)
+                .join('\n')}
+        >
+            yt-dlp {status.version}
+        </span>
+    )
+}
+
 export function App() {
     const ready = useStore((s) => s.settings !== null)
     const youtube = useStore((s) => s.settings?.mode === 'youtube')
@@ -100,9 +143,18 @@ export function App() {
                 if (disposed) fn()
                 else cleanup = fn
             })
+        let ytCleanup: (() => void) | undefined
+        void useYtStore
+            .getState()
+            .init()
+            .then((fn) => {
+                if (disposed) fn()
+                else ytCleanup = fn
+            })
         return () => {
             disposed = true
             cleanup?.()
+            ytCleanup?.()
         }
     }, [])
 
@@ -141,6 +193,7 @@ export function App() {
                     <h1 className="text-lg font-semibold tracking-tight">Media Manager</h1>
                     <ModeSwitch />
                     <div className="ml-auto flex items-center gap-3">
+                        {youtube && <YtDlpBadge />}
                         <FfmpegBadge />
                         <SettingsDialog />
                     </div>
@@ -150,7 +203,7 @@ export function App() {
                     <>
                         <FolderBar />
                         <PipelineOptions />
-                        {!youtube && <SeriesBar derived={derived} />}
+                        {youtube ? <YoutubeLinkBar /> : <SeriesBar derived={derived} />}
                         <Tabs value={activeTab} onValueChange={setTab} className="min-h-0 flex-1">
                             <TabsList>
                                 <TabsTrigger value="files">

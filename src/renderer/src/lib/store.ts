@@ -116,6 +116,8 @@ export interface FileEntry {
     status: 'pending' | 'done' | 'error'
     analysis?: FileAnalysis
     error?: string
+    /** Vom YouTube-Link heruntergeladen (liegt im Temp-Ordner, bleibt beim erneuten Einlesen erhalten) */
+    downloaded?: boolean
 }
 
 interface RunState {
@@ -237,6 +239,10 @@ interface State {
     toggleExpanded(id: string): void
     setForceApply(force: boolean): void
     apply(jobs: ApplyJob[], artwork: ArtworkJob[]): Promise<void>
+    /** Heruntergeladene Videos in die Liste aufnehmen (oben) und analysieren */
+    addDownloadedFiles(files: MediaFile[]): void
+    /** Heruntergeladene Einträge entfernen (nach dem Aufräumen) */
+    removeDownloadedFiles(ids: string[]): void
     cancel(): Promise<void>
 }
 
@@ -384,6 +390,9 @@ export const useStore = create<State>()((set, get) => ({
         // Derselbe Ordner noch einmal (Aktualisieren) behält zusätzlich Eingaben, Analysen und die TMDB-Zuordnung.
         const refresh = dir === get().scannedDir
         const requestId = get().analyzeRequest + 1
+        // Heruntergeladene, noch nicht verarbeitete Videos liegen nicht im Input und bleiben oben in der Liste
+        const results = get().run.results
+        const downloaded = get().files.filter((entry) => entry.downloaded && results[entry.file.id]?.status !== 'ok')
         set({
             scanning: true,
             analyzeRequest: requestId,
@@ -410,11 +419,12 @@ export const useStore = create<State>()((set, get) => ({
                 return !!before && analysisKey(before.file) !== analysisKey(file)
             }
             // Unveränderte Dateien behalten ihre Analyse, nur neue und geänderte werden (im Main-Prozess ggf. aus dem Cache) analysiert
-            const entries = files.map((file): FileEntry => {
+            const scanned = files.map((file): FileEntry => {
                 const before = previous.get(file.id)
                 return before?.status === 'done' && !changed(file) ? { ...before, file } : { file, status: 'pending' }
             })
-            const ids = new Set(files.map((file) => file.id))
+            const entries = [...downloaded, ...scanned.filter((entry) => !downloaded.some((d) => d.file.id === entry.file.id))]
+            const ids = new Set(entries.map((entry) => entry.file.id))
             const keep = <T>(record: Record<string, T>, drop: (id: string) => boolean = () => false) =>
                 Object.fromEntries(Object.entries(record).filter(([id]) => ids.has(id) && !drop(id)))
             const changedIds = new Set(files.filter(changed).map((file) => file.id))
@@ -789,6 +799,23 @@ export const useStore = create<State>()((set, get) => ({
             set((state) => ({ forceApply: false, run: { ...state.run, running: false, cancelling: false, active: {} } }))
             await get().refreshOutput()
         }
+    },
+
+    addDownloadedFiles(files) {
+        if (files.length === 0) return
+        const ids = new Set(files.map((file) => file.id))
+        set((state) => ({
+            files: [
+                ...files.map((file): FileEntry => ({ file, status: 'pending', downloaded: true })),
+                ...state.files.filter((entry) => !ids.has(entry.file.id))
+            ]
+        }))
+        void window.api.analyze(get().analyzeRequest, files)
+    },
+
+    removeDownloadedFiles(ids) {
+        const drop = new Set(ids)
+        set((state) => ({ files: state.files.filter((entry) => !(entry.downloaded && drop.has(entry.file.id))) }))
     },
 
     async cancel() {

@@ -41,7 +41,19 @@ const api: MediaManagerApi = {
     onApplyFileDone: (listener) => subscribe('apply:fileDone', listener),
     onPeakUpdate: (listener) => subscribe('peak:update', listener),
     onSubtitleCounts: (listener) => subscribe('scan:counts', listener),
-    onScanStatus: (listener) => subscribe('scan:status', listener)
+    onScanStatus: (listener) => subscribe('scan:status', listener),
+    ytStatus: () => ipcRenderer.invoke('yt:status'),
+    ytUpdate: () => ipcRenderer.invoke('yt:update'),
+    ytAnalyze: (url) => ipcRenderer.invoke('yt:analyze', url),
+    ytVideo: (id, url) => ipcRenderer.invoke('yt:video', id, url),
+    ytDownload: (jobs) => ipcRenderer.invoke('yt:download', jobs),
+    ytDropDetails: (ids) => ipcRenderer.invoke('yt:dropDetails', ids),
+    ytCancel: (id) => ipcRenderer.invoke('yt:cancel', id),
+    ytCleanup: (files, workDir) => ipcRenderer.invoke('yt:cleanup', files, workDir),
+    ytDeliver: (files, outputDir) => ipcRenderer.invoke('yt:deliver', files, outputDir),
+    onYtStatus: (listener) => subscribe('yt:status', listener),
+    onYtProgress: (listener) => subscribe('yt:progress', listener),
+    onYtItemDone: (listener) => subscribe('yt:itemDone', listener)
 }
 
 contextBridge.exposeInMainWorld('api', api)

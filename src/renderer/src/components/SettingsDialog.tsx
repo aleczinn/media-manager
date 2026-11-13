@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { CheckCircle2, Settings2, XCircle } from 'lucide-react'
+import { CheckCircle2, Loader2, RefreshCw, Settings2, XCircle } from 'lucide-react'
 import {
     AUDIO_FORMATS,
     CONCURRENCY_OPTIONS,
@@ -22,6 +22,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { useStore } from '@/lib/store'
+import { useYtStore } from '@/lib/yt-store'
 import { cn } from '@/lib/utils'
 
 type NumberKey = 'spaceWarningGb' | 'normalizeMinGain' | 'normalizeMaxGain'
@@ -30,7 +31,10 @@ type NumberKey = 'spaceWarningGb' | 'normalizeMinGain' | 'normalizeMaxGain'
  * Bearbeitungsstand des Dialogs; Zahlen als Text, damit sie frei eingegeben werden können.
  * Fehlende Folgen schaltet die Dateiliste, die Namensregeln haben einen eigenen Editor (und überstehen so auch „Standardwerte“).
  */
-type Draft = Omit<Settings, 'mode' | 'inputDir' | 'outputDir' | 'pipeline' | 'showMissingEpisodes' | 'nameRuleSets' | 'episodeOrders' | 'episodeSplits' | NumberKey> &
+type Draft = Omit<
+    Settings,
+    'mode' | 'inputDir' | 'outputDir' | 'pipeline' | 'showMissingEpisodes' | 'nameRuleSets' | 'episodeOrders' | 'episodeSplits' | NumberKey
+> &
     Record<NumberKey, string>
 
 const toDraft = (s: Settings): Draft => ({
@@ -50,6 +54,7 @@ const toDraft = (s: Settings): Draft => ({
     concurrency: s.concurrency,
     tmdbApiKey: s.tmdbApiKey,
     fanartApiKey: s.fanartApiKey,
+    youtube: s.youtube,
     spaceWarningGb: String(s.spaceWarningGb),
     normalizeMinGain: String(s.normalizeMinGain),
     normalizeMaxGain: String(s.normalizeMaxGain)
@@ -68,6 +73,7 @@ const fromDraft = (d: Draft): Partial<Settings> => ({
     ffprobePath: d.ffprobePath.trim(),
     tmdbApiKey: d.tmdbApiKey.trim(),
     fanartApiKey: d.fanartApiKey.trim(),
+    youtube: { ...d.youtube, ytdlpPath: d.youtube.ytdlpPath.trim(), rateLimit: d.youtube.rateLimit.trim() },
     spaceWarningGb: Math.max(0, number(d.spaceWarningGb, DEFAULT_SETTINGS.spaceWarningGb)),
     normalizeMinGain: number(d.normalizeMinGain, DEFAULT_SETTINGS.normalizeMinGain),
     normalizeMaxGain: number(d.normalizeMaxGain, DEFAULT_SETTINGS.normalizeMaxGain)
@@ -128,7 +134,10 @@ export function SettingsDialog() {
     const settings = useStore((s) => s.settings)
     const ffmpeg = useStore((s) => s.ffmpeg)
     const running = useStore((s) => s.run.running)
+    const ytdlp = useYtStore((s) => s.status)
+    const ytRunning = useYtStore((s) => s.phase !== 'idle')
     const { updateSettings, recheckFfmpeg } = useStore.getState()
+    const updateYtDlp = useYtStore.getState().update
     const [open, setOpen] = useState(false)
     const [draft, setDraft] = useState<Draft | null>(null)
 
@@ -160,6 +169,9 @@ export function SettingsDialog() {
         onChange: (event: { target: { value: string } }) => set(key, event.target.value)
     })
 
+    const setYoutube = <K extends keyof Settings['youtube']>(key: K, value: Settings['youtube'][K]) =>
+        setDraft((d) => (d ? { ...d, youtube: { ...d.youtube, [key]: value } } : d))
+
     const browse = async (key: 'ffmpegPath' | 'ffprobePath') => {
         const file = await window.api.selectExecutable(draft?.[key])
         if (file) set(key, file)
@@ -167,8 +179,10 @@ export function SettingsDialog() {
 
     const save = async () => {
         if (!draft) return
+        const pathChanged = draft.youtube.ytdlpPath.trim() !== settings?.youtube.ytdlpPath
         await updateSettings(fromDraft(draft))
         await recheckFfmpeg()
+        if (pathChanged) void updateYtDlp()
         setOpen(false)
     }
 
@@ -179,7 +193,13 @@ export function SettingsDialog() {
                 ffmpegPath: draft?.ffmpegPath ?? '',
                 ffprobePath: draft?.ffprobePath ?? '',
                 tmdbApiKey: draft?.tmdbApiKey ?? '',
-                fanartApiKey: draft?.fanartApiKey ?? ''
+                fanartApiKey: draft?.fanartApiKey ?? '',
+                youtube: {
+                    ...DEFAULT_SETTINGS.youtube,
+                    ytdlpPath: draft?.youtube.ytdlpPath ?? '',
+                    selection: draft?.youtube.selection ?? DEFAULT_SETTINGS.youtube.selection,
+                    linkMode: draft?.youtube.linkMode ?? DEFAULT_SETTINGS.youtube.linkMode
+                }
             })
         )
 
@@ -195,7 +215,7 @@ export function SettingsDialog() {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogTrigger asChild>
-                <Button variant="outline" disabled={!settings || running}>
+                <Button variant="outline" disabled={!settings || running || ytRunning}>
                     <Settings2 />
                     Einstellungen
                 </Button>
@@ -394,6 +414,102 @@ export function SettingsDialog() {
                                     </span>
                                 ))}
                             </div>
+                        </Group>
+
+                        <Group title="YouTube-Download (yt-dlp)">
+                            <Field label="yt-dlp.exe" hint="Leer = eigene Kopie, wird bei jedem Start automatisch aktualisiert">
+                                <Input
+                                    value={draft.youtube.ytdlpPath}
+                                    onChange={(event) => setYoutube('ytdlpPath', event.target.value)}
+                                    placeholder="automatisch"
+                                />
+                                <Button
+                                    variant="secondary"
+                                    onClick={async () => {
+                                        const file = await window.api.selectExecutable(draft.youtube.ytdlpPath)
+                                        if (file) setYoutube('ytdlpPath', file)
+                                    }}
+                                >
+                                    Durchsuchen
+                                </Button>
+                            </Field>
+                            <div className="flex items-center gap-3 pl-[216px] text-xs">
+                                {ytdlp?.state === 'ready' ? (
+                                    <CheckCircle2 className="size-3.5 shrink-0 text-success" />
+                                ) : ytdlp?.state === 'error' ? (
+                                    <XCircle className="size-3.5 shrink-0 text-destructive" />
+                                ) : (
+                                    <Loader2 className="size-3.5 shrink-0 animate-spin text-muted-foreground" />
+                                )}
+                                <span>
+                                    yt-dlp {ytdlp?.version ?? (ytdlp?.state === 'error' ? 'nicht verfügbar' : '…')}
+                                    {ytdlp?.message && <span className="text-muted-foreground"> · {ytdlp.message}</span>}
+                                </span>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 px-2 text-xs"
+                                    disabled={ytRunning || ytdlp?.state === 'updating' || ytdlp?.state === 'downloading'}
+                                    onClick={() => void updateYtDlp()}
+                                >
+                                    <RefreshCw className="size-3.5" />
+                                    {ytdlp?.managed === false ? 'Neu prüfen' : 'Jetzt aktualisieren'}
+                                </Button>
+                            </div>
+                            <Field label="Gleichzeitige Downloads">
+                                <Select
+                                    value={String(draft.youtube.concurrency)}
+                                    onChange={(event) => setYoutube('concurrency', Number(event.target.value))}
+                                    className="w-56"
+                                >
+                                    {[1, 2, 3, 4].map((value) => (
+                                        <option key={value} value={value}>
+                                            {value}
+                                        </option>
+                                    ))}
+                                </Select>
+                            </Field>
+                            <Field label="Bandbreite begrenzen" hint="z. B. 10M oder 500K, leer = unbegrenzt">
+                                <Input
+                                    value={draft.youtube.rateLimit}
+                                    onChange={(event) => setYoutube('rateLimit', event.target.value)}
+                                    placeholder="unbegrenzt"
+                                    className="w-32"
+                                />
+                            </Field>
+                            <Field label="Cookies aus Browser" hint="Für altersbeschränkte Videos oder bei „kein Bot“-Abfragen">
+                                <Select
+                                    value={draft.youtube.cookiesFromBrowser}
+                                    onChange={(event) => setYoutube('cookiesFromBrowser', event.target.value)}
+                                    className="w-56"
+                                >
+                                    <option value="">Keine</option>
+                                    <option value="firefox">Firefox</option>
+                                    <option value="chrome">Chrome (Browser schließen)</option>
+                                    <option value="edge">Edge (Browser schließen)</option>
+                                    <option value="brave">Brave (Browser schließen)</option>
+                                </Select>
+                            </Field>
+                            <Field label="Dateien" hint="Bild und Beschreibung werden wie bei der Nachbearbeitung neben die MKV kopiert">
+                                <div className="grid w-full grid-cols-2 gap-x-4 gap-y-2 pt-2">
+                                    {(
+                                        [
+                                            ['indexPrefix', 'Playlist-Nummer vor dem Namen'],
+                                            ['saveThumbnail', 'Vorschaubild (.jpg)'],
+                                            ['saveDescription', 'Beschreibung (.txt)'],
+                                            ['saveFolderImage', 'Playlist-Bild (folder.jpg)']
+                                        ] as const
+                                    ).map(([key, label]) => (
+                                        <Label key={key} className="cursor-pointer font-normal">
+                                            <Checkbox
+                                                checked={draft.youtube[key]}
+                                                onCheckedChange={(checked) => setYoutube(key, checked === true)}
+                                            />
+                                            {label}
+                                        </Label>
+                                    ))}
+                                </div>
+                            </Field>
                         </Group>
 
                         <Group title="TMDB">
