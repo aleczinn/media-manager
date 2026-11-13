@@ -39,8 +39,8 @@ export const DEFAULT_SETTINGS: Settings = {
         encodeVideo: false,
         saveThumbnails: true,
         saveArtwork: true,
-        saveNfo: true,
-        nfoFileDescription: true
+        saveNfo: false,
+        nfoFileDescription: false
     }
 }
 
@@ -51,4 +51,14 @@ export function mergeSettings(stored: Partial<Settings> | null | undefined): Set
         ...stored,
         pipeline: { ...DEFAULT_SETTINGS.pipeline, ...stored?.pipeline }
     }
+}
+
+/** Optionen, die bei jedem Programmstart wieder aus sind (nur für den aktuellen Durchgang gedacht) */
+export const STARTUP_OFF_OPTIONS = ['saveNfo', 'nfoFileDescription'] as const
+
+/** Gespeicherte Einstellungen beim Programmstart: wie `mergeSettings`, aber mit den Start-Optionen auf aus */
+export function startupSettings(stored: Partial<Settings> | null | undefined): Settings {
+    const settings = mergeSettings(stored)
+    for (const option of STARTUP_OFF_OPTIONS) settings.pipeline[option] = false
+    return settings
 }

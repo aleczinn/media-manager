@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { applyNameRules, stepError, type NameStep } from '../src/shared/name-rules'
-import { mergeSettings } from '../src/shared/settings'
+import { mergeSettings, startupSettings } from '../src/shared/settings'
 
 const STEPS: NameStep[] = [
     { id: '1', type: 'removeBefore', marker: '#', includeMarker: false },
@@ -78,5 +78,16 @@ describe('stepError beim Muster', () => {
 describe('Einstellungen', () => {
     it('ergänzt bestehende Einstellungen um eine leere Preset-Liste', () => {
         expect(mergeSettings({ inputDir: 'C:\\in' }).nameRuleSets).toEqual([])
+    })
+})
+
+describe('startupSettings', () => {
+    it('schaltet NFO speichern und Beschreibung aus Datei beim Start aus, der Rest bleibt', () => {
+        const stored = mergeSettings({ pipeline: { ...mergeSettings(null).pipeline, saveNfo: true, nfoFileDescription: true, saveArtwork: false } })
+        const settings = startupSettings(stored)
+        expect(settings.pipeline.saveNfo).toBe(false)
+        expect(settings.pipeline.nfoFileDescription).toBe(false)
+        expect(settings.pipeline.saveArtwork).toBe(false)
+        expect(stored.pipeline.saveNfo).toBe(true)
     })
 })

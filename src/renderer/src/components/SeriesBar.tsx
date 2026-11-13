@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { ChevronDown, Film, Loader2, ListOrdered, Scissors, Star, Tv, X } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Check, ChevronDown, Film, Loader2, ListOrdered, Scissors, Star, Tv, X } from 'lucide-react'
 import { EPISODE_GROUP_TYPES } from '@shared/episode-order'
 import { parseFileEpisode } from '@shared/rename'
 import { episodeRefFromFile, movieQueryFromFile, seriesQueryFromFile, tmdbImageUrl } from '@shared/tmdb-match'
@@ -27,6 +27,13 @@ export function SeriesBar({ derived }: { derived: Derived }) {
     const setEpisodeOrder = useStore((s) => s.setEpisodeOrder)
     const [open, setOpen] = useState(false)
     const [splitOpen, setSplitOpen] = useState(false)
+    const [copied, setCopied] = useState(false)
+
+    useEffect(() => {
+        if (!copied) return
+        const timer = setTimeout(() => setCopied(false), 1500)
+        return () => clearTimeout(timer)
+    }, [copied])
 
     const activeRows = derived.rows.filter((row) => !row.excluded)
     const episodeRows = activeRows.filter((row) => episodeRefFromFile(row.entry.file))
@@ -54,12 +61,23 @@ export function SeriesBar({ derived }: { derived: Derived }) {
     const target = tmdb.show ?? tmdb.movie
     if (derived.rows.length === 0 && !target) return null
 
+    /** Name mit Jahr wie angezeigt in die Zwischenablage, z. B. für Ordnernamen */
+    async function copyTitle() {
+        if (!target) return
+        try {
+            await navigator.clipboard.writeText(target.year ? `${target.name} (${target.year})` : target.name)
+            setCopied(true)
+        } catch {
+            // Zwischenablage nicht verfügbar: kein Hinweis
+        }
+    }
+
     return (
-        <div className="flex items-center gap-3 rounded-lg border bg-card/60 px-4 py-2">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border bg-card/60 px-4 py-2">
             <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">TMDB</span>
 
             {target ? (
-                <div className="flex min-w-0 items-center gap-2.5">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2.5 gap-y-1.5">
                     {target.posterPath ? (
                         <img src={tmdbImageUrl(target.posterPath, 'w92')} alt="" className="h-9 w-6 rounded-sm object-cover" />
                     ) : tmdb.show ? (
@@ -67,10 +85,21 @@ export function SeriesBar({ derived }: { derived: Derived }) {
                     ) : (
                         <Film className="size-4 text-muted-foreground" />
                     )}
-                    <span className="truncate text-sm font-medium">
+                    <button
+                        type="button"
+                        onClick={() => void copyTitle()}
+                        title="Klicken zum Kopieren"
+                        className="min-w-0 cursor-copy rounded px-1 -mx-1 text-left text-sm font-medium break-words hover:bg-secondary"
+                    >
                         {target.name}
                         {target.year && <span className="text-muted-foreground"> ({target.year})</span>}
-                    </span>
+                    </button>
+                    {copied && (
+                        <span className="flex shrink-0 items-center gap-1 text-xs text-success">
+                            <Check className="size-3.5" />
+                            Kopiert
+                        </span>
+                    )}
                     {tmdb.loading ? (
                         <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             <Loader2 className="size-3.5 animate-spin" />
@@ -83,12 +112,12 @@ export function SeriesBar({ derived }: { derived: Derived }) {
                             {matched} von {episodeRows.length} Folgen zugeordnet
                         </span>
                     ) : (
-                        <span className="truncate text-xs text-muted-foreground">
+                        <span className="min-w-0 text-xs break-all text-muted-foreground">
                             Film{movieMain ? ` · Hauptdatei ${movieMain.entry.file.name}` : ' · keine Datei ohne Episodenangabe'}
                         </span>
                     )}
                     {tmdb.show && !tmdb.loading && tmdb.orders.length > 0 && (
-                        <div className="relative ml-2 flex shrink-0 items-center">
+                        <div className="relative flex shrink-0 items-center">
                             {tmdb.orderLoading ? (
                                 <Loader2 className="pointer-events-none absolute left-1.5 size-3.5 animate-spin text-muted-foreground" />
                             ) : (
@@ -131,7 +160,7 @@ export function SeriesBar({ derived }: { derived: Derived }) {
                         </Button>
                     )}
                     {tmdb.genres.length > 0 && (
-                        <span className="ml-4 flex min-w-0 items-center gap-1 overflow-hidden" title={tmdb.genres.join(', ')}>
+                        <span className="flex min-w-0 flex-wrap items-center gap-1" title={tmdb.genres.join(', ')}>
                             {tmdb.genres.map((genre) => (
                                 <span
                                     key={genre}
@@ -144,7 +173,7 @@ export function SeriesBar({ derived }: { derived: Derived }) {
                     )}
                     {tmdb.rating && (
                         <span
-                            className="ml-4 flex shrink-0 items-center gap-1 text-xs text-muted-foreground tabular-nums"
+                            className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground tabular-nums"
                             title={`Bewertung bei TMDB: ${tmdb.rating.average.toFixed(1).replace('.', ',')} von 10 (${tmdb.rating.votes.toLocaleString('de-DE')} Stimmen)`}
                         >
                             <Star className="size-3.5 fill-warning text-warning" />
@@ -163,7 +192,7 @@ export function SeriesBar({ derived }: { derived: Derived }) {
                 </span>
             )}
 
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex shrink-0 items-center gap-2">
                 {target && (
                     <Button variant="ghost" size="sm" onClick={clearShow} disabled={running}>
                         <X />
