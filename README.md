@@ -1,6 +1,6 @@
 # Media Manager
 
-[![Version](https://img.shields.io/badge/Media_Manager-1.1.0-8B7CFF?style=flat-square)](package.json)
+[![Version](https://img.shields.io/badge/Media_Manager-1.2.0-8B7CFF?style=flat-square)](package.json)
 [![Electron](https://img.shields.io/badge/Electron-45-47848F?style=flat-square&logo=electron)](https://www.electronjs.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-7-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
@@ -177,6 +177,23 @@ pnpm check -- "P:\Filme" --full --gpu=cuda     # mit Hardwarebeschleunigung (cud
 - `scripts/corruption-checker.ts`: der Corruption-Checker
 
 ## Changelog
+
+1.2.0 | YouTube-Download mit yt-dlp, Namensregeln für Links, Kleinigkeiten
+
+- **YouTube-Download** im YouTube-Modus: An der Stelle der TMDB-Leiste einen Link zu einem Video oder einer Playlist einfügen und mit **Lesen** einlesen. Die Videos stehen oben in der Dateiliste (Vorschaubild, Dauer, Format, geschätzte Größe, Zielname) und lassen sich wie Dateien einzeln abwählen
+- **Anwenden** erledigt alles in einem Rutsch: herunterladen in einen Temp-Ordner im Output, wie Dateien aus dem Input verarbeiten (Namen bereinigen, Namensregeln, Tonspur auf Deutsch, Normalisierung) und die Rohdateien danach löschen. Im Output landen `<Name>.mkv`, `<Name>.jpg` und `<Name>.txt`, bei Playlists zusätzlich `folder.jpg`; reines Audio kommt direkt in den Output
+- yt-dlp wird beim ersten Start automatisch geladen und bei jedem Start aktualisiert (Version oben rechts); als JS-Laufzeit für YouTube dient Electron selbst, ein eigener Pfad ist in den Einstellungen möglich
+- Format für alle: **Video** mit Codec (AV1, VP9, H.264, mit Anzahl der Videos, die ihn anbieten), maximaler Auflösung und Tonspur (Opus, AAC) oder **Nur Audio** (Opus, AAC, MP3). Genommen wird die beste Auflösung bis zur Grenze, sonst der nächstbeste Codec mit Hinweis; deutsche Tonspuren werden bevorzugt. Pro Video lässt sich per Klick aufs Format ein eigenes wählen
+- Schalter **Einzelvideo | Playlist** für Links wie `watch?v=…&list=…`; Playlists mit mehr als 50 Videos kommen abgewählt an, die Formate eines Videos werden erst gelesen, wenn es ausgewählt ist
+- Fortschritt pro Video und gesamt mit Restzeit, mehrere Downloads gleichzeitig (1–4), einzeln oder alle abbrechbar; verständliche Fehler (privat, altersbeschränkt, nicht im Land verfügbar, „kein Bot“-Abfrage, Netzwerk) mit **Erneut versuchen**, Netzwerkfehler werden automatisch zweimal wiederholt
+- „Benötigt ca.“ und die Speicherplatz-Warnung zählen die ausgewählten Videos mit (doppelt, weil Download und Ergebnis kurz gleichzeitig auf der Platte liegen)
+- Neue Einstellungen unter **YouTube-Download**: gleichzeitige Downloads, Bandbreite, Cookies aus dem Browser, Playlist-Nummer vor dem Namen und welche Begleitdateien geladen werden
+- **Namensregeln** zeigen die Videos aus den Links in der Vorschau; ihr Zielname lässt sich in der Tabelle von Hand ändern und gilt nach dem Download weiter. Presets lassen sich **duplizieren** und einzeln **zurücksetzen**, **Speichern** sitzt jetzt unten neben „Schließen“
+- Ein Klick auf den Namen der zugeordneten Serie bzw. des Films in der TMDB-Leiste kopiert ihn samt Jahr, z. B. „Avatar - Die sieben Häfen (2026)“
+- **NFO speichern** und **Beschreibung aus Datei** sind bei jedem Start aus und lassen sich pro Sitzung einschalten
+- Die TMDB-Leiste bricht bei langen Namen um, Genres, Bewertung und Knöpfe rutschen nicht mehr aus dem Bild
+
+![YouTube-Download](docs/1.2.0.jpg)
 
 1.1.0 | Folgen teilen, Standbilder aus dem Video, HD-Vorschaubilder und NFO für Jellyfin
 
