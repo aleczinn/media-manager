@@ -343,8 +343,8 @@ export const useStore = create<State>()((set, get) => ({
         }
         window.addEventListener('focus', onFocus)
 
-        // Beim Start immer im Modus Filme & Serien, YouTube wird bewusst umgeschaltet
-        const settings = { ...(await window.api.getSettings()), mode: 'media' as const }
+        // Der Main-Prozess startet immer im Modus Filme & Serien (startupSettings), der Runner sieht denselben Modus
+        const settings = await window.api.getSettings()
         set({ settings })
         void get().recheckFfmpeg()
         if (settings.inputDir) void get().scan()

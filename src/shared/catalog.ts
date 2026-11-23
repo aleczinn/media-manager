@@ -49,7 +49,7 @@ export const CONCURRENCY_OPTIONS: Option<number>[] = [
     { value: 4, label: '4' }
 ]
 
-export const SOURCES: string[] = ['Web', 'Amazon', 'Netflix', 'Disney+', 'ATVP', 'RTL+', 'BluRay', 'UHD']
+export const SOURCES: string[] = ['Web', 'Amazon', 'Netflix', 'Disney+', 'ATVP', 'RTL+', 'BluRay', 'UHD', 'US-UHD']
 
 export const VIDEO_CODECS: Option[] = [
     { value: 'libx264', label: 'H.264 (libx264)' },

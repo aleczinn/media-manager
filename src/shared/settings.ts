@@ -74,9 +74,12 @@ export function mergeSettings(stored: Partial<Settings> | null | undefined): Set
 /** Optionen, die bei jedem Programmstart wieder aus sind (nur für den aktuellen Durchgang gedacht) */
 export const STARTUP_OFF_OPTIONS = ['saveNfo', 'nfoFileDescription'] as const
 
-/** Gespeicherte Einstellungen beim Programmstart: wie `mergeSettings`, aber mit den Start-Optionen auf aus */
+/**
+ * Gespeicherte Einstellungen beim Programmstart: wie `mergeSettings`, aber mit den Start-Optionen auf aus
+ * und immer im Modus Filme & Serien (YouTube wird bewusst umgeschaltet)
+ */
 export function startupSettings(stored: Partial<Settings> | null | undefined): Settings {
-    const settings = mergeSettings(stored)
+    const settings = { ...mergeSettings(stored), mode: 'media' as const }
     for (const option of STARTUP_OFF_OPTIONS) settings.pipeline[option] = false
     return settings
 }
