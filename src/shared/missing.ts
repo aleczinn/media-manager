@@ -88,7 +88,7 @@ export function missingEpisodeStem(
     neighbour: { name: string; fullPath: string; relativePath?: string } | null,
     defaultSource: string
 ): string {
-    const edition = neighbour ? detectEdition(neighbour.name) : null
+    const edition = neighbour ? detectEdition(neighbour.name, sourceFolders(neighbour)) : null
     const source = neighbour ? detectSource(neighbour.name, neighbour.fullPath, defaultSource, sourceFolders(neighbour)) : defaultSource
     return episodeStem(episode, title, edition, source)
 }

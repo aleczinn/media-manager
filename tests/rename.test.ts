@@ -40,6 +40,20 @@ describe('detectEdition / detectSource', () => {
         expect(detectSource('Show.S01E01.UHD', 'x', 'Web')).toBe('UHD')
     })
 
+    it('erkennt US-UHD nur, wenn US direkt neben UHD steht', () => {
+        expect(detectSource('Movie.2160p.UHD.US.BluRay', 'x', 'Web')).toBe('US-UHD')
+        expect(detectSource('Movie.US.UHD.BluRay', 'x', 'Web')).toBe('US-UHD')
+        expect(detectSource('Us.2019.German.2160p.UHD.BluRay', 'x', 'Web')).toBe('UHD')
+        expect(detectSource('Movie.UHD.US.Upscale', 'x', 'Web')).toBe('BluRay')
+    })
+
+    it('erkennt Unrated als Edition, auch aus dem Ordnernamen', () => {
+        expect(detectEdition('Movie.2008.UNRATED.German')).toBe('Unrated')
+        expect(detectEdition('Movie.UNRATED.UPSUHD')).toBe('Unrated-Upscale')
+        expect(detectEdition('Saw V (2008)', ['Saw.5.2008.UNRATED.German.DL.2160p.UHD.US.BluRay'])).toBe('Unrated')
+        expect(detectEdition('Rated.R.Movie')).toBeNull()
+    })
+
     it('fällt auf die Standard-Quelle zurück', () => {
         expect(detectSource('Show.S01E01.x264', 'C:\\in\\Show.S01E01.x264.mkv', 'TV')).toBe('TV')
     })
@@ -61,6 +75,16 @@ describe('Quellerkennung über Ordnernamen', () => {
             'The 100 S02 German DL 1080p BluRay x264-RSG - serienfans org',
             'INPUT'
         ])
+    })
+
+    it('Film mit Edition und Quelle nur im Release-Ordner', () => {
+        const folder = 'Saw.5.2008.UNRATED.German.DTSHD.DL.2160p.UHD.US.BluRay.DV.HDR.x265-VECTOR'
+        const saw = {
+            name: 'Saw V (2008)',
+            fullPath: `C:\\Loki\\INPUT\\${folder}\\Saw V (2008).mkv`,
+            relativePath: `${folder}\\Saw V (2008).mkv`
+        }
+        expect(buildTargetStem(saw, 'Web', '', { title: 'Saw V', year: 2008 })).toBe('Saw V (2008) {edition-Unrated} {source-US-UHD}')
     })
 
     it('erkennt BluRay aus dem Ordner, wenn der Dateiname keine Quelle enthält', () => {

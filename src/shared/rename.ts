@@ -40,13 +40,20 @@ export function parseFileEpisode(file: { name: string; fullPath: string; relativ
     return folder && /[Ss]\d+[Ee]\d+/.test(folder) ? parseEpisode(folder) : null
 }
 
-export function detectEdition(fileName: string): string | null {
-    const name = fileName.toLowerCase()
+/**
+ * Edition aus Datei- und Ordnernamen (Ordner wie bei der Quelle, z. B. `Saw.5.2008.UNRATED…\Saw V (2008).mkv`).
+ * Editionen schließen sich nicht aus, daher zählen Datei und Ordner zusammen.
+ */
+export function detectEdition(fileName: string, folders: string[] = []): string | null {
+    const name = [fileName, ...folders].join(' ').toLowerCase()
     const extended = name.includes('extended')
+    const unrated = /(?<![a-z])unrated(?![a-z])/.test(name)
     const upscale = name.includes('upsuhd') || name.includes('upscale')
 
     if (extended && upscale) return 'Extended-Upscale'
     if (extended) return 'Extended'
+    if (unrated && upscale) return 'Unrated-Upscale'
+    if (unrated) return 'Unrated'
     if (upscale) return 'Upscale'
     if (name.includes('director')) return "Director's Cut"
     return null
@@ -59,7 +66,11 @@ function sourceFromName(name: string, upscale: boolean): string | null {
     if (name.includes('atvp')) return 'ATVP'
     if (name.includes('rtl')) return 'RTL+'
     if (name.includes('web')) return 'Web'
-    if (name.includes('uhd')) return upscale ? 'BluRay' : 'UHD'
+    if (name.includes('uhd')) {
+        if (upscale) return 'BluRay'
+        // US-Disc, z. B. „2160p.UHD.US.BluRay“; nur direkt neben UHD, damit Titel wie „Us (2019)“ nicht zählen
+        return /(?<![a-z])(uhd[.\s_-]+us|us[.\s_-]+uhd)(?![a-z])/.test(name) ? 'US-UHD' : 'UHD'
+    }
     if (name.includes('bluray') || name.includes('bdrip')) return 'BluRay'
     return null
 }
@@ -123,8 +134,9 @@ export function buildTargetStem(
     const parsed = parseFileEpisode(file)
     if (!parsed && !movie) return file.name
 
-    const edition = detectEdition(file.name)
-    const source = detectSource(file.name, file.fullPath, defaultSource, sourceFolders(file))
+    const folders = sourceFolders(file)
+    const edition = detectEdition(file.name, folders)
+    const source = detectSource(file.name, file.fullPath, defaultSource, folders)
 
     if (parsed) return episodeStem({ season: parsed.season ?? 1, episode: parsed.episode }, title, edition, source)
     return withTags(`${movie!.title.trim() || UNKNOWN_TITLE}${movie!.year ? ` (${movie!.year})` : ''}`, edition, source)
