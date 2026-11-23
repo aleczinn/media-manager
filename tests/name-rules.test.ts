@@ -90,4 +90,8 @@ describe('startupSettings', () => {
         expect(settings.pipeline.saveArtwork).toBe(false)
         expect(stored.pipeline.saveNfo).toBe(true)
     })
+
+    it('startet immer im Modus Filme & Serien, auch wenn YouTube gespeichert war', () => {
+        expect(startupSettings({ ...mergeSettings(null), mode: 'youtube' }).mode).toBe('media')
+    })
 })
